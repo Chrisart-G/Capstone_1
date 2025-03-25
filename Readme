@@ -1,0 +1,10 @@
+lib or plugin used
+Frontend:
+React router dom cmd -Logins
+tailwind.css npm install -D tailwindcss@3 npx tailwindcss init
+
+Backend:
+Express - npm i express 
+nodemon - npm i nodemon
+cors - npm i cors
+mysql - npm i mysql
