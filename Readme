@@ -2,6 +2,8 @@ lib or plugin used
 Frontend:
 React router dom cmd - npm install react-router-dom
 tailwind.css- npm install -D tailwindcss@3 npx tailwindcss init
+npm install lucide-react
+
 
 Backend:
 Express - npm i express 
