@@ -15,8 +15,7 @@ function App() {
             <Route path="/" element={<Logins />} />
             <Route path="/Sign-up" element={<Singnup />} />
             <Route path="/Chome" element={<MunicipalLandingPage />} />
-          
-
+          {/* amo si chongo */}
           </Routes>
     </Router>
     </div>
