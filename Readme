@@ -1,7 +1,7 @@
 lib or plugin used
 Frontend:
-React router dom cmd -Logins
-tailwind.css npm install -D tailwindcss@3 npx tailwindcss init
+React router dom cmd - npm install react-router-dom
+tailwind.css- npm install -D tailwindcss@3 npx tailwindcss init
 
 Backend:
 Express - npm i express 
