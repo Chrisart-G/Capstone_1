@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react';
 import Uheader from '../Header/User_header';
+import UFooter from '../Footer/User_Footer';
 const MunicipalLandingPage = () => {
   
 
@@ -21,6 +22,7 @@ const MunicipalLandingPage = () => {
     <div className="min-h-screen flex flex-col">
       {/* Header (Navbar) */}
       <Uheader></Uheader>
+
 
       {/* Hero Section */}
       <main className="flex-grow container mx-auto px-4 py-8 md:py-16 text-center">
@@ -56,53 +58,8 @@ const MunicipalLandingPage = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8 md:py-12">
-        <div className="container mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 px-4">
-          <div className="mb-6 md:mb-0">
-            <h4 className="text-lg md:text-xl font-bold mb-4">Contact Information</h4>
-            <div className="space-y-2">
-              <p className="flex items-center text-sm md:text-base">
-                <MapPin className="mr-2" size={18} /> 
-                123 Municipal Plaza, City, State 12345
-              </p>
-              <p className="flex items-center text-sm md:text-base">
-                <Phone className="mr-2" size={18} /> 
-                (555) 123-4567
-              </p>
-              <p className="flex items-center text-sm md:text-base">
-                <Mail className="mr-2" size={18} /> 
-                contact@municipality.gov
-              </p>
-            </div>
-          </div>
-          <div className="mb-6 md:mb-0">
-            <h4 className="text-lg md:text-xl font-bold mb-4">Quick Links</h4>
-            <div className="space-y-2">
-              <a href="#" className="text-sm md:text-base hover:text-blue-300 block">Home</a>
-              <a href="#" className="text-sm md:text-base hover:text-blue-300 block">Request Document</a>
-              <a href="#" className="text-sm md:text-base hover:text-blue-300 block">Track Status</a>
-              <a href="#" className="text-sm md:text-base hover:text-blue-300 block">Login</a>
-            </div>
-          </div>
-          <div>
-            <h4 className="text-lg md:text-xl font-bold mb-4">Follow Us</h4>
-            <div className="flex space-x-4">
-              <a href="#" className="hover:text-blue-300">
-                <Facebook size={24} md={30} />
-              </a>
-              <a href="#" className="hover:text-blue-300">
-                <Twitter size={24} md={30} />
-              </a>
-              <a href="#" className="hover:text-blue-300">
-                <Instagram size={24} md={30} />
-              </a>
-            </div>
-          </div>
-        </div>
-        <div className="text-center mt-6 md:mt-8 border-t border-gray-700 pt-4 text-sm md:text-base">
-          © 2024 Municipality Services. All Rights Reserved.
-        </div>
-      </footer>
+      <UFooter></UFooter>
+      
     </div>
   );
 };

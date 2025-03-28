@@ -46,7 +46,7 @@ function Uheader() {
               <Clock className="mr-2" size={20} /> Track Status
             </a>
             <a href="#" className="hover:text-blue-200 flex items-center">
-              Login
+              Logout
             </a>
           </nav>
 
