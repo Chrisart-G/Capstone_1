@@ -1,4 +1,4 @@
-const db = require('../dbconnect');
+const db = require('../db/dbconnect');
 const bcrypt = require('bcrypt'); 
 
 exports.Login = (req, res) => {
@@ -32,3 +32,6 @@ exports.Login = (req, res) => {
         }
     });
 };
+
+
+  

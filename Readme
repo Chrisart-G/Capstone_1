@@ -3,6 +3,8 @@ Frontend:
 React router dom cmd - npm install react-router-dom
 tailwind.css- npm install -D tailwindcss@3 npx tailwindcss init
 npm install lucide-react
+npm install axios
+
 
 
 Backend:
@@ -10,3 +12,9 @@ Express - npm i express
 nodemon - npm i nodemon
 cors - npm i cors
 mysql - npm i mysql
+
+
+DataBase configuration:
+Database name Should be "municipal_db"
+NOTE:
+file can b found in SQL_FILE Folder

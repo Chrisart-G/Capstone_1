@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Eye, EyeOff, LogIn, Mail, Lock } from "lucide-react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom"; 
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const videoRef = useRef(null);
+  const navigate = useNavigate(); 
 
   useEffect(() => {
     if (videoRef.current) {
@@ -13,9 +16,25 @@ const Login = () => {
     }
   }, []);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Login attempt with:", { email, password });
+  const handleSubmit = async (e) => {
+    e.preventDefault(); 
+
+    try {
+      const res = await axios.post("http://localhost:8081/api/Login", { email, password });
+
+      if (email === "admin@gmail.com" && password === "123") {
+        navigate("/admin"); // Redirect to admin page
+      } else {
+        navigate("/Chome"); // Redirect to home page
+      }
+    } catch (error) {
+      if (error.response && error.response.status === 401) {
+        alert("Invalid email or password.");
+      } else {
+        console.error("Login error:", error);
+        alert("An error occurred during login. Please try again.");
+      }
+    }
   };
 
   return (
@@ -113,7 +132,7 @@ const Login = () => {
           
           <p className="mt-4 text-center text-sm text-gray-600">
             Don't have an account? {" "}
-            <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+            <a href="/sign-up" className="font-medium text-blue-600 hover:text-blue-500">
               Sign up now
             </a>
           </p>

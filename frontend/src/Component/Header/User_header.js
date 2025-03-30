@@ -3,14 +3,7 @@ import React, { useState } from 'react';
 import { 
   Home, 
   FileText, 
-  Shield, 
   Clock, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Facebook, 
-  Twitter, 
-  Instagram,
   Menu,
   X
 } from 'lucide-react';
@@ -45,8 +38,8 @@ function Uheader() {
             <a href="#" className="hover:text-blue-200 flex items-center">
               <Clock className="mr-2" size={20} /> Track Status
             </a>
-            <a href="#" className="hover:text-blue-200 flex items-center">
-              Login
+            <a href="/login" className="hover:text-blue-200 flex items-center">
+              Log-Out
             </a>
           </nav>
 

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Eye, EyeOff, UserPlus, Lock, Mail } from "lucide-react";
+import axios from "axios";
 
 const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -7,33 +8,45 @@ const SignUp = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const videoRef = useRef(null);
   
-  // Use effect to handle video loading
   useEffect(() => {
-    // Check if video exists and try to load it
     if (videoRef.current) {
       videoRef.current.load();
     }
   }, []);
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Sign up attempt with:", { email, password, confirmPassword });
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    
+    try {
+      const response = await axios.post("http://localhost:8081/api/signup", {
+        email,
+        password,
+      });
+      setSuccess("Account created successfully!");
+      setError("");
+    } catch (error) {
+      setError(error.response?.data?.message || "Signup failed");
+      setSuccess("");
+    }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <div className="w-full max-w-4xl flex rounded-xl overflow-hidden shadow-xl">
-        {/* Left Side - Video */}
         <div className="w-1/2 hidden md:flex md:items-center md:justify-center bg-gray-200 relative">
-          {/* Fallback image in case video doesn't load */}
           <img 
             src="/img/Logpic.png" 
             alt="Fallback Image" 
             className="absolute inset-0 w-full h-full object-cover"
           />
-          
           <video 
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover z-10"
@@ -46,18 +59,10 @@ const SignUp = () => {
             <source src="/img/municipality.mp4" type="video/mp4" />
             <source src="/videos/municipality.mp4" type="video/mp4" />
             <source src="/municipality.mp4" type="video/mp4" />
-            {/* Try multiple possible paths */}
           </video>
-
-          {/* Optional overlay for better text contrast */}
           <div className="absolute inset-0 bg-black bg-opacity-20 z-20"></div>
-          
-          {/* Optional loading indicator */}
-          <div className="z-30 text-white text-center relative font-mono">  
-          </div>
         </div>
 
-        {/* Right Side - Signup Form */}
         <div className="w-full md:w-1/2 bg-white p-6 flex flex-col justify-center">
           <div className="flex justify-center mb-4">
             <img src="/img/logo.png" alt="Official Seal" className="h-20" />
@@ -67,6 +72,9 @@ const SignUp = () => {
             Create Account
           </h2>
           
+          {error && <p className="text-red-500 text-center">{error}</p>}
+          {success && <p className="text-green-500 text-center">{success}</p>}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="text-sm font-medium text-gray-700">
@@ -106,11 +114,7 @@ const SignUp = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
-                  )}
+                  {showPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
                 </button>
               </div>
             </div>
@@ -135,11 +139,7 @@ const SignUp = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
                 >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
-                  )}
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4 text-gray-400" /> : <Eye className="h-4 w-4 text-gray-400" />}
                 </button>
               </div>
             </div>
@@ -154,10 +154,9 @@ const SignUp = () => {
               </button>
             </div>
           </form>
-          
           <p className="mt-4 text-center text-sm text-gray-600">
             Already have an account?{" "}
-            <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+            <a href="/Login" className="font-medium text-blue-600 hover:text-blue-500">
               Log in
             </a>
           </p>
