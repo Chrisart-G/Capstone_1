@@ -23,13 +23,13 @@ function Uheader() {
       };
   return (
     <div className="header">
-        <header className="bg-blue-600 text-white p-4 shadow-md">
+        <header className="bg-blue-500 text-white p-4 shadow-md">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <img 
-              src="/api/placeholder/50/50" 
+              src="/img/logo.png" 
               alt="Municipal Seal" 
-              className="h-10 w-10 md:h-12 md:w-12 rounded-full"
+              className="h-20 rounded-full"
             />
             <span className="text-lg md:text-xl font-bold">Municipal Services</span>
           </div>
@@ -46,7 +46,7 @@ function Uheader() {
               <Clock className="mr-2" size={20} /> Track Status
             </a>
             <a href="#" className="hover:text-blue-200 flex items-center">
-              Logout
+              Login
             </a>
           </nav>
 
