@@ -1,3 +1,6 @@
+const db = require('../dbconnect');
+const bcrypt = require('bcrypt'); 
+
 exports.Login = (req, res) => {
     const sql = "SELECT * FROM tb_logins WHERE email = ?";
     const values = [req.body.email];

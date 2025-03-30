@@ -1,12 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const Routes = require('./routes/Routes');
-
+const db = require('./db/dbconnect')
 const app = express();
 app.use(cors());
 app.use(express.json()); 
 
-// the default api routes to use
+
+
 app.use('/api', Routes);
 
 
