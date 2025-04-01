@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Facebook, Twitter, Instagram, } from 'lucide-react';
+import { MapPin, Phone, Mail, } from 'lucide-react';
 function UFooter() {
   return (
     <div className="UFooter">
@@ -34,15 +34,7 @@ function UFooter() {
           <div>
             <h4 className="text-lg md:text-xl font-bold mb-4">Follow Us</h4>
             <div className="flex space-x-4">
-              <a href="#" className="hover:text-blue-300">
-                <Facebook size={24} md={30} />
-              </a>
-              <a href="#" className="hover:text-blue-300">
-                <Twitter size={24} md={30} />
-              </a>
-              <a href="#" className="hover:text-blue-300">
-                <Instagram size={24} md={30} />
-              </a>
+              
             </div>
           </div>
         </div>

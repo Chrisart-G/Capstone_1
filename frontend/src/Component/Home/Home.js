@@ -1,17 +1,8 @@
-import React, { useState } from 'react';
+// import React, { useState } from 'react';
 import { 
-  Home, 
   FileText, 
   Shield, 
   Clock, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Facebook, 
-  Twitter, 
-  Instagram,
-  Menu,
-  X
 } from 'lucide-react';
 import Uheader from '../Header/User_header';
 import UFooter from '../Footer/User_Footer';
