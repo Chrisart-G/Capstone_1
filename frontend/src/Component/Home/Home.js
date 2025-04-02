@@ -32,7 +32,7 @@ const MunicipalLandingPage = () => {
             Online Municipal Document Processing Municipality of Hinigaran 
           </h1>
           <p className="text-lg md:text-2xl mb-6">
-            Request and track municipal documents from the comfort of your home.
+            Request municipal documents from the comfort of your home.
           </p>
           <button className="bg-blue-600 text-white px-6 py-3 rounded-full text-lg hover:bg-blue-700 transition duration-300 shadow-lg">
             Get Started

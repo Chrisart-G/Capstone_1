@@ -2,19 +2,12 @@ import React, { useState } from 'react';
 import Uheader from '../Header/User_header';
 const MayorsPermitForm = () => {
   const [formData, setFormData] = useState({
-    permitNo: '',
-    dateOfIssuance: new Date().toISOString().split('T')[0],
     nameOfPermittee: '',
     businessName: '',
     businessAddress: '',
     kindOfBusiness: '',
     businessStatus: 'RENEWAL',
-    businessPlateNo: '',
-    modeOfPayment: 'ANNUALLY',
-    orNo: '',
-    amountPaid: '',
-    datePaid: new Date().toISOString().split('T')[0],
-    expirationDate: '2025-12-31'
+    modeOfPayment: 'ANNUALLY'
   });
 
   const handleChange = (e) => {
@@ -59,7 +52,7 @@ const MayorsPermitForm = () => {
 
       {/* Permit Title */}
       <div className="text-center mb-4">
-        <h1 className="text-2xl font-bold">MAYOR'S PERMIT</h1>
+        <h1 className="text-2xl font-bold"></h1>
       </div>
 
       {/* Permit Description */}
@@ -73,35 +66,10 @@ const MayorsPermitForm = () => {
 
       {/* Form Content */}
       <div className="grid grid-cols-3 gap-2 mb-6">
-        <div className="border border-gray-400 p-1">
-          <div className="text-xs font-bold">PERMIT NO.:</div>
-        </div>
-        <div className="border border-gray-400 p-1">
-          <input
-            type="text"
-            name="permitNo"
-            value={formData.permitNo}
-            onChange={handleChange}
-            placeholder="B25 - 0263"
-            className="w-full text-xs p-0 border-none focus:ring-0"
-          />
-        </div>
         <div className="border border-gray-400 p-1 bg-red-100 flex items-center justify-center">
           <div className="text-2xl font-bold text-red-600">2025</div>
         </div>
-        
-        <div className="border border-gray-400 p-1">
-          <div className="text-xs font-bold">DATE OF ISSUANCE:</div>
-        </div>
-        <div className="border border-gray-400 p-1 col-span-2">
-          <input
-            type="date"
-            name="dateOfIssuance"
-            value={formData.dateOfIssuance}
-            onChange={handleChange}
-            className="w-full text-xs p-0 border-none focus:ring-0"
-          />
-        </div>
+        <div className="border border-gray-400 p-1 col-span-2"></div>
         
         <div className="border border-gray-400 p-1">
           <div className="text-xs font-bold">NAME OF PERMITTEE:</div>
@@ -162,7 +130,7 @@ const MayorsPermitForm = () => {
         <div className="border border-gray-400 p-1">
           <div className="text-xs font-bold">Business Status:</div>
         </div>
-        <div className="border border-gray-400 p-1">
+        <div className="border border-gray-400 p-1 col-span-2">
           <select
             name="businessStatus"
             value={formData.businessStatus}
@@ -172,17 +140,6 @@ const MayorsPermitForm = () => {
             <option value="NEW">NEW</option>
             <option value="RENEWAL">RENEWAL</option>
           </select>
-        </div>
-        <div className="border border-gray-400 p-1">
-          <div className="text-xs font-bold">Business Plate No.</div>
-          <input
-            type="text"
-            name="businessPlateNo"
-            value={formData.businessPlateNo}
-            onChange={handleChange}
-            placeholder="1195"
-            className="w-full text-lg font-bold text-red-600 text-center p-0 border-none focus:ring-0"
-          />
         </div>
         
         <div className="border border-gray-400 p-1">
@@ -201,57 +158,7 @@ const MayorsPermitForm = () => {
           </select>
         </div>
         
-        <div className="border border-gray-400 p-1">
-          <div className="text-xs font-bold">O.R. NO.:</div>
-        </div>
-        <div className="border border-gray-400 p-1 col-span-2">
-          <input
-            type="text"
-            name="orNo"
-            value={formData.orNo}
-            onChange={handleChange}
-            placeholder="7012498"
-            className="w-full text-xs p-0 border-none focus:ring-0"
-          />
-        </div>
-        
-        <div className="border border-gray-400 p-1">
-          <div className="text-xs font-bold">Amount Paid:</div>
-        </div>
-        <div className="border border-gray-400 p-1 col-span-2">
-          <input
-            type="text"
-            name="amountPaid"
-            value={formData.amountPaid}
-            onChange={handleChange}
-            placeholder="P 9,086.79"
-            className="w-full text-xs p-0 border-none focus:ring-0"
-          />
-        </div>
-        
-        <div className="border border-gray-400 p-1">
-          <div className="text-xs font-bold">Date Paid:</div>
-        </div>
-        <div className="border border-gray-400 p-1 col-span-2">
-          <input
-            type="date"
-            name="datePaid"
-            value={formData.datePaid}
-            onChange={handleChange}
-            className="w-full text-xs p-0 border-none focus:ring-0"
-          />
-        </div>
-        
-        <div className="border border-gray-400 p-1 col-span-2">
-          <div className="text-xs font-bold">Date of Expiration:</div>
-          <input
-            type="date"
-            name="expirationDate"
-            value={formData.expirationDate}
-            onChange={handleChange}
-            className="w-full text-xs p-0 border-none focus:ring-0"
-          />
-        </div>
+        <div className="border border-gray-400 p-1 col-span-2"></div>
         <div className="border border-gray-400 p-1">
           <div className="text-center text-xs">
             <div className="font-bold">HON. JOSE NADIE P. ARCEO</div>

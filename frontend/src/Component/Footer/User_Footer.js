@@ -10,7 +10,7 @@ function UFooter() {
             <div className="space-y-2">
               <p className="flex items-center text-sm md:text-base">
                 <MapPin className="mr-2" size={18} /> 
-                123 Municipal Plaza, City, State 12345
+                Brgy 3 Municipal Hinigaran
               </p>
               <p className="flex items-center text-sm md:text-base">
                 <Phone className="mr-2" size={18} /> 
@@ -18,7 +18,7 @@ function UFooter() {
               </p>
               <p className="flex items-center text-sm md:text-base">
                 <Mail className="mr-2" size={18} /> 
-                contact@municipality.gov
+                contact @Hinigaran Municipal Hall
               </p>
             </div>
           </div>
@@ -39,7 +39,7 @@ function UFooter() {
           </div>
         </div>
         <div className="text-center mt-6 md:mt-8 border-t border-gray-700 pt-4 text-sm md:text-base">
-          © 2024 Municipality Services. All Rights Reserved.
+          © 2025 Municipality Services. All Rights Reserved.
         </div>
       </footer>
 
