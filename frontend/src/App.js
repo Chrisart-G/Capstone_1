@@ -7,6 +7,7 @@ import Singnup from './Component/Signup/Signup';
 import MunicipalLandingPage from './Component/Home/Home';
 import MayorsPermitForm from './Component/Form/form';
 import PermitsHomepage from'./Component/Home/Requesthome';
+import AdminDashboard from'./Component/Adminhomepage/Adminhome';
 
 
 function App() {
@@ -16,9 +17,10 @@ function App() {
           <Routes>
             <Route path="/Login" element={<Logins />} />
             <Route path="/Sign-up"y element={<Singnup />} />
-            <Route path="/Chome" element={<MunicipalLandingPage />} /> 
+            <Route path="/Chome" element={<MunicipalLandingPage />} />
             <Route path="/Uform" element={<MayorsPermitForm/>} />
             <Route path="/Permits" element={<PermitsHomepage/>} /> 
+            <Route path="/AdminDash" element={<AdminDashboard/>} />
           {/* amo si chongo */}
           </Routes>
     </Router>

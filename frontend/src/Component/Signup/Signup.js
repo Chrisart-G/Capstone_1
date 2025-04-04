@@ -56,9 +56,9 @@ const SignUp = () => {
             playsInline
             controls
           >
-            <source src="/img/municipality.mp4" type="video/mp4" />
-            <source src="/videos/municipality.mp4" type="video/mp4" />
-            <source src="/municipality.mp4" type="video/mp4" />
+            <source src="/img/municipality2.mp4" type="video/mp4" />
+            <source src="/videos/municipality2.mp4" type="video/mp4" />
+            <source src="/municipality2.mp4" type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-black bg-opacity-20 z-20"></div>
         </div>
