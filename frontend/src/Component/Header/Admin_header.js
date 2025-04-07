@@ -9,7 +9,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 
-function Aheader() {
+function Uheader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
     
@@ -36,10 +36,10 @@ function Aheader() {
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex space-x-6 items-center">
-            <a href="#" className="hover:text-blue-200 flex items-center">
+            <a href="/Chome" className="hover:text-blue-200 flex items-center">
               <Home className="mr-2" size={20} /> Home
             </a>
-            <a href="#" className="hover:text-blue-200 flex items-center">
+            <a href="/Permits" className="hover:text-blue-200 flex items-center">
               <FileText className="mr-2" size={20} /> Request Document
             </a>
             <a href="#" className="hover:text-blue-200 flex items-center">
@@ -116,4 +116,4 @@ function Aheader() {
   );
 }
 
-export default Aheader;
+export default Uheader;
