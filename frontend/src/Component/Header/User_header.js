@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Home, 
   FileText, 
@@ -8,17 +8,10 @@ import {
   User,
   ChevronDown
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-const API_BASE_URL = "http://localhost:8081";
 
 function Uheader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userEmail, setUserEmail] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const navigate = useNavigate();
     
     const toggleMobileMenu = () => {
       setMobileMenuOpen(!mobileMenuOpen);
@@ -27,50 +20,6 @@ function Uheader() {
     const toggleProfileDropdown = () => {
       setProfileDropdownOpen(!profileDropdownOpen);
     };
-
-    useEffect(() => {
-      // Check session status when component mounts
-      checkSession();
-    }, []);
-  
-    const checkSession = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
-          withCredentials: true
-        });
-        
-        if (response.data.loggedIn) {
-          setIsLoggedIn(true);
-          setUserEmail(response.data.user.email);
-        } else {
-          setIsLoggedIn(false);
-        }
-      } catch (error) {
-        console.error("Session check error:", error);
-        setIsLoggedIn(false);
-      }
-    };
-  
-    const handleLogout = async () => {
-      try {
-        setIsLoading(true);
-        await axios.post(`${API_BASE_URL}/api/logout`, {}, { 
-          withCredentials: true 
-        });
-        
-        setIsLoggedIn(false);
-        setUserEmail('');
-        
-        // Redirect to login page
-        navigate('/');
-      } catch (error) {
-        console.error("Logout error:", error);
-        alert("Failed to logout. Please try again.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     
   return (
     <div className="header">
@@ -117,13 +66,9 @@ function Uheader() {
                     Settings
                   </a>
                   <div className="border-t border-gray-100"></div>
-                  <button 
-                    onClick={handleLogout}
-                    disabled={isLoading}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
+                  <a href="/login" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     Log Out
-                  </button>
+                  </a>
                 </div>
               )}
             </div>
@@ -159,13 +104,9 @@ function Uheader() {
               <a href="/settings" className="hover:text-blue-200 flex items-center">
                 Settings
               </a>
-              <button
-                onClick={handleLogout}
-                disabled={isLoading}
-                className="hover:text-blue-200 flex items-center"
-              >
+              <a href="/login" className="hover:text-blue-200 flex items-center">
                 Log Out
-              </button>
+              </a>
             </nav>
           </div>
         )}

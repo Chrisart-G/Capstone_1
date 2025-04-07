@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import React, { useState } from 'react';
 import { 
   FileText, 
   Shield, 
@@ -7,44 +6,8 @@ import {
 } from 'lucide-react';
 import Uheader from '../Header/User_header';
 import UFooter from '../Footer/User_Footer';
-import axios from 'axios';
-
-const API_BASE_URL = "http://localhost:8081";
 
 const MunicipalLandingPage = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
-          withCredentials: true
-        });
-        
-        setIsAuthenticated(response.data.loggedIn);
-        
-        // If not logged in, redirect to login page
-        if (!response.data.loggedIn) {
-          navigate('/');
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
-        setIsAuthenticated(false);
-        navigate('/');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
-
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header (Navbar) */}
@@ -81,17 +44,17 @@ const MunicipalLandingPage = () => {
       <main className="container mx-auto px-4 py-12 md:py-16 text-center">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           <div className="bg-white p-4 md:p-6 rounded-lg shadow-md text-center">
-            <FileText className="mx-auto mb-3 md:mb-4 text-blue-600" size={40} />
+            <FileText className="mx-auto mb-3 md:mb-4 text-blue-600" size={40} md={50} />
             <h3 className="text-lg md:text-xl font-semibold mb-2">Easy Requests</h3>
             <p className="text-sm md:text-base text-gray-600">Simple and intuitive document request process</p>
           </div>
           <div className="bg-white p-4 md:p-6 rounded-lg shadow-md text-center">
-            <Shield className="mx-auto mb-3 md:mb-4 text-green-600" size={40} />
+            <Shield className="mx-auto mb-3 md:mb-4 text-green-600" size={40} md={50} />
             <h3 className="text-lg md:text-xl font-semibold mb-2">Secure Processing</h3>
             <p className="text-sm md:text-base text-gray-600">Your data is protected with advanced security</p>
           </div>
           <div className="bg-white p-4 md:p-6 rounded-lg shadow-md text-center">
-            <Clock className="mx-auto mb-3 md:mb-4 text-purple-600" size={40} />
+            <Clock className="mx-auto mb-3 md:mb-4 text-purple-600" size={40} md={50} />
             <h3 className="text-lg md:text-xl font-semibold mb-2">Quick Approvals</h3>
             <p className="text-sm md:text-base text-gray-600">Fast processing and document delivery</p>
           </div>

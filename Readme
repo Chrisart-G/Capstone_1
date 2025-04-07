@@ -12,7 +12,6 @@ Express - npm i express
 nodemon - npm i nodemon
 cors - npm i cors
 mysql - npm i mysql
-session- npm install express-session
 
 
 DataBase configuration:
