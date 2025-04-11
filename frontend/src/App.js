@@ -8,6 +8,7 @@ import MayorsPermitForm from './Component/Form/businesspermit/businesspermit';
 import PermitsHomepage from './Component/Home/Requesthome';
 import AdminDashboard from './Component/Adminhomepage/Adminhome';
 import ProtectedRoute from './Component/Auth/ProtectedRoute'; 
+import EmployeeDashboard from './Component/Employeedashboard/Employeedashboard';
 
 function App() {
   return (
@@ -40,7 +41,11 @@ function App() {
               <AdminDashboard />
             </ProtectedRoute>
           } />
-          
+          <Route path="/EmployDash" element={
+            <ProtectedRoute>
+              <EmployeeDashboard />
+            </ProtectedRoute>
+          } />
           
           <Route path="*" element={<Navigate to="/Login" />} />
         </Routes>

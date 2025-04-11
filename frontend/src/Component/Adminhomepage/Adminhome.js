@@ -1,7 +1,15 @@
-import React, { useState } from 'react';
-import { Bell, Users, Building, ChevronDown, ChevronRight, LayoutDashboard, Settings, LogOut } from 'lucide-react';
 
+import React, { useState, useEffect } from 'react';
+import { Bell, Users, Building, ChevronDown, ChevronRight, LayoutDashboard, Settings, LogOut } from 'lucide-react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = "http://localhost:8081";
 const AdminDashboard = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
   const [activePage, setActivePage] = useState('dashboard');
   const [expanded, setExpanded] = useState({
     employees: false,
@@ -15,6 +23,50 @@ const AdminDashboard = () => {
       [section]: !expanded[section]
     });
   };
+  useEffect(() => {
+    // Check session status when component mounts
+    checkSession();
+  }, []);
+
+  const checkSession = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
+        withCredentials: true
+      });
+      
+      if (response.data.loggedIn) {
+        setIsLoggedIn(true);
+        setUserEmail(response.data.user.email);
+      } else {
+        setIsLoggedIn(false);
+      }
+    } catch (error) {
+      console.error("Session check error:", error);
+      setIsLoggedIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      setIsLoading(true);
+      await axios.post(`${API_BASE_URL}/api/logout`, {}, { 
+        withCredentials: true 
+      });
+      
+      setIsLoggedIn(false);
+      setUserEmail('');
+      
+      // Redirect to login page
+      navigate('/');
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Failed to logout. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  
 
   // Placeholder content for the main area
   const renderContent = () => {
@@ -62,8 +114,8 @@ const AdminDashboard = () => {
     <div className="flex h-screen bg-gray-100">
   {/* Sidebar */}
   <div className="w-64 bg-blue-700 text-white flex flex-col">
+  <img src="/img/logo.png" alt="Company Logo" className="h-50 w-50 " />
     <div className="p-4 border-b border-gray-700 flex items-center">
-      <img src="/img/logo.png" alt="Company Logo" className="h-10 mr-8" />
       <h1 className="text-xl font-bold">Hinigaran Municipality</h1>
     </div>
         
@@ -175,8 +227,13 @@ const AdminDashboard = () => {
             <span>Settings</span>
           </div>
           <div className="flex items-center p-3 rounded-lg cursor-pointer hover:bg-gray-700">
-            <LogOut size={18} className="mr-2" />
-            <span>Logout</span>
+          <button
+                onClick={handleLogout}
+                disabled={isLoading}
+                className="hover:text-blue-200 flex items-center"
+              >
+                Log Out
+              </button>
           </div>
         </div>
       </div>

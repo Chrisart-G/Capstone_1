@@ -66,7 +66,7 @@ const Login = () => {
       
       // Navigate based on user role
       if (res.data.user.email === "admin@gmail.com") {
-        navigate("/admin");
+        navigate("/AdminDash");
       } else {
         navigate("/Chome");
       }

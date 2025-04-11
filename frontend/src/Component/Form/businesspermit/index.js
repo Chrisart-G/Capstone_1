@@ -5,6 +5,7 @@ import ContactInformation from './ContactInformation';
 import BusinessDetails from './BusinessDetails';
 import BusinessActivity from './BusinessActivity';
 import ReviewAndSubmit from './ReviewAndSubmit';
+import Uheader from '../../Header/User_header';
 
 const MayorsPermitForm = () => {
   const initialFormData = {
@@ -148,6 +149,8 @@ const MayorsPermitForm = () => {
   };
 
   return (
+    <div>
+      <Uheader/>
     <div className="mayors-permit-form p-6 max-w-4xl mx-auto bg-white rounded shadow">
       <ProgressBar steps={steps} currentStep={currentStep} />
       <form onSubmit={handleSubmit}>
@@ -180,6 +183,7 @@ const MayorsPermitForm = () => {
           )}
         </div>
       </form>
+    </div>
     </div>
   );
 };
