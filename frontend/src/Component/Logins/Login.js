@@ -108,7 +108,7 @@ const Login = () => {
         <div className="w-1/2 hidden md:flex md:items-center md:justify-center bg-gray-200 relative">
           <img 
             src="/img/Logpic.png" 
-            alt="Fallback Image" 
+            alt="Fallback " 
             className="absolute inset-0 w-full h-full object-cover"
           />
           <video 

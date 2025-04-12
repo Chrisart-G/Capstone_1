@@ -4,11 +4,12 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Logins from './Component/Logins/Login';
 import Singnup from './Component/Signup/Signup';
 import MunicipalLandingPage from './Component/Home/Home';
-import MayorsPermitForm from './Component/Form/businesspermit/businesspermit';
+import BusinessPermitForm from './Component/Form/Businesspermit/Businesspermit';
 import PermitsHomepage from './Component/Home/Requesthome';
 import AdminDashboard from './Component/Adminhomepage/Adminhome';
 import ProtectedRoute from './Component/Auth/ProtectedRoute'; 
 import EmployeeDashboard from './Component/Employeedashboard/Employeedashboard';
+import MayorsPermitForm from './Component/Form/Mayorpermits/Mayorspermit';
 
 function App() {
   return (
@@ -28,7 +29,7 @@ function App() {
           } />
           <Route path="/Uform" element={
             <ProtectedRoute>
-              <MayorsPermitForm />
+              <BusinessPermitForm />
             </ProtectedRoute>
           } />
           <Route path="/Permits" element={
@@ -44,6 +45,12 @@ function App() {
           <Route path="/EmployDash" element={
             <ProtectedRoute>
               <EmployeeDashboard />
+            </ProtectedRoute>
+          } />
+
+            <Route path="/MayorsPermitForm" element={
+            <ProtectedRoute>
+              <MayorsPermitForm />
             </ProtectedRoute>
           } />
           
