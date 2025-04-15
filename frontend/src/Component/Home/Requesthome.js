@@ -13,7 +13,7 @@ const PermitsHomepage = () => {
   // Define routes for permits dynamically
   const permitRoutes = {
     "Business Permit": "/Uform",
-    "Mayor's Permit": "/Chome",
+    "Mayor's Permit": "/MayorsPermitForm",
   };
 
   // Function to handle application button clicks
