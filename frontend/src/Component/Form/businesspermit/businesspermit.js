@@ -88,7 +88,10 @@ export default function BusinessPermitForm() {
     <div>
         <Uheader/>
     <div className="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6 mb-10">
-      <div className="text-center mb-8">
+    <div className="text-center mb-8">
+    <div class="flex justify-center items-center">
+          <img src="img/logo.png" alt="" class="w-40 h-30"/>
+      </div>
         <h1 className="text-3xl font-bold text-gray-800">BUSINESS PERMIT APPLICATION</h1>
       </div>
 
