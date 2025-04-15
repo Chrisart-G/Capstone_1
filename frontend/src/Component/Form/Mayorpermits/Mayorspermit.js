@@ -174,14 +174,12 @@ export default function MayorsPermitForm() {
         <Uheader/>
     <div className="bg-gray-50 min-h-screen p-4 md:p-8">
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="bg-blue-700 p-6 text-center">
+        <div className="bg-white text-center">
           <div className="flex justify-center items-center mb-4">
-            <svg className="w-12 h-12 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v1H3V3zm1 4a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zm12 8a1 1 0 01-1 1H5a1 1 0 01-1-1V8h12v7z" clipRule="evenodd" />
-            </svg>
+          <img src="img/logo.png" alt="" class="w-40 h-30" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Mayor's Permit Application</h1>
-          <p className="text-blue-100 mt-2">City of Springfield</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-600">Mayor's Permit Application</h1>
+          <p className="text-gray-600 mt-2">Municipality of Hinigaran</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
