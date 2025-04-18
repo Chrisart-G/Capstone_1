@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
-
+import axios from 'axios';
 export default function BusinessPermitForm() {
   const [formData, setFormData] = useState({
     applicationType: 'new',
@@ -45,6 +45,10 @@ export default function BusinessPermitForm() {
     businessActivities: [{ line: '', units: '', capitalization: '', grossEssential: '', grossNonEssential: '' }]
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -78,10 +82,50 @@ export default function BusinessPermitForm() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    // Add submission logic here
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+
+    try {
+      // Send data to backend API
+      const response = await axios.post('http://localhost:8081/api/BusinessPermit', formData);
+      
+      if (response.data.success) {
+        setSubmitSuccess(true);
+      } else {
+        setSubmitError('Failed to submit application');
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setSubmitError(error.response?.data?.message || 'An error occurred while submitting your application');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Display form submission feedback
+  const renderFormStatus = () => {
+    if (submitSuccess) {
+      return (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mt-4 mb-4">
+          <p className="font-bold">Success!</p>
+          <p>Your business permit application has been submitted successfully.</p>
+        </div>
+      );
+    }
+
+    if (submitError) {
+      return (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4 mb-4">
+          <p className="font-bold">Error!</p>
+          <p>{submitError}</p>
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -94,6 +138,7 @@ export default function BusinessPermitForm() {
       </div>
         <h1 className="text-3xl font-bold text-gray-800">BUSINESS PERMIT APPLICATION</h1>
       </div>
+      {renderFormStatus()}
 
       <form onSubmit={handleSubmit}>
         {/* Section 1: Basic Information */}
