@@ -825,7 +825,7 @@ export default function BusinessPermitForm() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table>  
           </div>
 
           <div className="mt-4">
