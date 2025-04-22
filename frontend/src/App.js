@@ -10,7 +10,8 @@ import AdminDashboard from './Component/Adminhomepage/Adminhome';
 import ProtectedRoute from './Component/Auth/ProtectedRoute'; 
 import EmployeeDashboard from './Component/Employeedashboard/Employeedashboard';
 import MayorsPermitForm from './Component/Form/Mayorpermits/Mayorspermit';
-
+import DocumentStatusTracker from './Component/DocumentStatusTracker/DocumentStatusTracker';
+import AddEmployeeForm from './Component/Addemployee/Addemployee';
 function App() {
   return (
     <div className="App">
@@ -51,6 +52,18 @@ function App() {
             <Route path="/MayorsPermitForm" element={
             <ProtectedRoute>
               <MayorsPermitForm />
+            </ProtectedRoute>
+          } />
+
+            <Route path="/Docutracker" element={
+            <ProtectedRoute>
+              <DocumentStatusTracker />
+            </ProtectedRoute>
+          } />
+
+            <Route path="/Addemploy" element={
+            <ProtectedRoute>
+              <AddEmployeeForm />
             </ProtectedRoute>
           } />
           
