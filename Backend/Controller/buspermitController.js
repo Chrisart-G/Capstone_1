@@ -3,14 +3,26 @@ const db = require('../db/dbconnect');
 // Submit a new business permit application
 exports.SubmitBusinessPermit = async (req, res) => {
     try {
-        // Start a transaction
+        console.log("Session in BusinessPermit:", req.session);
+        console.log("User in session:", req.session?.user);
+        console.log("User ID in session:", req.session?.user?.user_id);
+
+        if (!req.session || !req.session.user || !req.session.user.user_id) {
+            console.log("User not authenticated or missing user_id");
+            return res.status(401).json({ message: "Unauthorized. Please log in." });
+        }
+        
+        // Get user_id from session
+        const userId = req.session.user.user_id;
+        console.log("Using user_id for business permit:", userId);
+        
+        // Start transaction
         db.beginTransaction(err => {
             if (err) {
                 console.error("Transaction error:", err);
                 return res.status(500).json({ message: "Database error", error: err });
             }
 
-            // Extract data from the form submission
             const {
                 applicationType, paymentMode, applicationDate, tinNo, registrationNo, registrationDate,
                 businessType, amendmentFrom, amendmentTo, taxIncentive, taxIncentiveEntity,
@@ -20,13 +32,10 @@ exports.SubmitBusinessPermit = async (req, res) => {
                 emergencyContact, emergencyPhone, emergencyEmail,
                 businessArea, maleEmployees, femaleEmployees, localEmployees,
                 lessorName, lessorAddress, lessorPhone, lessorEmail, monthlyRental,
-                businessActivities // This is an array of business activities
+                businessActivities
             } = req.body;
 
-            // User ID from session (if authenticated)
-            const userId = req.session.user ? req.session.user.id : null;
-
-            // Insert into the main business_permits table
+            // Insert with the userId from session
             const permitSql = `
                 INSERT INTO business_permits (
                     application_type, payment_mode, application_date, tin_no, registration_no, registration_date,
@@ -50,8 +59,12 @@ exports.SubmitBusinessPermit = async (req, res) => {
                 emergencyContact, emergencyPhone, emergencyEmail,
                 businessArea, maleEmployees, femaleEmployees, localEmployees,
                 lessorName, lessorAddress, lessorPhone, lessorEmail, monthlyRental,
-                userId
+                userId // Using userId from session
             ];
+
+            // Debug statement
+            console.log("Inserting business permit with user_id:", userId);
+            
 
             db.query(permitSql, permitValues, (permitErr, permitResult) => {
                 if (permitErr) {
@@ -62,30 +75,23 @@ exports.SubmitBusinessPermit = async (req, res) => {
                 }
 
                 const permitId = permitResult.insertId;
-                
-                // Check if business activities exist
+
                 if (businessActivities && businessActivities.length > 0) {
-                    // Prepare batch insert for business activities
-                    const activityValues = [];
+                    const activityValues = businessActivities.map(activity => [
+                        permitId,
+                        activity.line,
+                        activity.units,
+                        activity.capitalization,
+                        activity.grossEssential,
+                        activity.grossNonEssential
+                    ]);
+
                     const activitySql = `
                         INSERT INTO business_activities 
                         (permit_id, line_of_business, units, capitalization, gross_essential, gross_non_essential)
                         VALUES ?
                     `;
-                    
-                    // Format activities for batch insert
-                    businessActivities.forEach(activity => {
-                        activityValues.push([
-                            permitId,
-                            activity.line,
-                            activity.units,
-                            activity.capitalization,
-                            activity.grossEssential,
-                            activity.grossNonEssential
-                        ]);
-                    });
 
-                    // Insert business activities
                     db.query(activitySql, [activityValues], (activityErr) => {
                         if (activityErr) {
                             console.error("Activity insert error:", activityErr);
@@ -94,7 +100,6 @@ exports.SubmitBusinessPermit = async (req, res) => {
                             });
                         }
 
-                        // Commit the transaction
                         db.commit(commitErr => {
                             if (commitErr) {
                                 console.error("Commit error:", commitErr);
@@ -103,7 +108,6 @@ exports.SubmitBusinessPermit = async (req, res) => {
                                 });
                             }
 
-                            // Return success response
                             res.status(201).json({ 
                                 success: true, 
                                 message: "Business permit application submitted successfully",
@@ -112,7 +116,6 @@ exports.SubmitBusinessPermit = async (req, res) => {
                         });
                     });
                 } else {
-                    // If no business activities, just commit the transaction
                     db.commit(commitErr => {
                         if (commitErr) {
                             console.error("Commit error:", commitErr);
@@ -121,7 +124,6 @@ exports.SubmitBusinessPermit = async (req, res) => {
                             });
                         }
 
-                        // Return success response
                         res.status(201).json({ 
                             success: true, 
                             message: "Business permit application submitted successfully",
@@ -136,6 +138,9 @@ exports.SubmitBusinessPermit = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
+
+
 
 // Get all business permit applications (for admin)
 exports.getAllPermits = (req, res) => {

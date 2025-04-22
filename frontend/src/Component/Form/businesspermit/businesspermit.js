@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
 import axios from 'axios';
+
 export default function BusinessPermitForm() {
   const [formData, setFormData] = useState({
     applicationType: 'new',
@@ -48,6 +50,9 @@ export default function BusinessPermitForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -90,10 +95,11 @@ export default function BusinessPermitForm() {
 
     try {
       // Send data to backend API
-      const response = await axios.post('http://localhost:8081/api/BusinessPermit', formData);
+      const response = await axios.post('http://localhost:8081/api/BusinessPermit', formData , { withCredentials: true });
       
       if (response.data.success) {
         setSubmitSuccess(true);
+        setIsModalOpen(true);
       } else {
         setSubmitError('Failed to submit application');
       }
@@ -107,11 +113,24 @@ export default function BusinessPermitForm() {
 
   // Display form submission feedback
   const renderFormStatus = () => {
-    if (submitSuccess) {
+    if (submitSuccess && isModalOpen) {
       return (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mt-4 mb-4">
-          <p className="font-bold">Success!</p>
-          <p>Your business permit application has been submitted successfully.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-green-600 mb-2">Success!</h2>
+            <p className="text-gray-700 mb-4">Your business permit application has been submitted successfully.</p>
+            <div className="flex justify-end">
+              <button
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  navigate('/Chome'); 
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
         </div>
       );
     }

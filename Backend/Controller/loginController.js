@@ -1,6 +1,5 @@
 const db = require('../db/dbconnect');
 const bcrypt = require('bcrypt'); 
-
 exports.Login = (req, res) => {
     const sql = "SELECT * FROM tb_logins WHERE email = ?";
     const values = [req.body.email];
@@ -21,16 +20,27 @@ exports.Login = (req, res) => {
                 }
 
                 if (isMatch) {
-                    // Set session
+                    // Save the correct user_id to session
                     req.session.user = {
-                        id: user.id,
+                        user_id: user.user_id,
                         email: user.email,
-                        role: user.role  // if you have a role field
+                        role: user.role
                     };
 
-                    return res.json({
-                        message: "Login successful",
-                        user: req.session.user
+                    // Explicitly save the session
+                    req.session.save(err => {
+                        if (err) {
+                            console.error("Session save error:", err);
+                            return res.status(500).json({ message: "Session error" });
+                        }
+                        
+                        // Add debug logging
+                        console.log("Session saved with user_id:", user.user_id);
+                        
+                        return res.json({
+                            message: "Login successful",
+                            user: req.session.user
+                        });
                     });
                 } else {
                     return res.status(401).json({ message: "Invalid email or password" });
@@ -42,7 +52,6 @@ exports.Login = (req, res) => {
     });
 };
 
-// Check if user session exists
 exports.CheckSession = (req, res) => {
     if (req.session.user) {
         res.json({ loggedIn: true, user: req.session.user });
@@ -51,13 +60,12 @@ exports.CheckSession = (req, res) => {
     }
 };
 
-// Logout and destroy session
 exports.Logout = (req, res) => {
     req.session.destroy((err) => {
         if (err) {
             return res.status(500).json({ message: "Error logging out" });
         }
-        res.clearCookie("connect.sid"); // Optional: clear cookie
+        res.clearCookie("connect.sid");
         res.json({ message: "Logged out successfully" });
     });
 };
