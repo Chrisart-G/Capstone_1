@@ -1,5 +1,4 @@
 import { useState } from 'react';
-
 export default function AddEmployeeForm() {
   const [formData, setFormData] = useState({
     email: '',
