@@ -1,6 +1,5 @@
 const db = require('../db/dbconnect');
 
-// Submit a new business permit application
 exports.SubmitBusinessPermit = async (req, res) => {
     try {
         console.log("Session in BusinessPermit:", req.session);

@@ -52,12 +52,11 @@ app.post('/api/logout', (req, res) => {
     if (err) {
       return res.status(500).json({ message: 'Failed to logout' });
     }
-    res.clearCookie('connect.sid'); // Clear the session cookie
+    res.clearCookie('connect.sid'); 
     return res.status(200).json({ message: 'Logged out successfully' });
   });
 });
 
-// Then your existing routes
 app.use('/api/auth', authRoutes);
 app.use('/api', Routes);
 

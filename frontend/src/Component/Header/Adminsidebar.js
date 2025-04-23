@@ -1,14 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, Users, Building, ChevronDown, ChevronRight, LayoutDashboard, Settings, LogOut } from 'lucide-react';
 
-const AdminSidebar = ({ 
-  activePage, 
-  setActivePage, 
-  expanded, 
-  toggleExpand, 
-  handleLogout, 
-  isLoading 
-}) => {
+const AdminSidebar = ({ handleLogout, isLoading }) => {
+  const [expanded, setExpanded] = useState({
+    employees: false,
+    offices: false,
+    notifications: false
+  });
+
+  const toggleExpand = (section) => {
+    setExpanded({
+      ...expanded,
+      [section]: !expanded[section]
+    });
+  };
+
   return (
     <div className="w-64 bg-blue-700 text-white flex flex-col">
       <div className="p-4 border-b border-gray-700 flex items-center justify-center">
@@ -18,13 +25,12 @@ const AdminSidebar = ({
       
       <div className="flex-1 overflow-y-auto">
         <nav className="p-2">
-          <div 
-            className={`flex items-center p-3 rounded-lg cursor-pointer ${activePage === 'dashboard' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-            onClick={() => setActivePage('dashboard')}
-          >
-            <LayoutDashboard size={18} className="mr-2" />
-            <span>Dashboard</span>
-          </div>
+          <Link to="/AdminDash" className="block">
+            <div className="flex items-center p-3 rounded-lg cursor-pointer hover:bg-gray-700">
+              <LayoutDashboard size={18} className="mr-2" />
+              <span>Dashboard</span>
+            </div>
+          </Link>
           
           {/* Manage Employees Section */}
           <div className="mt-2">
@@ -41,18 +47,16 @@ const AdminSidebar = ({
             
             {expanded.employees && (
               <div className="ml-6 mt-1">
-                <div 
-                  className={`p-2 rounded-lg cursor-pointer ${activePage === 'manageEmployees' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-                  onClick={() => setActivePage('manageEmployees')}
-                >
-                  View All Employees
-                </div>
-                <div 
-                  className={`p-2 rounded-lg cursor-pointer ${activePage === 'addEmployee' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-                  onClick={() => setActivePage('addEmployee')}
-                >
-                  Add New Employee
-                </div>
+                <Link to="/admin/employees" className="block">
+                  <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
+                    View All Employees
+                  </div>
+                </Link>
+                <Link to="/addemploy" className="block">
+                  <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
+                    Add New Employee
+                  </div>
+                </Link>
               </div>
             )}
           </div>
@@ -72,18 +76,16 @@ const AdminSidebar = ({
             
             {expanded.offices && (
               <div className="ml-6 mt-1">
-                <div 
-                  className={`p-2 rounded-lg cursor-pointer ${activePage === 'createOffice' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-                  onClick={() => setActivePage('createOffice')}
-                >
-                  New Office
-                </div>
-                <div 
-                  className={`p-2 rounded-lg cursor-pointer ${activePage === 'manageLocations' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-                  onClick={() => setActivePage('manageLocations')}
-                >
-                  Manage Locations
-                </div>
+                <Link to="/admin/create-office" className="block">
+                  <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
+                    New Office
+                  </div>
+                </Link>
+                <Link to="/admin/manage-locations" className="block">
+                  <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
+                    Manage Locations
+                  </div>
+                </Link>
               </div>
             )}
           </div>
@@ -103,18 +105,16 @@ const AdminSidebar = ({
             
             {expanded.notifications && (
               <div className="ml-6 mt-1">
-                <div 
-                  className={`p-2 rounded-lg cursor-pointer ${activePage === 'notifications' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-                  onClick={() => setActivePage('notifications')}
-                >
-                  All Notifications
-                </div>
-                <div 
-                  className={`p-2 rounded-lg cursor-pointer ${activePage === 'createAnnouncement' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-                  onClick={() => setActivePage('createAnnouncement')}
-                >
-                  Create Announcement
-                </div>
+                <Link to="/admin/notifications" className="block">
+                  <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
+                    All Notifications
+                  </div>
+                </Link>
+                <Link to="/admin/create-announcement" className="block">
+                  <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
+                    Create Announcement
+                  </div>
+                </Link>
               </div>
             )}
           </div>
@@ -122,19 +122,18 @@ const AdminSidebar = ({
       </div>
       
       <div className="p-4 border-t border-gray-700">
-        <div 
-          className={`flex items-center p-3 rounded-lg cursor-pointer ${activePage === 'settings' ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-          onClick={() => setActivePage('settings')}
-        >
-          <Settings size={18} className="mr-2" />
-          <span>Settings</span>
-        </div>
+        <Link to="/admin/settings" className="block">
+          <div className="flex items-center p-3 rounded-lg cursor-pointer hover:bg-gray-700">
+            <Settings size={18} className="mr-2" />
+            <span>Settings</span>
+          </div>
+        </Link>
         <div className="flex items-center p-3 rounded-lg cursor-pointer hover:bg-gray-700">
           <LogOut size={18} className="mr-2" />
           <button
             onClick={handleLogout}
             disabled={isLoading}
-            className="hover:text-blue-200 flex items-center"
+            className="hover:text-blue-200"
           >
             Log Out
           </button>

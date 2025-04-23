@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Eye, EyeOff, LogIn, Mail, Lock, LogOut } from "lucide-react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
 
 // API base URL constant
 const API_BASE_URL = "http://localhost:8081";
@@ -14,7 +14,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const videoRef = useRef(null);
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (videoRef.current) {
@@ -25,17 +25,20 @@ const Login = () => {
     const checkSession = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get(`${API_BASE_URL}/api/check-session`, { 
-          withCredentials: true 
+        const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
+          withCredentials: true,
         });
-        
+
         if (response.data.loggedIn) {
           setIsLoggedIn(true);
-          // Optionally redirect based on user role
-          if (response.data.user.email === "admin@gmail.com") {
-            navigate("/admin");
+          const role = response.data.user.role;
+
+          if (role === "admin") {
+            navigate("/AdminDash");
+          } else if (role === "employee") {
+            navigate("/EmployeeDash");
           } else {
-            navigate("/Chome");
+            navigate("/Chome"); // Default citizen page
           }
         }
       } catch (error) {
@@ -45,7 +48,7 @@ const Login = () => {
         setIsLoading(false);
       }
     };
-    
+
     checkSession();
   }, [navigate]);
 
@@ -53,20 +56,21 @@ const Login = () => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
-  
+
     try {
-      // Use the correct API endpoint
       const res = await axios.post(
-        `${API_BASE_URL}/api/auth/login`, // Assuming your login route is under authRoutes
+        `${API_BASE_URL}/api/auth/login`,
         { email, password },
         { withCredentials: true }
       );
-  
+
       setIsLoggedIn(true);
-      
-      // Navigate based on user role
-      if (res.data.user.email === "admin@gmail.com") {
+      const role = res.data.user.role;
+
+      if (role === "admin") {
         navigate("/AdminDash");
+      } else if (role === "employee") {
+        navigate("/EmployDash");
       } else {
         navigate("/Chome");
       }
@@ -86,7 +90,6 @@ const Login = () => {
     }
   };
 
-  // Logout function
   const handleLogout = async () => {
     try {
       setIsLoading(true);

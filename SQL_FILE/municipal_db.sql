@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 22, 2025 at 10:05 AM
+-- Generation Time: Apr 23, 2025 at 06:11 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -117,6 +117,32 @@ INSERT INTO `business_permits` (`id`, `application_type`, `payment_mode`, `appli
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tbl_employeeinformation`
+--
+
+CREATE TABLE `tbl_employeeinformation` (
+  `employee_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `first_name` varchar(50) NOT NULL,
+  `last_name` varchar(50) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `position` varchar(100) NOT NULL,
+  `department` varchar(50) NOT NULL,
+  `start_date` date NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_employeeinformation`
+--
+
+INSERT INTO `tbl_employeeinformation` (`employee_id`, `user_id`, `first_name`, `last_name`, `phone`, `position`, `department`, `start_date`, `created_at`) VALUES
+(7, 12, 'Allegra', 'Underwood', '+1 (675) 229-2259', 'Incididunt dolorem e', 'Customer Service', '1998-08-17', '2025-04-23 03:51:20'),
+(8, 13, 'dave', 'chester', '+1 (621) 351-7828', 'tambay', 'HR', '2025-04-17', '2025-04-23 03:59:09');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `tb_logins`
 --
 
@@ -124,7 +150,7 @@ CREATE TABLE `tb_logins` (
   `user_id` int(11) NOT NULL,
   `email` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `role` enum('citizen','admin','moderator') NOT NULL DEFAULT 'citizen',
+  `role` enum('citizen','admin','moderator','employee') NOT NULL DEFAULT 'citizen',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -136,7 +162,10 @@ INSERT INTO `tb_logins` (`user_id`, `email`, `password`, `role`, `created_at`) V
 (1, 'user@gmail.com', '$2b$10$3PAUVL8MIECE9WJSTOxWKuHCjEzsQC8NaGOZMypqX226P5a2hTt7u', 'citizen', '2025-03-30 13:53:33'),
 (2, 'test@gmail.com', '$2b$10$h6/eMhF9Qv9E9Tt9KLO36.v8Gi6pve2SCsT1MkVjJhyUIPJHlitXG', 'citizen', '2025-03-30 13:57:38'),
 (3, 'newuser@gmail.com', '$2b$10$XbYTOIZgb0toFNmnOOHDbO6/y3Dki21Vw1ewCA3uSl.6RtzO1p86O', 'citizen', '2025-04-21 07:09:12'),
-(4, 'chongo@gmail.com', '$2b$10$d8PY3Ur.Y0tLuWWyvmOaKuMpP5vN3egNQ5dBAcODr9gCVT/i3lpwS', 'citizen', '2025-04-21 11:26:09');
+(4, 'chongo@gmail.com', '$2b$10$d8PY3Ur.Y0tLuWWyvmOaKuMpP5vN3egNQ5dBAcODr9gCVT/i3lpwS', 'citizen', '2025-04-21 11:26:09'),
+(5, 'admin@gmail.com', '$2b$10$eUG1ueO5DiTrewcQjYqLF.0lfQXR9IczTSXVPoAbldwzn9OxOPrcm', 'admin', '2025-04-22 08:08:23'),
+(12, 'posu@mailinator.com', '$2b$10$6MxscDrHgvpytDVRvktjNe0Wpm2L8CjeOctT.t/S1E7lq/.e8GfzO', 'employee', '2025-04-23 03:51:20'),
+(13, 'employee@gmail.com', '$2b$10$crg/YIEaYQ68Ydg.7fKo4.3qCvwPu7O0VczvwyObQp27akCBM3GJy', 'employee', '2025-04-23 03:59:09');
 
 --
 -- Indexes for dumped tables
@@ -154,6 +183,13 @@ ALTER TABLE `business_activities`
 --
 ALTER TABLE `business_permits`
   ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`);
+
+--
+-- Indexes for table `tbl_employeeinformation`
+--
+ALTER TABLE `tbl_employeeinformation`
+  ADD PRIMARY KEY (`employee_id`),
   ADD KEY `user_id` (`user_id`);
 
 --
@@ -180,10 +216,16 @@ ALTER TABLE `business_permits`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
+-- AUTO_INCREMENT for table `tbl_employeeinformation`
+--
+ALTER TABLE `tbl_employeeinformation`
+  MODIFY `employee_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
 -- AUTO_INCREMENT for table `tb_logins`
 --
 ALTER TABLE `tb_logins`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- Constraints for dumped tables
@@ -200,6 +242,12 @@ ALTER TABLE `business_activities`
 --
 ALTER TABLE `business_permits`
   ADD CONSTRAINT `business_permits_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `tb_logins` (`user_id`);
+
+--
+-- Constraints for table `tbl_employeeinformation`
+--
+ALTER TABLE `tbl_employeeinformation`
+  ADD CONSTRAINT `tbl_employeeinformation_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `tb_logins` (`user_id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
