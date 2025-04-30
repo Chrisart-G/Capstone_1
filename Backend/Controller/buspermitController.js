@@ -141,150 +141,40 @@ exports.SubmitBusinessPermit = async (req, res) => {
 
 
 
-// Get all business permit applications (for admin)
+// this coode to get the data from tbl_business_permits and get the email from tb_logins display
 exports.getAllPermits = (req, res) => {
-    const sql = `
-        SELECT * 
-        FROM business_permits
-        ORDER BY created_at DESC
-    `;
+    console.log("Session in BusinessPermit:", req.session);
+    console.log("User in session:", req.session?.user);
+    console.log("User ID in session:", req.session?.user?.user_id);
 
-    db.query(sql, (err, results) => {
-        if (err) {
-            console.error("Error fetching permits:", err);
-            return res.status(500).json({ message: "Error retrieving permit applications", error: err });
-        }
-
-        res.json({ success: true, permits: results });
-    });
-};
-
-// Get business permit applications for a specific user
-exports.getUserPermits = (req, res) => {
-    // Get user ID from session
-    const userId = req.session.user ? req.session.user.id : null;
-    
-    if (!userId) {
-        return res.status(401).json({ message: "Not authenticated" });
+    if (!req.session || !req.session.user || !req.session.user.user_id) {
+        console.log("User not authenticated or missing user_id");
+        return res.status(401).json({ message: "Unauthorized. Please log in." });
     }
+    
+    // Get user_id from session
+    const userId = req.session.user.user_id;
+    console.log("Using user_id for business permit:", userId);
 
     const sql = `
-        SELECT * 
-        FROM business_permits
-        WHERE user_id = ?
-        ORDER BY created_at DESC
+        SELECT bp.BusinessP_id, bp.status, bp.business_name, bp.application_type, 
+               bp.application_date, bp.created_at, l.email
+        FROM business_permits bp
+        LEFT JOIN tb_logins l ON bp.user_id = l.user_id
+        WHERE bp.user_id = ?
+        ORDER BY bp.created_at DESC
     `;
 
     db.query(sql, [userId], (err, results) => {
         if (err) {
-            console.error("Error fetching user permits:", err);
-            return res.status(500).json({ message: "Error retrieving permit applications", error: err });
+            console.error("Error fetching permits:", err);
+            return res.status(500).json({ 
+                success: false, 
+                message: "Error retrieving permit applications", 
+                error: err.message 
+            });
         }
 
         res.json({ success: true, permits: results });
-    });
-};
-
-// Get a specific business permit by ID with its activities
-exports.getPermitById = (req, res) => {
-    const permitId = req.params.id;
-    
-    // Query to get the permit details
-    const permitSql = `
-        SELECT * 
-        FROM business_permits
-        WHERE id = ?
-    `;
-    
-    // Query to get the business activities for this permit
-    const activitiesSql = `
-        SELECT * 
-        FROM business_activities
-        WHERE permit_id = ?
-    `;
-    
-    // First get the permit details
-    db.query(permitSql, [permitId], (permitErr, permitResults) => {
-        if (permitErr) {
-            console.error("Error fetching permit:", permitErr);
-            return res.status(500).json({ message: "Error retrieving permit details", error: permitErr });
-        }
-        
-        if (permitResults.length === 0) {
-            return res.status(404).json({ message: "Permit not found" });
-        }
-        
-        const permit = permitResults[0];
-        
-        // Then get the business activities
-        db.query(activitiesSql, [permitId], (activitiesErr, activitiesResults) => {
-            if (activitiesErr) {
-                console.error("Error fetching activities:", activitiesErr);
-                return res.status(500).json({ message: "Error retrieving business activities", error: activitiesErr });
-            }
-            
-            // Combine permit with its activities
-            permit.businessActivities = activitiesResults;
-            
-            res.json({ success: true, permit: permit });
-        });
-    });
-};
-
-// Update a business permit application status (for admin)
-exports.updatePermitStatus = (req, res) => {
-    const permitId = req.params.id;
-    const { status } = req.body;
-    
-    if (!['pending', 'approved', 'rejected'].includes(status)) {
-        return res.status(400).json({ message: "Invalid status value" });
-    }
-    
-    const sql = `
-        UPDATE business_permits
-        SET status = ?
-        WHERE id = ?
-    `;
-    
-    db.query(sql, [status, permitId], (err, result) => {
-        if (err) {
-            console.error("Error updating permit status:", err);
-            return res.status(500).json({ message: "Error updating permit status", error: err });
-        }
-        
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Permit not found" });
-        }
-        
-        res.json({ success: true, message: `Permit status updated to ${status}` });
-    });
-};
-
-// Delete a business permit application
-exports.deletePermit = (req, res) => {
-    const permitId = req.params.id;
-    
-    // Check if the user is authorized (either admin or the owner)
-    const sql = `
-        DELETE FROM business_permits
-        WHERE id = ?
-        ${req.session.user.role !== 'admin' ? 'AND user_id = ?' : ''}
-    `;
-    
-    const values = req.session.user.role !== 'admin' 
-        ? [permitId, req.session.user.id]
-        : [permitId];
-    
-    db.query(sql, values, (err, result) => {
-        if (err) {
-            console.error("Error deleting permit:", err);
-            return res.status(500).json({ message: "Error deleting permit application", error: err });
-        }
-        
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Permit not found or you're not authorized to delete it" });
-        }
-        
-        res.json({ success: true, message: "Permit application deleted successfully" });
     });
 };

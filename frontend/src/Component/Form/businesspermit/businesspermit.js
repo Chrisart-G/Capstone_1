@@ -94,7 +94,6 @@ export default function BusinessPermitForm() {
     setSubmitSuccess(false);
 
     try {
-      // Send data to backend API
       const response = await axios.post('http://localhost:8081/api/BusinessPermit', formData , { withCredentials: true });
       
       if (response.data.success) {
@@ -111,7 +110,7 @@ export default function BusinessPermitForm() {
     }
   };
 
-  // Display form submission feedback
+
   const renderFormStatus = () => {
     if (submitSuccess && isModalOpen) {
       return (
@@ -124,7 +123,7 @@ export default function BusinessPermitForm() {
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
                 onClick={() => {
                   setIsModalOpen(false);
-                  navigate('/Chome'); 
+                  navigate('/Docutracker'); 
                 }}
               >
                 OK
