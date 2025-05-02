@@ -47,7 +47,7 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
             
             {expanded.employees && (
               <div className="ml-6 mt-1">
-                <Link to="/admin/employees" className="block">
+                <Link to="/viewemploy" className="block">
                   <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
                     View All Employees
                   </div>
@@ -76,12 +76,12 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
             
             {expanded.offices && (
               <div className="ml-6 mt-1">
-                <Link to="/admin/create-office" className="block">
+                <Link to="/AddOffice" className="block">
                   <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
                     New Office
                   </div>
                 </Link>
-                <Link to="/admin/manage-locations" className="block">
+                <Link to="/ManageOffice" className="block">
                   <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
                     Manage Locations
                   </div>

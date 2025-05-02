@@ -12,6 +12,9 @@ import EmployeeDashboard from './Component/Employeedashboard/Employeedashboard';
 import MayorsPermitForm from './Component/Form/Mayorpermits/Mayorspermit';
 import DocumentStatusTracker from './Component/DocumentStatusTracker/DocumentStatusTracker';
 import AddEmployeeForm from './Component/Addemployee/Addemployee';
+import Viewemployee from './Component/viewemployee/Viewemployee';
+import AddOffice from './Component/Addoffice/Addoffice';
+import ManageOffice from './Component/Manageoffice/ManageOffice'
 function App() {
   return (
     <div className="App">
@@ -64,6 +67,22 @@ function App() {
             <Route path="/Addemploy" element={
             <ProtectedRoute>
               <AddEmployeeForm />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/viewemploy" element={
+            <ProtectedRoute>
+              <Viewemployee />
+            </ProtectedRoute>
+          } />
+          <Route path="/AddOffice" element={
+            <ProtectedRoute>
+              <AddOffice />
+            </ProtectedRoute>
+          } />
+          <Route path="/ManageOffice" element={
+            <ProtectedRoute>
+              <ManageOffice />
             </ProtectedRoute>
           } />
           

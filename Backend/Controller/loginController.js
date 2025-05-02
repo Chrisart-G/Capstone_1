@@ -51,7 +51,57 @@ exports.Login = (req, res) => {
         }
     });
 };
+// this section for get user login by session to fetch the data 
+exports.GetUserInfo = (req, res) => {
+    // Check if user is logged in
+    if (!req.session.user || !req.session.user.user_id) {
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Not authenticated' 
+        });
+    }
+    
+    // Get user ID from session
+    const userId = req.session.user.user_id;
+    
+    // Fixed query to use first_name and last_name instead of full_name
+    const query = `
+        SELECT l.user_id, l.email, l.role, 
+               CONCAT(e.first_name, ' ', e.last_name) as fullName, 
+               e.position, e.department
+        FROM tb_logins l
+        LEFT JOIN tbl_employeeinformation e ON l.user_id = e.user_id
+        WHERE l.user_id = ?
+    `;
+    
+    db.query(query, [userId], (err, results) => {
+        if (err) {
+            console.error('Error fetching user data:', err);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'An error occurred while fetching user data' 
+            });
+        }
+        
+        if (results.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'User not found' 
+            });
+        }
+        
+        // Return userData instead of user for consistency
+        return res.json({ 
+            success: true, 
+            userData: results[0] 
+        });
+    });
+};
 
+
+
+
+// this section for login and log out session for each 
 exports.CheckSession = (req, res) => {
     if (req.session.user) {
         res.json({ loggedIn: true, user: req.session.user });

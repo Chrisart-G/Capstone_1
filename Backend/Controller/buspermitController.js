@@ -178,3 +178,214 @@ exports.getAllPermits = (req, res) => {
         res.json({ success: true, permits: results });
     });
 };
+
+
+exports.GetAllApplications = (req, res) => {
+    // Check if user is logged in
+    if (!req.session.user || !req.session.user.user_id) {
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Not authenticated' 
+        });
+    }
+    
+    // Sample query - adjust based on your actual database schema
+    // This query gets all applications and counts associated documents
+    const query = `
+        SELECT 
+            a.id, 
+            a.applicant_name as name, 
+            a.application_type as type, 
+            a.submission_date as submitted, 
+            a.status,
+            COUNT(d.id) as documentCount
+        FROM 
+            applications a
+        LEFT JOIN 
+            application_documents d ON a.id = d.application_id
+        GROUP BY 
+            a.id
+        ORDER BY 
+            a.submission_date DESC
+    `;
+    
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching applications:', err);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'An error occurred while fetching applications' 
+            });
+        }
+        
+        return res.json({ 
+            success: true, 
+            applications: results
+        });
+    });
+};
+
+// Get single application by ID
+// Get all applications
+exports.GetAllApplications = (req, res) => {
+    // Check if user is logged in
+    if (!req.session.user || !req.session.user.user_id) {
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Not authenticated' 
+        });
+    }
+    
+    // Updated query to use business_permits table instead of applications
+    const query = `
+        SELECT 
+            a.BusinessP_id as id, 
+            CONCAT(a.first_name, ' ', a.last_name) as name, 
+            a.application_type as type, 
+            a.application_date as submitted, 
+            a.status,
+            COUNT(b.id) as documentCount
+        FROM 
+            business_permits a
+        LEFT JOIN 
+            business_activities b ON a.BusinessP_id = b.permit_id
+        GROUP BY 
+            a.BusinessP_id
+        ORDER BY 
+            a.application_date DESC
+    `;
+    
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching applications:', err);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'An error occurred while fetching applications' 
+            });
+        }
+        
+        return res.json({ 
+            success: true, 
+            applications: results 
+        });
+    });
+};
+
+// Get application by ID
+exports.GetApplicationById = (req, res) => {
+    // Check if user is logged in
+    if (!req.session.user || !req.session.user.user_id) {
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Not authenticated' 
+        });
+    }
+    
+    const applicationId = req.params.id;
+    
+    // Updated query to use business_permits table
+    const query = `
+        SELECT 
+            a.BusinessP_id, 
+            CONCAT(a.first_name, ' ', a.last_name) as name, 
+            a.application_type as type, 
+            a.application_date as submitted, 
+            a.status,
+            a.business_name,
+            a.business_address,
+            a.business_type,
+            a.business_telephone as contact_number
+        FROM 
+            business_permits a
+        WHERE 
+            a.BusinessP_id = ?
+    `;
+    
+    db.query(query, [applicationId], (err, results) => {
+        if (err) {
+            console.error('Error fetching application details:', err);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'An error occurred while fetching application details' 
+            });
+        }
+        
+        if (results.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Application not found' 
+            });
+        }
+        
+        // Get application activities instead of documents
+        const activitiesQuery = `
+            SELECT id, line_of_business, units, capitalization, created_at
+            FROM business_activities
+            WHERE permit_id = ?
+        `;
+        
+        db.query(activitiesQuery, [applicationId], (actErr, activities) => {
+            if (actErr) {
+                console.error('Error fetching business activities:', actErr);
+                return res.status(500).json({ 
+                    success: false, 
+                    message: 'An error occurred while fetching business activities' 
+                });
+            }
+            
+            const applicationData = results[0];
+            applicationData.activities = activities;
+            
+            return res.json({ 
+                success: true, 
+                application: applicationData
+            });
+        });
+    });
+};
+
+// Update application status
+exports.UpdateApplicationStatus = (req, res) => {
+    // Check if user is logged in
+    if (!req.session.user || !req.session.user.user_id) {
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Not authenticated' 
+        });
+    }
+    
+    const { applicationId, newStatus, remarks } = req.body;
+    
+    // Update application status in business_permits table
+    const updateQuery = `
+        UPDATE business_permits
+        SET status = ?, updated_at = NOW()
+        WHERE BusinessP_id = ?
+    `;
+    
+    db.query(
+        updateQuery, 
+        [newStatus, applicationId], 
+        (err, results) => {
+            if (err) {
+                console.error('Error updating application status:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    message: 'An error occurred while updating application status' 
+                });
+            }
+            
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ 
+                    success: false, 
+                    message: 'Application not found' 
+                });
+            }
+            
+            return res.json({ 
+                success: true, 
+                message: 'Application status updated successfully' 
+            });
+        }
+    );
+};

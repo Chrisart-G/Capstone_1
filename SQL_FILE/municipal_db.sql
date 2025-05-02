@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 30, 2025 at 09:11 AM
+-- Generation Time: May 02, 2025 at 04:04 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -44,10 +44,8 @@ CREATE TABLE `business_activities` (
 --
 
 INSERT INTO `business_activities` (`id`, `permit_id`, `line_of_business`, `units`, `capitalization`, `gross_essential`, `gross_non_essential`, `created_at`, `updated_at`) VALUES
-(25, 24, 'Officia doloribus ad', 'Sed ut quaerat anim ', 0.00, 0.00, 0.00, '2025-04-23 07:35:05', '2025-04-23 07:35:05'),
-(26, 25, 'Officiis minima haru', 'Eligendi nostrum rer', 0.00, 0.00, 0.00, '2025-04-23 08:15:12', '2025-04-23 08:15:12'),
-(27, 26, 'Deleniti quibusdam s', 'Quas itaque ipsa do', 0.00, 0.00, 0.00, '2025-04-23 09:16:07', '2025-04-23 09:16:07'),
-(28, 27, 'Voluptatem Aut temp', 'Perferendis velit e', 0.00, 0.00, 0.00, '2025-04-30 06:12:16', '2025-04-30 06:12:16');
+(29, 28, 'Sapiente iusto ut vo', 'Aut enim iure repell', 0.00, 0.00, 0.00, '2025-05-01 10:36:16', '2025-05-01 10:36:16'),
+(30, 29, 'Maxime aperiam est ', 'Sapiente vel ullam q', 0.00, 0.00, 0.00, '2025-05-01 16:05:10', '2025-05-01 16:05:10');
 
 -- --------------------------------------------------------
 
@@ -106,10 +104,8 @@ CREATE TABLE `business_permits` (
 --
 
 INSERT INTO `business_permits` (`BusinessP_id`, `application_type`, `payment_mode`, `application_date`, `tin_no`, `registration_no`, `registration_date`, `business_type`, `amendment_from`, `amendment_to`, `tax_incentive`, `tax_incentive_entity`, `last_name`, `first_name`, `middle_name`, `business_name`, `trade_name`, `business_address`, `business_postal_code`, `business_email`, `business_telephone`, `business_mobile`, `owner_address`, `owner_postal_code`, `owner_email`, `owner_telephone`, `owner_mobile`, `emergency_contact`, `emergency_phone`, `emergency_email`, `business_area`, `male_employees`, `female_employees`, `local_employees`, `lessor_name`, `lessor_address`, `lessor_phone`, `lessor_email`, `monthly_rental`, `status`, `created_at`, `updated_at`, `user_id`) VALUES
-(24, 'new', 'semi-annually', '1970-12-11', 'In excepteur repelle', 'Beatae tenetur aut p', '2002-03-29', 'partnership', 'single', 'corporation', 'no', '', 'Arnold', 'Claire', 'Ivor Cobb', 'Ria Wilcox', 'Maggy Weaver', 'Ex alias sit at ali', 'Molestiae ', 'nemeqy@mailinator.com', '+1 (421) 138-4357', 'Praesentium qui enim', 'Est fugiat sit se', 'Dolore ame', 'bewigapuno@mailinator.com', '+1 (395) 832-4824', 'Sint dolor placeat ', 'Isabelle Huff', '+1 (595) 147-3135', 'himonu@mailinator.com', 'Commodi labore quia ', 18, 82, 6, 'Abigail Potter', 'Aut sed laboriosam ', '+1 (885) 698-7854', 'raci@mailinator.com', 4.00, 'pending', '2025-04-23 07:35:05', '2025-04-23 07:35:05', 1),
-(25, 'new', 'annually', '2021-08-28', 'Ipsum in Nam accusan', 'Asperiores eum eum q', '1984-07-13', 'corporation', 'corporation', 'partnership', 'no', '', 'Francis', 'Melyssa', 'Lamar Gould', 'Nicholas Wooten', 'Orli Lewis', 'Consequuntur eiusmod', 'Qui incidi', 'fyradeduga@mailinator.com', '+1 (233) 611-5656', 'Non ipsum qui quam ', 'Velit soluta laborum', 'Nisi nulla', 'zazatyta@mailinator.com', '+1 (692) 523-9954', 'Sint dolores ullamc', 'Cody Barrera', '+1 (344) 182-9269', 'saneb@mailinator.com', 'Ut veritatis iste pe', 41, 61, 71, 'Zeus Taylor', 'Dolores et dignissim', '+1 (611) 831-1614', 'hajubawotu@mailinator.com', 2.00, 'pending', '2025-04-23 08:15:12', '2025-04-23 08:15:12', 1),
-(26, 'renewal', 'annually', '2025-03-04', 'Vel voluptatibus off', 'Quia dolores non in ', '2005-04-25', 'partnership', 'corporation', 'partnership', 'no', '', 'Love', 'Preston', 'Nolan Washington', 'Lana Becker', 'Amaya Joseph', 'Rerum suscipit nesci', 'Et ipsum p', 'topomydive@mailinator.com', '+1 (769) 637-5776', 'Corporis officia acc', 'Ut et cum mollit rep', 'Molestiae ', 'puqov@mailinator.com', '+1 (692) 671-7256', 'Odit nostrud animi ', 'Colt Santos', '+1 (213) 903-9482', 'wymiki@mailinator.com', 'Consequuntur molliti', 13, 39, 96, 'Melinda Lowery', 'Ut qui placeat labo', '+1 (945) 239-5308', 'letojegagi@mailinator.com', 3.00, 'pending', '2025-04-23 09:16:07', '2025-04-23 09:16:07', 1),
-(27, 'new', 'annually', '1983-06-15', '12312321', 'dwaadawdadawdwadaw', '1992-07-29', 'partnership', 'corporation', 'single', 'yes', '', 'Flynn', 'Brenna', 'Lareina Schwartz', 'Macy Albert', 'Velma Atkinson', 'Ea hic ut id quis d', 'Commodi se', 'qedu@mailinator.com', '+1 (485) 907-6578', 'Duis voluptatibus il', 'Commodi rerum corrup', 'Non assume', 'guveqah@mailinator.com', '+1 (769) 585-2674', 'A est tempore accu', 'Thane Sharpe', '+1 (221) 447-8122', 'puwejaweka@mailinator.com', 'Blanditiis quibusdam', 84, 82, 61, 'Raja Reeves', 'Atque asperiores ull', '+1 (499) 845-3064', 'vuhaj@mailinator.com', 4.00, 'pending', '2025-04-30 06:12:16', '2025-04-30 06:12:16', 14);
+(28, 'renewal', 'semi-annually', '1982-11-14', 'Esse duis in in tem', 'Voluptate id incidid', '1979-01-09', 'corporation', 'corporation', 'single', 'no', '', 'Stanley', 'Nathaniel', 'Benedict Hoffman', 'Patience Graham', 'Garrison Willis', 'Soluta voluptatem ut', 'Est nostru', 'symic@mailinator.com', '+1 (468) 962-7219', 'Cupiditate quos magn', 'Harum corrupti ipsu', 'Nisi quasi', 'kuwa@mailinator.com', '+1 (133) 386-8659', 'Animi nostrud unde ', 'Adara Weiss', '+1 (714) 511-3977', 'necyvaquz@mailinator.com', 'Eum quo quas ipsum v', 72, 28, 16, 'Yasir Jones', 'Quis ducimus praese', '+1 (115) 353-8343', 'vaficugiri@mailinator.com', 12.00, 'pending', '2025-05-01 10:36:16', '2025-05-01 10:36:16', 1),
+(29, 'new', 'quarterly', '1985-05-31', 'Modi culpa aliquam ', 'Ut eligendi quia qui', '1991-11-23', 'cooperative', 'corporation', 'partnership', 'no', '', 'perez', 'jerryl', 'wala', 'Iris Wolf', 'Ivy Soto', 'Ut fugit itaque dol', 'Veniam cor', 'zufasume@mailinator.com', '+1 (474) 507-5453', 'Dolorem enim consect', 'Neque dolor sit exp', 'Excepteur ', 'pubuqanuj@mailinator.com', '+1 (901) 444-9984', 'Nesciunt eaque inve', 'Eden Rosa', '+1 (901) 747-9376', 'cuwyke@mailinator.com', 'Deleniti qui quasi a', 72, 13, 58, 'Raya Rowe', 'Aut incidunt esse ', '+1 (705) 186-5906', 'tyliz@mailinator.com', 7.00, 'pending', '2025-05-01 16:05:10', '2025-05-01 16:05:10', 2);
 
 -- --------------------------------------------------------
 
@@ -134,9 +130,52 @@ CREATE TABLE `tbl_employeeinformation` (
 --
 
 INSERT INTO `tbl_employeeinformation` (`employee_id`, `user_id`, `first_name`, `last_name`, `phone`, `position`, `department`, `start_date`, `created_at`) VALUES
-(7, 12, 'Allegra', 'Underwood', '+1 (675) 229-2259', 'Incididunt dolorem e', 'Customer Service', '1998-08-17', '2025-04-23 03:51:20'),
 (8, 13, 'dave', 'chester', '+1 (621) 351-7828', 'tambay', 'HR', '2025-04-17', '2025-04-23 03:59:09'),
-(9, 15, 'dave', 'chester', '+1 (447) 314-3874', 'head', 'HR', '2025-04-23', '2025-04-30 06:36:34');
+(10, 16, 'jerryl', 'perez', '+1 (447) 314-3874', 'IT head', 'IT', '2025-05-02', '2025-05-01 16:01:55');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_employee_offices`
+--
+
+CREATE TABLE `tbl_employee_offices` (
+  `assignment_id` int(11) NOT NULL,
+  `employee_id` int(11) NOT NULL,
+  `office_id` int(11) NOT NULL,
+  `assignment_date` date NOT NULL,
+  `is_primary` tinyint(1) DEFAULT 0,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_offices`
+--
+
+CREATE TABLE `tbl_offices` (
+  `office_id` int(11) NOT NULL,
+  `office_name` varchar(100) NOT NULL,
+  `office_code` varchar(20) NOT NULL,
+  `office_description` text DEFAULT NULL,
+  `office_location` varchar(255) DEFAULT NULL,
+  `phone_number` varchar(20) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `status` enum('active','inactive','suspended') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_offices`
+--
+
+INSERT INTO `tbl_offices` (`office_id`, `office_name`, `office_code`, `office_description`, `office_location`, `phone_number`, `email`, `status`, `created_at`, `updated_at`) VALUES
+(6, 'Shafira Mays', 'Laboriosam aut volu', 'Nihil optio qui ani', 'At quia alias quas c', '+1 (282) 273-1031', 'befysafaha@mailinator.com', 'active', '2025-05-01 20:16:21', '2025-05-01 20:16:21'),
+(7, 'Idona Kemp', 'Ullam est sed aliqu', 'Autem et tempore il', 'Cumque iure aut sunt', '+1 (756) 398-8827', 'jivicij@mailinator.com', 'active', '2025-05-01 20:17:27', '2025-05-01 20:17:27');
 
 -- --------------------------------------------------------
 
@@ -162,10 +201,9 @@ INSERT INTO `tb_logins` (`user_id`, `email`, `password`, `role`, `created_at`) V
 (3, 'newuser@gmail.com', '$2b$10$XbYTOIZgb0toFNmnOOHDbO6/y3Dki21Vw1ewCA3uSl.6RtzO1p86O', 'citizen', '2025-04-21 07:09:12'),
 (4, 'chongo@gmail.com', '$2b$10$d8PY3Ur.Y0tLuWWyvmOaKuMpP5vN3egNQ5dBAcODr9gCVT/i3lpwS', 'citizen', '2025-04-21 11:26:09'),
 (5, 'admin@gmail.com', '$2b$10$eUG1ueO5DiTrewcQjYqLF.0lfQXR9IczTSXVPoAbldwzn9OxOPrcm', 'admin', '2025-04-22 08:08:23'),
-(12, 'posu@mailinator.com', '$2b$10$6MxscDrHgvpytDVRvktjNe0Wpm2L8CjeOctT.t/S1E7lq/.e8GfzO', 'employee', '2025-04-23 03:51:20'),
 (13, 'employee@gmail.com', '$2b$10$crg/YIEaYQ68Ydg.7fKo4.3qCvwPu7O0VczvwyObQp27akCBM3GJy', 'employee', '2025-04-23 03:59:09'),
 (14, 'user123@gmail.com', '$2b$10$8jQEG9ceaPvcSnXjYO994.KlqQMQMLr9JZgz57/V7mP9tnUW6xnz.', 'citizen', '2025-04-30 06:11:45'),
-(15, 'newempolyee@gmail.com', '$2b$10$/b5HQ1gkktLem0FRIAZGVudIFWgw5XDRt02qGGG5Asw0kxXfKIMa2', 'employee', '2025-04-30 06:36:34');
+(16, 'newempolyee@gmail.com', '$2b$10$t6XTP3Onf.NW8f/9O9TKtukMz0Ujb0T.ejeyfj4eBBFRHzavwElTm', 'employee', '2025-05-01 16:01:55');
 
 --
 -- Indexes for dumped tables
@@ -193,6 +231,21 @@ ALTER TABLE `tbl_employeeinformation`
   ADD KEY `user_id` (`user_id`);
 
 --
+-- Indexes for table `tbl_employee_offices`
+--
+ALTER TABLE `tbl_employee_offices`
+  ADD PRIMARY KEY (`assignment_id`),
+  ADD UNIQUE KEY `unique_employee_office` (`employee_id`,`office_id`),
+  ADD KEY `office_id` (`office_id`);
+
+--
+-- Indexes for table `tbl_offices`
+--
+ALTER TABLE `tbl_offices`
+  ADD PRIMARY KEY (`office_id`),
+  ADD UNIQUE KEY `office_code` (`office_code`);
+
+--
 -- Indexes for table `tb_logins`
 --
 ALTER TABLE `tb_logins`
@@ -207,25 +260,37 @@ ALTER TABLE `tb_logins`
 -- AUTO_INCREMENT for table `business_activities`
 --
 ALTER TABLE `business_activities`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- AUTO_INCREMENT for table `business_permits`
 --
 ALTER TABLE `business_permits`
-  MODIFY `BusinessP_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `BusinessP_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT for table `tbl_employeeinformation`
 --
 ALTER TABLE `tbl_employeeinformation`
-  MODIFY `employee_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `employee_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
+-- AUTO_INCREMENT for table `tbl_employee_offices`
+--
+ALTER TABLE `tbl_employee_offices`
+  MODIFY `assignment_id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `tbl_offices`
+--
+ALTER TABLE `tbl_offices`
+  MODIFY `office_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `tb_logins`
 --
 ALTER TABLE `tb_logins`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- Constraints for dumped tables
@@ -248,6 +313,13 @@ ALTER TABLE `business_permits`
 --
 ALTER TABLE `tbl_employeeinformation`
   ADD CONSTRAINT `tbl_employeeinformation_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `tb_logins` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_employee_offices`
+--
+ALTER TABLE `tbl_employee_offices`
+  ADD CONSTRAINT `tbl_employee_offices_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `tbl_offices` (`office_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `tbl_employee_offices_ibfk_2` FOREIGN KEY (`employee_id`) REFERENCES `tbl_employeeinformation` (`employee_id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

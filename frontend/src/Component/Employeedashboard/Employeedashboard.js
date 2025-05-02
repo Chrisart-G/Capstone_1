@@ -1,41 +1,92 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Search, Bell, User, FileText, CheckSquare,
-  Clock, Archive, Settings, LogOut
+  Search, Bell, User, FileText
 } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import Sidebar from '../Header/Sidebar';
 
 const API_BASE_URL = "http://localhost:8081";
 
 export default function EmployeeDashboard() {
   const [selectedTab, setSelectedTab] = useState('pending');
   const [expandedApplication, setExpandedApplication] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [applications, setApplications] = useState({
+    pending: [],
+    inReview: [],
+    approved: [],
+    rejected: []
+  });
   const navigate = useNavigate();
-
-  const applications = {
-    pending: [
-      { id: 1, name: 'John Smith', type: 'Loan Application', submitted: '2025-04-15', documents: 5, status: 'pending' },
-      { id: 2, name: 'Sarah Johnson', type: 'Insurance Claim', submitted: '2025-04-14', documents: 3, status: 'pending' },
-      { id: 3, name: 'Michael Brown', type: 'Mortgage Request', submitted: '2025-04-12', documents: 7, status: 'pending' },
-    ],
-    inReview: [
-      { id: 4, name: 'Emma Davis', type: 'Credit Application', submitted: '2025-04-10', documents: 4, status: 'in-review' },
-      { id: 5, name: 'Robert Wilson', type: 'Loan Application', submitted: '2025-04-09', documents: 6, status: 'in-review' },
-    ],
-    approved: [
-      { id: 6, name: 'Lisa Taylor', type: 'Insurance Claim', submitted: '2025-04-08', documents: 3, status: 'approved' },
-      { id: 7, name: 'Thomas Garcia', type: 'Mortgage Request', submitted: '2025-04-05', documents: 8, status: 'approved' },
-    ],
-    rejected: [
-      { id: 8, name: 'Daniel Lee', type: 'Credit Application', submitted: '2025-04-03', documents: 2, status: 'rejected' },
-    ],
-  };
 
   const toggleExpandApplication = (id) => {
     setExpandedApplication(prev => (prev === id ? null : id));
+  };
+
+  // Fetch user data from database
+  const fetchUserData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/auth/userinfo`, {
+        withCredentials: true
+      });
+      
+      // Debug response
+      console.log("User data API response:", response.data);
+      
+      if (response.data.success) {
+        // Store the userData rather than user property
+        setUserData(response.data.userData);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Fetch applications data
+  const fetchApplications = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/applications`, {
+        withCredentials: true
+      });
+      
+      if (response.data.success) {
+        // Organize applications by status
+        const organizedData = {
+          pending: [],
+          inReview: [],
+          approved: [],
+          rejected: []
+        };
+        
+        response.data.applications.forEach(app => {
+          switch(app.status) {
+            case 'pending':
+              organizedData.pending.push(app);
+              break;
+            case 'in-review':
+              organizedData.inReview.push(app);
+              break;
+            case 'approved':
+              organizedData.approved.push(app);
+              break;
+            case 'rejected':
+              organizedData.rejected.push(app);
+              break;
+            default:
+              organizedData.pending.push(app);
+          }
+        });
+        
+        setApplications(organizedData);
+      }
+    } catch (error) {
+      console.error("Error fetching applications:", error);
+    }
   };
 
   const checkSession = async () => {
@@ -46,6 +97,8 @@ export default function EmployeeDashboard() {
 
       if (response.data.loggedIn) {
         setIsLoggedIn(true);
+        await fetchUserData(); // Get user data after confirming login
+        await fetchApplications(); // Get applications data
       } else {
         navigate('/');
       }
@@ -67,6 +120,10 @@ export default function EmployeeDashboard() {
       setIsLoading(false);
     }
   };
+  
+  const handleNavigate = (tab) => {
+    setSelectedTab(tab);
+  };
 
   useEffect(() => {
     checkSession();
@@ -74,61 +131,13 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div className="w-64 bg-blue-600 text-white flex flex-col justify-between">
-        <div>
-          <div className="p-4 text-center">
-            <img src="img/logo.png" alt="Logo" className="w-20 h-20 mx-auto" />
-            <h1 className="text-2xl font-bold mt-2">Employee Dashboard</h1>
-            <p className="text-indigo-200 text-sm">Hinigaran Municipality</p>
-          </div>
-          <nav className="mt-6">
-            <div className="px-4 py-3 bg-indigo-900 flex items-center">
-              <FileText size={20} className="mr-3" />
-              <span className="font-medium">Applications</span>
-            </div>
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <CheckSquare size={20} className="mr-3" />
-              <span>Verifications</span>
-            </div>
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <Clock size={20} className="mr-3" />
-              <span>History</span>
-            </div>
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <Archive size={20} className="mr-3" />
-              <span>Archives</span>
-            </div>
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <Settings size={20} className="mr-3" />
-              <span>Settings</span>
-            </div>
-          </nav>
-        </div>
-
-        {/* Logout */}
-        <div className="p-4 border-t border-indigo-500">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
-              <User size={16} />
-            </div>
-            <div className="ml-3">
-              <p className="font-medium">Alex Morgan</p>
-              <p className="text-xs text-indigo-300">Senior Approver</p>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center cursor-pointer hover:text-indigo-200">
-            <LogOut size={18} className="mr-2" />
-            <button
-              onClick={handleLogout}
-              disabled={isLoading}
-              className="hover:text-indigo-200"
-            >
-              Log Out
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Sidebar Component */}
+      <Sidebar 
+        userData={userData} 
+        onLogout={handleLogout} 
+        isLoading={isLoading}
+        onNavigate={handleNavigate}
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -184,36 +193,42 @@ export default function EmployeeDashboard() {
         {/* Application Cards */}
         <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
           <div className="grid grid-cols-1 gap-4">
-            {applications[selectedTab].map((application) => (
-              <div key={application.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                <div
-                  className="p-4 cursor-pointer flex items-center justify-between"
-                  onClick={() => toggleExpandApplication(application.id)}
-                >
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center">
-                      <FileText size={20} />
+            {applications[selectedTab].length > 0 ? (
+              applications[selectedTab].map((application) => (
+                <div key={application.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div
+                    className="p-4 cursor-pointer flex items-center justify-between"
+                    onClick={() => toggleExpandApplication(application.id)}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center">
+                        <FileText size={20} />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="font-medium">{application.name}</h3>
+                        <p className="text-sm text-gray-500">
+                          {application.type} • Submitted on {new Date(application.submitted).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    <div className="ml-4">
-                      <h3 className="font-medium">{application.name}</h3>
-                      <p className="text-sm text-gray-500">
-                        {application.type} • Submitted on {application.submitted}
-                      </p>
-                    </div>
+                    <span className="text-sm text-gray-500">
+                      {application.documentCount || 0} Activities
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-500">
-                    {application.documents} Documents
-                  </span>
+                  {expandedApplication === application.id && (
+                    <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600">
+                      <p><strong>Type:</strong> {application.type}</p>
+                      <p><strong>Submitted:</strong> {new Date(application.submitted).toLocaleDateString()}</p>
+                      <p><strong>Status:</strong> {application.status}</p>
+                    </div>
+                  )}
                 </div>
-                {expandedApplication === application.id && (
-                  <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600">
-                    <p><strong>Type:</strong> {application.type}</p>
-                    <p><strong>Submitted:</strong> {application.submitted}</p>
-                    <p><strong>Status:</strong> {application.status}</p>
-                  </div>
-                )}
+              ))
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-500">
+                No applications found in this category.
               </div>
-            ))}
+            )}
           </div>
         </main>
       </div>
