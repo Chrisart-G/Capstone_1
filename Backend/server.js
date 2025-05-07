@@ -1,33 +1,38 @@
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
-const db = require('./db/dbconnect')
+const db = require('./db/dbconnect');
 const Routes = require('./routes/Routes');
 const authRoutes = require('./routes/authRoutes');
+const fileUpload = require('express-fileupload');
 
-const app = express();
+const app = express(); // ✅ Move this BEFORE using `app`
 
-// Fix CORS to properly allow requests from your frontend
+// Middleware to handle file uploads
+app.use(fileUpload());
+
+// CORS setup
 app.use(cors({
-  origin: 'http://localhost:3000', // Make sure this exactly matches your frontend origin
+  origin: 'http://localhost:3000',
   credentials: true
 }));
 
-app.use(express.json()); // Body parser
+// Parse JSON bodies
+app.use(express.json());
 
-// Configure session BEFORE routes
+// Session setup
 app.use(session({
-  secret: 'your-secret-key', // replace with environment variable in production
+  secret: 'your-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // Set to true if using HTTPS
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    secure: false,
+    maxAge: 24 * 60 * 60 * 1000,
     httpOnly: true
   }
 }));
 
-// Add a debug endpoint to verify session
+// Debug session endpoint
 app.get('/api/debug-session', (req, res) => {
   console.log("Session debug:", req.session);
   res.json({
@@ -37,16 +42,15 @@ app.get('/api/debug-session', (req, res) => {
   });
 });
 
-// Session check
+// Check session endpoint
 app.get('/api/check-session', (req, res) => {
-  // console.log("Checking session:", req.session);
   if (req.session && req.session.user) {
     return res.status(200).json({ loggedIn: true, user: req.session.user });
   }
   return res.status(200).json({ loggedIn: false });
 });
 
-// Logout
+// Logout route
 app.post('/api/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
@@ -57,9 +61,11 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api', Routes);
 
+// Start the server
 app.listen(8081, () => {
   console.log("Server running on port 8081");
 });

@@ -42,6 +42,6 @@ router.delete('/offices/:id', officeManagementController.deleteOffice);
 router.post('/offices/assign', officeManagementController.assignEmployeesToOffice);
 router.put('/offices/unassign/:assignment_id', officeManagementController.removeEmployeeFromOffice);
 router.get('/offices/available-employees', officeManagementController.getUnassignedEmployees);
-
+router.get('/offices/:id/employees', officeManagementController.getOfficeEmployees);
 module.exports = router;
     

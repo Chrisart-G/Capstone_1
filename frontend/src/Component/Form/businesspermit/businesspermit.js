@@ -4,6 +4,7 @@ import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
 import axios from 'axios';
 
+
 export default function BusinessPermitForm() {
   const [formData, setFormData] = useState({
     applicationType: 'new',
@@ -92,24 +93,48 @@ export default function BusinessPermitForm() {
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
-
+  
     try {
-      const response = await axios.post('http://localhost:8081/api/BusinessPermit', formData , { withCredentials: true });
-      
+      const form = new FormData();
+      form.append("data", JSON.stringify(formData)); // All text data
+  
+      // Attach 7 document files based on your upload IDs
+      const fileKeys = [
+        "filled_up_form",
+        "sec_dti_cda_cert",
+        "local_sketch",
+        "sworn_capital",
+        "tax_clearance",
+        "brgy_clearance",
+        "cedula"
+      ];
+  
+      fileKeys.forEach((key, idx) => {
+        const fileInput = document.getElementById(`upload-${idx}`);
+        if (fileInput?.files[0]) {
+          form.append(key, fileInput.files[0]);
+        }
+      });
+  
+      const response = await axios.post("http://localhost:8081/api/BusinessPermit", form, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+  
       if (response.data.success) {
         setSubmitSuccess(true);
         setIsModalOpen(true);
       } else {
-        setSubmitError('Failed to submit application');
+        setSubmitError("Failed to submit application");
       }
     } catch (error) {
-      console.error('Error submitting form:', error);
-      setSubmitError(error.response?.data?.message || 'An error occurred while submitting your application');
+      console.error("Error submitting form:", error);
+      setSubmitError(error.response?.data?.message || "An error occurred while submitting your application");
     } finally {
       setIsSubmitting(false);
     }
   };
-
+  
 
   const renderFormStatus = () => {
     if (submitSuccess && isModalOpen) {
@@ -829,6 +854,7 @@ export default function BusinessPermitForm() {
 
           <div className="mt-4">
             <button
+            
               type="button"
               onClick={addBusinessActivity}
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
@@ -837,6 +863,51 @@ export default function BusinessPermitForm() {
             </button>
           </div>
         </section>
+{/* Section 4: Document Uploads */}
+<section className="mb-8">
+  <h2 className="text-xl font-bold text-gray-700 bg-gray-100 p-3 rounded mb-4">4. REQUIRED DOCUMENTS</h2>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {[
+      'Filled-up Unified Forms',
+      'SEC/DTI/CDA Certificate',
+      'Local Sketch of the New Business',
+      'Sworn Statement of Capital',
+      'Tax Clearance Showing That the Operator Has Paid All Tax Obligation in the Municipality',
+      'Brgy. Clearance Business',
+      'Cedula'
+    ].map((label, idx) => (
+      <div key={idx} className="border p-4 rounded-md bg-gray-50">
+        <label className="block font-medium text-gray-700 mb-2">{label}</label>
+        <div
+          className="border-dashed border-2 border-gray-300 p-4 text-center rounded cursor-pointer hover:border-blue-500"
+          onClick={() => document.getElementById(`upload-${idx}`).click()}
+        >
+          <p className="text-sm text-gray-500">Drag & drop file here or click to upload</p>
+        </div>
+        <input
+          type="file"
+          id={`upload-${idx}`}
+          name={`document-${idx}`}
+          accept=".pdf,.jpg,.jpeg,.png"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = () => {
+                document.getElementById(`preview-${idx}`).src = reader.result;
+              };
+              reader.readAsDataURL(file);
+            }
+          }}
+        />
+        <img id={`preview-${idx}`} alt="Preview" className="mt-2 max-h-40 mx-auto" />
+      </div>
+    ))}
+  </div>
+</section>
+
+
 
         <div className="flex justify-between mt-8">
           <button

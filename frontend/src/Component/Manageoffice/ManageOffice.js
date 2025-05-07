@@ -92,8 +92,7 @@ export default function ManageOffice() {
         console.error("Error parsing user data", e);
       }
     }
-    // IMPORTANT: Remove the forced redirect to login if no user is found
-    // This was causing the issue with accessing the page
+
   }, []);
   
   const handleLogout = async () => {
@@ -144,16 +143,39 @@ export default function ManageOffice() {
   const handleShowEmployees = async (office) => {
     setSelectedOffice(office);
     try {
+      // Using office_id as the parameter for the API request
       const response = await axios.get(
         `${API_BASE_URL}/api/offices/${office.office_id}/employees`,
         { withCredentials: true }
       );
-      setOfficeEmployees(response.data);
+      
+      // Check if response is an array or has the expected structure
+      if (Array.isArray(response.data)) {
+        setOfficeEmployees(response.data);
+      } else if (response.data && Array.isArray(response.data.employees)) {
+        // Handle case where data might be nested in an "employees" property
+        setOfficeEmployees(response.data.employees);
+      } else if (response.data && response.data.success === false) {
+        throw new Error(response.data.message || "Error loading employees");
+      } else {
+        console.warn("Unexpected employee data format:", response.data);
+        setOfficeEmployees([]);
+      }
+      
       setShowEmployeesModal(true);
     } catch (error) {
       console.error("Error fetching office employees:", error);
+      
+      // Show detailed error message
+      let errorMessage = "Failed to load employee data. Please try again.";
+      if (error.response) {
+        errorMessage = `Server error: ${error.response.status} - ${error.response.data?.message || errorMessage}`;
+      } else if (error.request) {
+        errorMessage = "No response from server. Please check your connection.";
+      }
+      
       setActionError({
-        message: "Failed to load employee data. Please try again.",
+        message: errorMessage,
         show: true
       });
     }

@@ -83,7 +83,7 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
                 </Link>
                 <Link to="/ManageOffice" className="block">
                   <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
-                    Manage Locations
+                    Manage Office
                   </div>
                 </Link>
               </div>
