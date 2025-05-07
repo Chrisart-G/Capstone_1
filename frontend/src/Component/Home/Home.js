@@ -4,6 +4,7 @@ import {
   FileText, 
   Shield, 
   Clock, 
+  Megaphone
 } from 'lucide-react';
 import Uheader from '../Header/User_header';
 import UFooter from '../Footer/User_Footer';
@@ -25,7 +26,7 @@ const MunicipalLandingPage = () => {
         
         setIsAuthenticated(response.data.loggedIn);
         
-        // If not logged in, redirect to login page
+
         if (!response.data.loggedIn) {
           navigate('/');
         }
@@ -47,11 +48,11 @@ const MunicipalLandingPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header (Navbar) */}
+
       <Uheader />
 
-      {/* Hero Section with Video Background */}
-      <div className="relative w-full h-screen flex items-center justify-center text-center text-white">
+
+      <div className="relative w-full h-96 md:h-[70vh] flex items-center justify-center text-center text-white">
         <video
           className="absolute top-0 left-0 w-full h-full object-cover"
           autoPlay
@@ -77,7 +78,32 @@ const MunicipalLandingPage = () => {
         </div>
       </div>
 
-      {/* Features Section */}
+
+      <div className="bg-blue-50 py-8 border-t border-b border-blue-100">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col items-center justify-center">
+
+            <div className="flex items-center mb-6 text-center">
+              <Megaphone className="text-black mr-3" size={28} />
+              <h2 className="text-2xl font-bold text-black">Municipality Announcements</h2>
+            </div>
+            
+
+            <div className="bg-white shadow-md rounded-lg p-4 w-full md:w-3/4 lg:w-2/3 border-l-4">
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800">Document Processing Schedule</h3>
+                <span className="text-sm text-gray-700">Posted: May 1, 2025</span>
+                <p className="mt-2 text-gray-700">The Municipal Office processes online document requests from 7:00 AM to 5:00 PM, Monday to Friday. While our system accepts submissions 24/7, requests submitted after office hours will be processed the following business day.</p>
+              </div>
+              <div>
+                
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
       <main className="container mx-auto px-4 py-12 md:py-16 text-center">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           <div className="bg-white p-4 md:p-6 rounded-lg shadow-md text-center">
@@ -98,7 +124,7 @@ const MunicipalLandingPage = () => {
         </div>
       </main>
 
-      {/* Footer */}
+
       <UFooter />
     </div>
   );
