@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, 
   FileText, 
@@ -18,15 +18,38 @@ function Uheader() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [userEmail, setUserEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const mobileMenuRef = useRef(null);
+    const profileDropdownRef = useRef(null);
     const navigate = useNavigate();
     
+    // Toggle mobile menu
     const toggleMobileMenu = () => {
       setMobileMenuOpen(!mobileMenuOpen);
+      // Close profile dropdown if open
+      if (profileDropdownOpen) setProfileDropdownOpen(false);
     };
     
+    // Toggle profile dropdown
     const toggleProfileDropdown = () => {
       setProfileDropdownOpen(!profileDropdownOpen);
     };
+
+    // Close menus when clicking outside
+    useEffect(() => {
+      function handleClickOutside(event) {
+        if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+          setMobileMenuOpen(false);
+        }
+        if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+          setProfileDropdownOpen(false);
+        }
+      }
+      
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }, []);
 
     useEffect(() => {
       // Check session status when component mounts
@@ -73,14 +96,15 @@ function Uheader() {
 
     
   return (
-    <div className="header">
+    <div className="header relative z-50">
         <header className="bg-blue-500 text-white p-4 shadow-md">
         <div className="container mx-auto flex justify-between items-center">
+          {/* Logo and Site Name */}
           <div className="flex items-center space-x-3">
             <img 
               src="/img/logo.png" 
               alt="Municipal Seal" 
-              className="h-20 rounded-full"
+              className="h-12 sm:h-16 md:h-20 rounded-full"
             />
             <span className="text-lg md:text-xl font-bold">Municipal Services</span>
           </div>
@@ -98,7 +122,7 @@ function Uheader() {
             </a>
             
             {/* Profile Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={profileDropdownRef}>
               <button 
                 onClick={toggleProfileDropdown}
                 className="flex items-center hover:text-blue-200 focus:outline-none"
@@ -129,48 +153,51 @@ function Uheader() {
             </div>
           </nav>
 
-          {/* Mobile Menu Toggle */}
+          {/* Mobile Menu Toggle Button */}
           <div className="md:hidden">
             <button 
               onClick={toggleMobileMenu} 
-              className="focus:outline-none"
+              className="focus:outline-none p-2"
+              aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
-
-        {/* Mobile Navigation Overlay */}
-        {mobileMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 w-full bg-blue-700 z-50">
-            <nav className="flex flex-col items-center space-y-4 p-4">
-              <a href="/Chome" className="hover:text-blue-200 flex items-center">
-                <Home className="mr-2" size={20} /> Home
-              </a>
-              <a href="/Permits" className="hover:text-blue-200 flex items-center">
-                <FileText className="mr-2" size={20} /> Request Document
-              </a>
-              <a href="#" className="hover:text-blue-200 flex items-center">
-                <Clock className="mr-2" size={20} /> Track Status
-              </a>
-              <a href="/profile" className="hover:text-blue-200 flex items-center">
-                <User className="mr-2" size={20} /> My Profile
-              </a>
-              <a href="/settings" className="hover:text-blue-200 flex items-center">
-                Settings
-              </a>
-              <button
-                onClick={handleLogout}
-                disabled={isLoading}
-                className="hover:text-blue-200 flex items-center"
-              >
-                Log Out
-              </button>
-            </nav>
-          </div>
-        )}
       </header>
-   
+
+      {/* Mobile Navigation Menu - Outside the header for better positioning */}
+      {mobileMenuOpen && (
+        <div 
+          ref={mobileMenuRef}
+          className="fixed top-[88px] left-0 w-full h-auto bg-blue-600 shadow-lg z-40 transform transition-transform duration-300 ease-in-out"
+        >
+          <nav className="flex flex-col items-start py-4">
+            <a href="/Chome" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
+              <Home className="mr-3" size={20} /> Home
+            </a>
+            <a href="/Permits" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
+              <FileText className="mr-3" size={20} /> Request Document
+            </a>
+            <a href="Docutracker" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
+              <Clock className="mr-3" size={20} /> Track Status
+            </a>
+            <a href="/profile" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
+              <User className="mr-3" size={20} /> My Profile
+            </a>
+            <a href="/settings" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
+              Settings
+            </a>
+            <button
+              onClick={handleLogout}
+              disabled={isLoading}
+              className="w-full text-left px-6 py-3 hover:bg-blue-700 flex items-center"
+            >
+              {isLoading ? "Logging out..." : "Log Out"}
+            </button>
+          </nav>
+        </div>
+      )}
     </div>
   );
 }

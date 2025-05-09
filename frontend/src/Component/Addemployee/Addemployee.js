@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import AdminSidebar from '../Header/AdminSidebar'; // Adjust path as needed
+import AdminSidebar from '../Header/Adminsidebar'; // Adjust path as needed
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
