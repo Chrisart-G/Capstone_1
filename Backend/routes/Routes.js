@@ -8,6 +8,7 @@ const BuspermitController = require('../Controller/buspermitController');
 const addemployeeController = require('../Controller/addemployeeController');
 const employeeController = require('../controller/viewemployeeController');
 const officeManagementController = require('../Controller/officeManagementController');
+const applicationController = require('../Controller/applicationController'); 
 
 
 
@@ -43,5 +44,7 @@ router.post('/offices/assign', officeManagementController.assignEmployeesToOffic
 router.put('/offices/unassign/:assignment_id', officeManagementController.removeEmployeeFromOffice);
 router.get('/offices/available-employees', officeManagementController.getUnassignedEmployees);
 router.get('/offices/:id/employees', officeManagementController.getOfficeEmployees);
+//newly added for fetch application to accept 
+router.put('/applications/:id/accept', applicationController.acceptApplication);
 module.exports = router;
     

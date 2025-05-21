@@ -47,7 +47,7 @@ const saveFile = (file) => {
         db.beginTransaction((err) => {
           if (err) return res.status(500).json({ message: "DB error", error: err });
     
-          // Fix 1: Use correct field names according to database schema
+          
           const sql = `INSERT INTO business_permits (
               application_type, payment_mode, application_date, tin_no, registration_no, registration_date,
               business_type, amendment_from, amendment_to, tax_incentive, tax_incentive_entity,
@@ -62,7 +62,6 @@ const saveFile = (file) => {
               user_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
             
-          // Fix 2: Ensure there are 46 question marks for 46 values
           const values = [
             data.applicationType, data.paymentMode, data.applicationDate, data.tinNo, data.registrationNo, data.registrationDate,
             data.businessType, data.amendmentFrom, data.amendmentTo, data.taxIncentive, data.taxIncentiveEntity,
@@ -257,76 +256,62 @@ exports.GetAllApplications = (req, res) => {
 
 // Get application by ID
 exports.GetApplicationById = (req, res) => {
-    // Check if user is logged in
-    if (!req.session.user || !req.session.user.user_id) {
-        return res.status(401).json({ 
-            success: false, 
-            message: 'Not authenticated' 
-        });
-    }
-    
-    const applicationId = req.params.id;
-    
-    // Updated query to use business_permits table
-    const query = `
-        SELECT 
-            a.BusinessP_id, 
-            CONCAT(a.first_name, ' ', a.last_name) as name, 
-            a.application_type as type, 
-            a.application_date as submitted, 
-            a.status,
-            a.business_name,
-            a.business_address,
-            a.business_type,
-            a.business_telephone as contact_number
-        FROM 
-            business_permits a
-        WHERE 
-            a.BusinessP_id = ?
-    `;
-    
-    db.query(query, [applicationId], (err, results) => {
-        if (err) {
-            console.error('Error fetching application details:', err);
-            return res.status(500).json({ 
-                success: false, 
-                message: 'An error occurred while fetching application details' 
-            });
-        }
-        
-        if (results.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Application not found' 
-            });
-        }
-        
-        // Get application activities instead of documents
-        const activitiesQuery = `
-            SELECT id, line_of_business, units, capitalization, created_at
-            FROM business_activities
-            WHERE permit_id = ?
-        `;
-        
-        db.query(activitiesQuery, [applicationId], (actErr, activities) => {
-            if (actErr) {
-                console.error('Error fetching business activities:', actErr);
-                return res.status(500).json({ 
-                    success: false, 
-                    message: 'An error occurred while fetching business activities' 
-                });
-            }
-            
-            const applicationData = results[0];
-            applicationData.activities = activities;
-            
-            return res.json({ 
-                success: true, 
-                application: applicationData
-            });
-        });
+  // Check if user is logged in
+  if (!req.session.user || !req.session.user.user_id) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Not authenticated' 
     });
+  }
+
+  const applicationId = req.params.id;
+
+  // ✅ Fetch all fields from business_permits
+  const query = `SELECT * FROM business_permits WHERE BusinessP_id = ?`;
+
+  db.query(query, [applicationId], (err, results) => {
+    if (err) {
+      console.error('Error fetching full application details:', err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'An error occurred while fetching application details' 
+      });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Application not found' 
+      });
+    }
+
+    // ✅ Then fetch related business activities
+    const activitiesQuery = `
+      SELECT id, line_of_business, units, capitalization, created_at
+      FROM business_activities
+      WHERE permit_id = ?
+    `;
+
+    db.query(activitiesQuery, [applicationId], (actErr, activities) => {
+      if (actErr) {
+        console.error('Error fetching business activities:', actErr);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'An error occurred while fetching business activities' 
+        });
+      }
+
+      const applicationData = results[0];
+      applicationData.activities = activities;
+
+      return res.json({ 
+        success: true, 
+        application: applicationData
+      });
+    });
+  });
 };
+
 
 // Update application status
 exports.UpdateApplicationStatus = (req, res) => {

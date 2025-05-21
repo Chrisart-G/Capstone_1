@@ -6,21 +6,21 @@ const Routes = require('./routes/Routes');
 const authRoutes = require('./routes/authRoutes');
 const fileUpload = require('express-fileupload');
 
-const app = express(); // ✅ Move this BEFORE using `app`
+const app = express();
 
-// Middleware to handle file uploads
+
 app.use(fileUpload());
 
-// CORS setup
+
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true
 }));
 
-// Parse JSON bodies
+
 app.use(express.json());
 
-// Session setup
+
 app.use(session({
   secret: 'your-secret-key',
   resave: false,
@@ -32,7 +32,7 @@ app.use(session({
   }
 }));
 
-// Debug session endpoint
+
 app.get('/api/debug-session', (req, res) => {
   console.log("Session debug:", req.session);
   res.json({

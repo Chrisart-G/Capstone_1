@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AdminSidebar from '../Header/Adminsidebar';
+import AdminSidebar from '../Header/AdminSidebar';
 import axios from 'axios';
 import { Bell, Plus, Check } from 'lucide-react';
 
