@@ -79,7 +79,7 @@ const MunicipalLandingPage = () => {
       </div>
 
 
-      <div className="bg-blue-50 py-8 border-t border-b border-blue-100">
+      <div className="bg-white py-8 border-t border-b border-white">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-center">
 
