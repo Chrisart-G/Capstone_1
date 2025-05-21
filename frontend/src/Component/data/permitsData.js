@@ -9,7 +9,7 @@ export const permits = {
     ],
     construction: [
       { name: "Building Permit", description: "Necessary before constructing, repairing, or renovating a structure." },
-      { name: "Occupancy Permit", description: "Required before a newly constructed building can be occupied." },
+      { name: "Electrical Permit", description: "Required before a newly constructed building can be occupied." },
       { name: "Zoning Permit", description: "Ensures compliance with local zoning laws for land use." },
       { name: "Demolition Permit", description: "Needed before demolishing a building or structure." },
       { name: "Excavation Permit", description: "Required for digging, road works, or underground installations." }

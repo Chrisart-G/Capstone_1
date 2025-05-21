@@ -14,6 +14,8 @@ const PermitsHomepage = () => {
   const permitRoutes = {
     "Business Permit": "/Uform",
     "Mayor's Permit": "/MayorsPermitForm",
+    "Building Permit": "/BuildingPermitForm",
+    "Electrical Permit": "/ElectricalPermitForm",
   };
 
   // Function to handle application button clicks

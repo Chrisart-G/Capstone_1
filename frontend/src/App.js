@@ -15,6 +15,7 @@ import AddEmployeeForm from './Component/Addemployee/Addemployee';
 import Viewemployee from './Component/viewemployee/Viewemployee';
 import AddOffice from './Component/Addoffice/Addoffice';
 import ManageOffice from './Component/Manageoffice/ManageOffice'
+import ElectricalPermitForm from './Component/Form/Electricalpermit/electricalpermit';
 function App() {
   return (
     <div className="App">
@@ -34,6 +35,11 @@ function App() {
           <Route path="/Uform" element={
             <ProtectedRoute>
               <BusinessPermitForm />
+            </ProtectedRoute>
+             } />
+          <Route path="/ElectricalPermitForm" element={
+            <ProtectedRoute>
+              <ElectricalPermitForm />
             </ProtectedRoute>
           } />
           <Route path="/Permits" element={
