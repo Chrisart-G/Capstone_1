@@ -2,10 +2,10 @@ import { useState } from 'react';
 import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
 
-export default function ElectricalPermitForm() {
+export default function PlumbingPermitForm() {
   const [formData, setFormData] = useState({
     applicationNo: '',
-    epNo: '',
+    ppNo: '',
     buildingPermitNo: '',
     lastName: '',
     firstName: '',
@@ -72,7 +72,7 @@ export default function ElectricalPermitForm() {
           <p className="text-sm font-semibold">Province of Negros Occidental</p>
           <p className="text-sm font-semibold">OFFICE OF THE BUILDING OFFICIAL</p>
           <p className="text-sm">Area Code 06034</p>
-          <h1 className="text-xl font-bold mt-4">ELECTRICAL PERMIT</h1>
+          <h1 className="text-xl font-bold mt-4">PLUMBING PERMIT</h1>
         </div>
 
         {/* Application Number Row */}
@@ -88,11 +88,11 @@ export default function ElectricalPermitForm() {
             />
           </div>
           <div className="border border-gray-300 p-2">
-            <p className="text-xs mb-1">EP NO.</p>
+            <p className="text-xs mb-1">PP NO.</p>
             <input
               type="text"
-              name="epNo"
-              value={formData.epNo}
+              name="ppNo"
+              value={formData.ppNo}
               onChange={handleChange}
               className="w-full border-b border-gray-300 focus:outline-none text-sm"
             />
@@ -343,7 +343,7 @@ export default function ElectricalPermitForm() {
             </div>
           </div>
 
-          {/* Scope of Work - MODIFIED TO USE DROPDOWN */}
+          {/* Scope of Work - DROPDOWN */}
           <div className="mb-1">
             <p className="text-xs font-bold">SCOPE OF WORK</p>
           </div>
@@ -357,13 +357,16 @@ export default function ElectricalPermitForm() {
                 className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="none">-- Select an option --</option>
-                <option value="newInstallation">NEW INSTALLATION</option>
-                <option value="annualInspection">ANNUAL INSPECTION</option>
-                <option value="temporary">TEMPORARY</option>
-                <option value="reconnection">RECONNECTION OF SERVICE ENTRANCE</option>
-                <option value="separationOfService">SEPARATION OF SERVICE ENTRANCE</option>
-                <option value="upgradingOfService">UPGRADING OF SERVICE ENTRANCE</option>
-                <option value="relocation">RELOCATION OF SERVICE ENTRANCE</option>
+                <option value="newConstruction">NEW CONSTRUCTION</option>
+                <option value="erection">ERECTION</option>
+                <option value="addition">ADDITION</option>
+                <option value="alteration">ALTERATION</option>
+                <option value="renovation">RENOVATION</option>
+                <option value="moving">MOVING</option>
+                <option value="repair">REPAIR</option>
+                <option value="conversion">CONVERSION</option>
+                <option value="accessoryBuilding">ACCESSORY BUILDING/STRUCTURE</option>
+                <option value="demolition">DEMOLITION</option>
                 <option value="others">OTHERS (Specify)</option>
               </select>
             </div>

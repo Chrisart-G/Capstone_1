@@ -3,7 +3,7 @@
 export const permits = {
     business: [
       { name: "Business Permit", description: "Required to legally operate a business within the municipality." },
-      { name: "Mayor's Permit", description: "A general permit issued by the mayor's office for businesses, events, or special activities." },
+      { name: "Cedula Permit", description: "A general permit issued by the mayor's office for businesses, events, or special activities." },
       { name: "Market Stall Permit", description: "Allows vendors to operate in public markets." },
       { name: "Special Sales Permit", description: "Required for promotional sales, discounts, or special selling activities." }
     ],
@@ -11,8 +11,9 @@ export const permits = {
       { name: "Building Permit", description: "Necessary before constructing, repairing, or renovating a structure." },
       { name: "Electrical Permit", description: "Required before a newly constructed building can be occupied." },
       { name: "Zoning Permit", description: "Ensures compliance with local zoning laws for land use." },
-      { name: "Demolition Permit", description: "Needed before demolishing a building or structure." },
-      { name: "Excavation Permit", description: "Required for digging, road works, or underground installations." }
+      { name: "Plumbing Permit", description: "Needed before demolishing a building or structure." },
+      { name: "Electronics Permit", description: "Required for digging, road works, or underground installations." },
+      { name: "Fencing Permit", description: "Required for digging, road works, or underground installations." }
     ],
     health: [
       { name: "Health/Sanitary Permit", description: "Ensures compliance with hygiene and health regulations for businesses." },

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AdminSidebar from '../Header/AdminSidebar';
+import AdminSidebar from '../Header/Adminsidebar';
 import axios from 'axios';
 import { Bell, Edit, Trash2, Eye, Plus, Search, User, UserPlus, CheckCircle, XCircle } from 'lucide-react';
 
