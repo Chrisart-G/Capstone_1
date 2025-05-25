@@ -38,8 +38,8 @@ export const permits = {
   };
   
   export const categories = [
-    { id: 'business', name: 'Business & Commercial' },
-    { id: 'construction', name: 'Construction & Land Use' },
+    { id: 'business', name: 'Business Permit & Licensing Office' },
+    { id: 'construction', name: 'Municipal Planning & Development Office' },
     { id: 'health', name: 'Health & Sanitation' },
     { id: 'environmental', name: 'Environmental' },
     { id: 'event', name: 'Event & Public Gathering' },
