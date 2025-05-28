@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Logins from './Component/Logins/Login';
 import Singnup from './Component/Signup/Signup';
 import MunicipalLandingPage from './Component/Home/Home';
-import BusinessPermitForm from './Component/Form/businesspermit/businesspermit';
+import BusinessPermitForm from './Component/Form/Businesspermit/businesspermit';
 import PermitsHomepage from './Component/Home/Requesthome';
 import AdminDashboard from './Component/Adminhomepage/Adminhome';
 import ProtectedRoute from './Component/Auth/ProtectedRoute'; 
@@ -16,6 +16,8 @@ import Viewemployee from './Component/viewemployee/Viewemployee';
 import AddOffice from './Component/Addoffice/Addoffice';
 import ManageOffice from './Component/Manageoffice/ManageOffice'
 import ElectricalPermitForm from './Component/Form/Electricalpermit/electricalpermit';
+import PlumbingPermitForm from './Component/Form/Plumbingpermit/plumbingpermit';
+import CedulaPermitForm from './Component/Form/Cedulapermit/cedulapermit';
 function App() {
   return (
     <div className="App">
@@ -40,6 +42,16 @@ function App() {
           <Route path="/ElectricalPermitForm" element={
             <ProtectedRoute>
               <ElectricalPermitForm />
+            </ProtectedRoute>
+             } />
+          <Route path="/PlumbingPermitForm" element={
+            <ProtectedRoute>
+              <PlumbingPermitForm />
+            </ProtectedRoute>
+             } />
+          <Route path="/CedulaPermitForm" element={
+            <ProtectedRoute>
+              <CedulaPermitForm />
             </ProtectedRoute>
           } />
           <Route path="/Permits" element={

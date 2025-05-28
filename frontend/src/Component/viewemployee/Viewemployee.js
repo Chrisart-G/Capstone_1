@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import AdminSidebar from '../Header/AdminSidebar';
+import AdminSidebar from '../Header/Adminsidebar';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Edit, Trash2, X, Save } from 'lucide-react';
