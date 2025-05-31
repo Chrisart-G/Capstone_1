@@ -77,7 +77,7 @@ const saveFile = (file) => {
     
           db.query(sql, values, (err, result) => {
             if (err) {
-              console.error("❌ Permit insert failed:", err);
+              console.error(" Permit insert failed:", err);
               return db.rollback(() => res.status(500).json({ message: "Insert failed", error: err.message }));
             }
     
@@ -97,13 +97,13 @@ const saveFile = (file) => {
     
             db.query(actSql, [activityValues], (err2) => {
               if (err2) {
-                console.error("❌ Activity insert failed:", err2);
+                console.error(" Activity insert failed:", err2);
                 return db.rollback(() => res.status(500).json({ message: "Activity insert failed", error: err2.message }));
               }
     
               db.commit((err3) => {
                 if (err3) {
-                  console.error("❌ Commit failed:", err3);
+                  console.error(" Commit failed:", err3);
                   return db.rollback(() => res.status(500).json({ message: "Commit failed", error: err3.message }));
                 }
     
@@ -266,7 +266,6 @@ exports.GetApplicationById = (req, res) => {
 
   const applicationId = req.params.id;
 
-  // ✅ Fetch all fields from business_permits
   const query = `SELECT * FROM business_permits WHERE BusinessP_id = ?`;
 
   db.query(query, [applicationId], (err, results) => {

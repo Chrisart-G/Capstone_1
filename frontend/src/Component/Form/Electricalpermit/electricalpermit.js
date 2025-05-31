@@ -4,8 +4,6 @@ import UFooter from '../../Footer/User_Footer';
 
 export default function ElectricalPermitForm() {
   const [formData, setFormData] = useState({
-    applicationNo: '',
-    epNo: '',
     buildingPermitNo: '',
     lastName: '',
     firstName: '',
@@ -31,6 +29,12 @@ export default function ElectricalPermitForm() {
     otherScopeSpecify: ''
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
+  // ADD THESE NEW STATE VARIABLES
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     
@@ -49,10 +53,130 @@ export default function ElectricalPermitForm() {
     }
   };
 
-  const handleSubmit = () => {
-    console.log('Form submitted:', formData);
-    // Here you would typically send the data to your backend
-    alert('Form submitted successfully!');
+  const handleSubmit = async (e) => {
+    // Prevent default if called from form submission
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+
+    setIsSubmitting(true);
+    setSubmitMessage('');
+    setSubmitSuccess(false); // Reset success state
+
+    try {
+      // Validate required fields
+      if (!formData.lastName || !formData.firstName || formData.scopeOfWork === 'none') {
+        setSubmitMessage('Please fill in all required fields (Last Name, First Name, and Scope of Work)');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Additional validation for "others" option
+      if (formData.scopeOfWork === 'others' && !formData.otherScopeSpecify.trim()) {
+        setSubmitMessage('Please specify the other scope of work');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Prepare the data to send
+      const requestData = {
+        ...formData
+      };
+
+      console.log('Submitting data:', requestData); // Debug log
+
+      // Make the API call with session credentials
+      const response = await fetch('http://localhost:8081/api/electrical-permits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // This is the key fix - include session cookies
+        body: JSON.stringify(requestData)
+      });
+
+      console.log('Response status:', response.status); // Debug log
+
+      // Check if the response is ok
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Response error:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      // Parse the response
+      const result = await response.json();
+      console.log('Response data:', result); // Debug log
+
+      if (result.success) {
+        // UPDATED SUCCESS HANDLING - TRIGGER MODAL
+        setSubmitSuccess(true);
+        setIsModalOpen(true);
+        setSubmitMessage(`Application submitted successfully! Application No: ${result.data.applicationNo}, EP No: ${result.data.epNo}`);
+        
+        // Reset form
+        setFormData({
+          buildingPermitNo: '',
+          lastName: '',
+          firstName: '',
+          middleInitial: '',
+          tin: '',
+          constructionOwned: '',
+          formOfOwnership: '',
+          useOrCharacter: '',
+          addressNo: '',
+          addressStreet: '',
+          addressBarangay: '',
+          addressCity: '',
+          addressZipCode: '',
+          telephoneNo: '',
+          locationStreet: '',
+          locationLotNo: '',
+          locationBlkNo: '',
+          locationTctNo: '',
+          locationTaxDecNo: '',
+          locationBarangay: '',
+          locationCity: '',
+          scopeOfWork: 'none',
+          otherScopeSpecify: ''
+        });
+      } else {
+        setSubmitMessage(`Error: ${result.message || 'Unknown error occurred'}`);
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      setSubmitMessage(`Network error: ${error.message}. Please check your connection and backend server.`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ADD THIS NEW FUNCTION FOR THE SUCCESS MODAL
+  const renderFormStatus = () => {
+    if (submitSuccess && isModalOpen) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-green-600 mb-2">Success!</h2>
+            <p className="text-gray-700 mb-4">Your electrical permit application has been submitted successfully.</p>
+            <div className="flex justify-end">
+              <button
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setSubmitSuccess(false);
+                  // Add navigation if you have it
+                  // navigate('/Docutracker');
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -76,38 +200,7 @@ export default function ElectricalPermitForm() {
         </div>
 
         {/* Application Number Row */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="border border-gray-300 p-2">
-            <p className="text-xs mb-1">APPLICATION NO.</p>
-            <input
-              type="text"
-              name="applicationNo"
-              value={formData.applicationNo}
-              onChange={handleChange}
-              className="w-full border-b border-gray-300 focus:outline-none text-sm"
-            />
-          </div>
-          <div className="border border-gray-300 p-2">
-            <p className="text-xs mb-1">EP NO.</p>
-            <input
-              type="text"
-              name="epNo"
-              value={formData.epNo}
-              onChange={handleChange}
-              className="w-full border-b border-gray-300 focus:outline-none text-sm"
-            />
-          </div>
-          <div className="border border-gray-300 p-2">
-            <p className="text-xs mb-1">BUILDING PERMIT NO.</p>
-            <input
-              type="text"
-              name="buildingPermitNo"
-              value={formData.buildingPermitNo}
-              onChange={handleChange}
-              className="w-full border-b border-gray-300 focus:outline-none text-sm"
-            />
-          </div>
-        </div>
+       
 
         {/* BOX 1 - Owner/Applicant Information */}
         <div className="border border-gray-500 p-2">
@@ -383,15 +476,25 @@ export default function ElectricalPermitForm() {
             )}
           </div>
         </div>
+        {/* to see the success message  */}
+        {submitMessage && (
+        <div className={`mt-4 p-3 rounded ${submitSuccess ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+          {submitMessage}
+        </div>
+      )}
+
 
         {/* Submit Button */}
         <div className="text-center">
-          <button 
-            onClick={handleSubmit} 
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-          >
-            Submit Application
-          </button>
+           <button
+        type="submit"
+        onClick={handleSubmit}
+        disabled={isSubmitting}
+        className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded"
+      >
+        {isSubmitting ? 'Submitting...' : 'Submit Application'}
+      </button>
+      {renderFormStatus()}
         </div>
       </div>
     </div>
