@@ -18,6 +18,7 @@ const PermitsHomepage = () => {
     "Electrical Permit": "/ElectricalPermitForm",
     "Plumbing Permit": "/PlumbingPermitForm",
     "Cedula Permit": "/CedulaPermitForm",
+    "Fencing Permit": "/FencingPermitForm",
   };
 
   // Function to handle application button clicks

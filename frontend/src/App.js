@@ -18,6 +18,7 @@ import ManageOffice from './Component/Manageoffice/ManageOffice'
 import ElectricalPermitForm from './Component/Form/Electricalpermit/electricalpermit';
 import PlumbingPermitForm from './Component/Form/Plumbingpermit/plumbingpermit';
 import CedulaPermitForm from './Component/Form/Cedulapermit/cedulapermit';
+import FencingPermitForm from './Component/Form/Fencingpermit/fencingpermit';
 function App() {
   return (
     <div className="App">
@@ -52,6 +53,11 @@ function App() {
           <Route path="/CedulaPermitForm" element={
             <ProtectedRoute>
               <CedulaPermitForm />
+            </ProtectedRoute>
+             } />
+          <Route path="/FencingPermitForm" element={
+            <ProtectedRoute>
+              <FencingPermitForm/>
             </ProtectedRoute>
           } />
           <Route path="/Permits" element={
