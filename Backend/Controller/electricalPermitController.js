@@ -1,40 +1,5 @@
 const db = require('../db/dbconnect');
-
-// Helper function to generate application number
-const generateApplicationNumber = async () => {
-  try {
-    const currentYear = new Date().getFullYear();
-    const [result] = await db.query(
-      'SELECT COUNT(*) as count FROM tbl_electrical_permits WHERE YEAR(created_at) = ?',
-      [currentYear]
-    );
-    
-    const count = result[0].count + 1;
-    return `EP-${currentYear}-${count.toString().padStart(4, '0')}`;
-  } catch (error) {
-    console.error('Error generating application number:', error);
-    throw error;
-  }
-};
-
-// Helper function to generate EP number
-const generateEPNumber = async () => {
-  try {
-    const currentYear = new Date().getFullYear();
-    const [result] = await db.query(
-      'SELECT COUNT(*) as count FROM tbl_electrical_permits WHERE ep_no IS NOT NULL AND YEAR(created_at) = ?',
-      [currentYear]
-    );
-    
-    const count = result[0].count + 1;
-    return `EP-${currentYear.toString().slice(-2)}-${count.toString().padStart(5, '0')}`;
-  } catch (error) {
-    console.error('Error generating EP number:', error);
-    throw error;
-  }
-};
-
-
+//use to create
 exports.createElectricalPermit = async (req, res) => {
   try {
     // Use session-based authentication like the working business permit controller
@@ -48,7 +13,6 @@ exports.createElectricalPermit = async (req, res) => {
     const userId = req.session.user.user_id;
     
     const {
-      buildingPermitNo,
       lastName,
       firstName,
       middleInitial,
@@ -69,8 +33,7 @@ exports.createElectricalPermit = async (req, res) => {
       locationTaxDecNo,
       locationBarangay,
       locationCity,
-      scopeOfWork,
-      otherScopeSpecify
+      scopeOfWork
     } = req.body;
 
     // Validate required fields
@@ -92,19 +55,18 @@ exports.createElectricalPermit = async (req, res) => {
         });
       }
 
-      // Insert into database - handle null building_permit_no properly
+      // Insert into database - building_permit_no will be auto-generated
       const sql = `INSERT INTO tbl_electrical_permits (
-        building_permit_no, user_id,
+        user_id,
         last_name, first_name, middle_initial, tin,
         construction_owned, form_of_ownership, use_or_character,
         address_no, address_street, address_barangay, address_city, address_zip_code,
         telephone_no, location_street, location_lot_no, location_blk_no,
         location_tct_no, location_tax_dec_no, location_barangay, location_city,
-        scope_of_work, other_scope_specify
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        scope_of_work
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       
       const values = [
-        buildingPermitNo || null, // Handle empty string as null
         userId,
         lastName,
         firstName,
@@ -126,8 +88,7 @@ exports.createElectricalPermit = async (req, res) => {
         locationTaxDecNo || null,
         locationBarangay || null,
         locationCity || null,
-        scopeOfWork,
-        otherScopeSpecify || null
+        scopeOfWork
       ];
 
       db.query(sql, values, (err, result) => {
@@ -144,14 +105,15 @@ exports.createElectricalPermit = async (req, res) => {
 
         const permitId = result.insertId;
         
-        // Generate application number and EP number based on the inserted ID
+        // Generate all three numbers based on the inserted ID
         const applicationNo = `EP-APP-${new Date().getFullYear()}-${String(permitId).padStart(6, '0')}`;
         const epNo = `EP-${new Date().getFullYear()}-${String(permitId).padStart(6, '0')}`;
+        const buildingPermitNo = `BP-${new Date().getFullYear()}-${String(permitId).padStart(6, '0')}`;
 
-        // Update the record with generated numbers
-        const updateSql = `UPDATE tbl_electrical_permits SET application_no = ?, ep_no = ? WHERE id = ?`;
+        // Update the record with all generated numbers
+        const updateSql = `UPDATE tbl_electrical_permits SET application_no = ?, ep_no = ?, building_permit_no = ? WHERE id = ?`;
         
-        db.query(updateSql, [applicationNo, epNo, permitId], (updateErr) => {
+        db.query(updateSql, [applicationNo, epNo, buildingPermitNo, permitId], (updateErr) => {
           if (updateErr) {
             console.error("❌ Update application numbers failed:", updateErr);
             return db.rollback(() => {
@@ -184,6 +146,7 @@ exports.createElectricalPermit = async (req, res) => {
                 id: permitId,
                 applicationNo: applicationNo,
                 epNo: epNo,
+                buildingPermitNo: buildingPermitNo,
                 status: 'pending'
               }
             });
@@ -201,171 +164,198 @@ exports.createElectricalPermit = async (req, res) => {
     });
   }
 };
-
-// Get all electrical permits for a specific user
-exports.getUserElectricalPermits = async (req, res) => {
-  try {
-    // Fix: Use session-based authentication
+//use in track documents for fetch
+exports.getAllElectricalPermits = (req, res) => {
     if (!req.session?.user?.user_id) {
       return res.status(401).json({ 
         success: false,
         message: "Unauthorized. Please log in." 
       });
     }
-
+    
+    // Get user_id from session
     const userId = req.session.user.user_id;
+    console.log("Using user_id for electrical permit:", userId);
 
-    const [permits] = await db.query(
-      `SELECT * FROM tbl_electrical_permits 
-       WHERE user_id = ? 
-       ORDER BY created_at DESC`,
-      [userId]
-    );
+    const sql = `
+        SELECT ep.id, ep.application_no, ep.ep_no, ep.status, 
+               ep.first_name, ep.last_name, ep.scope_of_work,
+               ep.created_at, ep.updated_at, l.email
+        FROM tbl_electrical_permits ep
+        LEFT JOIN tb_logins l ON ep.user_id = l.user_id
+        WHERE ep.user_id = ?
+        ORDER BY ep.created_at DESC
+    `;
 
-    res.status(200).json({
-      success: true,
-      data: permits
+    db.query(sql, [userId], (err, results) => {
+        if (err) {
+            console.error("Error fetching electrical permits:", err);
+            return res.status(500).json({ 
+                success: false, 
+                message: "Error retrieving electrical permit applications", 
+                error: err.message 
+            });
+        }
+
+        res.json({ success: true, permits: results });
     });
-
-  } catch (error) {
-    console.error('Error fetching user electrical permits:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch electrical permits',
-      error: error.message
-    });
-  }
 };
+//use in employee dashboard 
+exports.getAllElectricalPermitsForEmployee = (req, res) => {
+    console.log("Session in ElectricalPermit (Employee):", req.session);
+    console.log("User in session:", req.session?.user);
 
-// Get all electrical permits (for admin/employees)
-exports.getAllElectricalPermits = async (req, res) => {
-  try {
-    const [permits] = await db.query(
-      `SELECT ep.*, tl.email as user_email 
-       FROM tbl_electrical_permits ep
-       LEFT JOIN tb_logins tl ON ep.user_id = tl.user_id
-       ORDER BY ep.created_at DESC`
-    );
-
-    res.status(200).json({
-      success: true,
-      data: permits
-    });
-
-  } catch (error) {
-    console.error('Error fetching all electrical permits:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch electrical permits',
-      error: error.message
-    });
-  }
-};
-
-// Get electrical permit by ID
-exports.getElectricalPermitById = async (req, res) => {
-  try {
-    const permitId = req.params.id;
-
-    const [permit] = await db.query(
-      `SELECT ep.*, tl.email as user_email 
-       FROM tbl_electrical_permits ep
-       LEFT JOIN tb_logins tl ON ep.user_id = tl.user_id
-       WHERE ep.id = ?`,
-      [permitId]
-    );
-
-    if (permit.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Electrical permit not found'
-      });
+    if (!req.session || !req.session.user) {
+        console.log("User not authenticated");
+        return res.status(401).json({ message: "Unauthorized. Please log in." });
     }
 
-    res.status(200).json({
-      success: true,
-      data: permit[0]
-    });
+    const sql = `
+        SELECT ep.id, ep.application_no, ep.ep_no, ep.status, 
+               ep.first_name, ep.last_name, ep.middle_initial, ep.scope_of_work,
+               ep.building_permit_no, ep.tin, ep.construction_owned, ep.form_of_ownership,
+               ep.use_or_character, ep.address_no, ep.address_street, ep.address_barangay,
+               ep.address_city, ep.address_zip_code, ep.telephone_no,
+               ep.location_street, ep.location_lot_no, ep.location_blk_no, ep.location_tct_no,
+               ep.location_tax_dec_no, ep.location_barangay, ep.location_city,
+               ep.created_at, ep.updated_at, l.email, ep.user_id
+        FROM tbl_electrical_permits ep
+        LEFT JOIN tb_logins l ON ep.user_id = l.user_id
+        ORDER BY ep.created_at DESC
+    `;
 
-  } catch (error) {
-    console.error('Error fetching electrical permit:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch electrical permit',
-      error: error.message
+    db.query(sql, (err, results) => {
+        if (err) {
+            console.error("Error fetching electrical permits for employee:", err);
+            return res.status(500).json({ 
+                success: false, 
+                message: "Error retrieving electrical permit applications", 
+                error: err.message 
+            });
+        }
+
+        // Transform the data to match the expected format
+        const transformedResults = results.map(permit => ({
+            id: permit.id,
+            type: 'Electrical Permit',
+            name: `${permit.first_name} ${permit.middle_initial || ''} ${permit.last_name}`.trim(),
+            status: permit.status || 'pending',
+            submitted: permit.created_at,
+            // Add electrical permit specific fields that actually exist in the table
+            application_no: permit.application_no,
+            ep_no: permit.ep_no,
+            building_permit_no: permit.building_permit_no,
+            scope_of_work: permit.scope_of_work,
+            tin: permit.tin,
+            construction_owned: permit.construction_owned,
+            form_of_ownership: permit.form_of_ownership,
+            use_or_character: permit.use_or_character,
+            // Address fields
+            address_no: permit.address_no,
+            address_street: permit.address_street,
+            address_barangay: permit.address_barangay,
+            address_city: permit.address_city,
+            address_zip_code: permit.address_zip_code,
+            telephone_no: permit.telephone_no,
+            // Location fields
+            location_street: permit.location_street,
+            location_lot_no: permit.location_lot_no,
+            location_blk_no: permit.location_blk_no,
+            location_tct_no: permit.location_tct_no,
+            location_tax_dec_no: permit.location_tax_dec_no,
+            location_barangay: permit.location_barangay,
+            location_city: permit.location_city,
+            // Basic fields
+            first_name: permit.first_name,
+            middle_initial: permit.middle_initial,
+            last_name: permit.last_name,
+            email: permit.email,
+            user_id: permit.user_id,
+            created_at: permit.created_at,
+            updated_at: permit.updated_at
+        }));
+
+        res.json({ success: true, applications: transformedResults });
     });
-  }
 };
-
-// Update electrical permit status
-exports.updateElectricalPermitStatus = async (req, res) => {
-  try {
+// un-use
+// function to update electrical permit status
+exports.updateElectricalPermitStatus = (req, res) => {
     const permitId = req.params.id;
     const { status } = req.body;
 
-    const validStatuses = ['pending', 'approved', 'rejected', 'processing'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
-      });
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ message: "Unauthorized. Please log in." });
     }
 
-    const [result] = await db.query(
-      'UPDATE tbl_electrical_permits SET status = ? WHERE id = ?',
-      [status, permitId]
-    );
+    const sql = `UPDATE tbl_electrical_permits SET status = ?, updated_at = NOW() WHERE id = ?`;
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Electrical permit not found'
-      });
-    }
+    db.query(sql, [status, permitId], (err, result) => {
+        if (err) {
+            console.error("Error updating electrical permit status:", err);
+            return res.status(500).json({ 
+                success: false, 
+                message: "Error updating electrical permit status", 
+                error: err.message 
+            });
+        }
 
-    res.status(200).json({
-      success: true,
-      message: 'Electrical permit status updated successfully'
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Electrical permit not found" 
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            message: "Electrical permit status updated successfully" 
+        });
     });
-
-  } catch (error) {
-    console.error('Error updating electrical permit status:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update electrical permit status',
-      error: error.message
-    });
-  }
 };
-
-// Delete electrical permit
-exports.deleteElectricalPermit = async (req, res) => {
-  try {
+// un-use
+//this function to get single electrical permit details
+exports.getElectricalPermitById = (req, res) => {
     const permitId = req.params.id;
 
-    const [result] = await db.query(
-      'DELETE FROM tbl_electrical_permits WHERE id = ?',
-      [permitId]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Electrical permit not found'
-      });
+    if (!req.session || !req.session.user) {
+        return res.status(401).json({ message: "Unauthorized. Please log in." });
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Electrical permit deleted successfully'
-    });
+    const sql = `
+        SELECT ep.*, l.email
+        FROM tbl_electrical_permits ep
+        LEFT JOIN tb_logins l ON ep.user_id = l.user_id
+        WHERE ep.id = ?
+    `;
 
-  } catch (error) {
-    console.error('Error deleting electrical permit:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete electrical permit',
-      error: error.message
+    db.query(sql, [permitId], (err, results) => {
+        if (err) {
+            console.error("Error fetching electrical permit details:", err);
+            return res.status(500).json({ 
+                success: false, 
+                message: "Error retrieving electrical permit details", 
+                error: err.message 
+            });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "Electrical permit not found" 
+            });
+        }
+
+        const permit = results[0];
+        const transformedPermit = {
+            id: permit.id,
+            type: 'Electrical Permit',
+            name: `${permit.first_name} ${permit.middle_initial || ''} ${permit.last_name}`.trim(),
+            status: permit.status || 'pending',
+            submitted: permit.created_at,
+            ...permit // Include all fields
+        };
+
+        res.json({ success: true, application: transformedPermit });
     });
-  }
 };

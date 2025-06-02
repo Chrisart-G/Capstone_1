@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Check, Clock, AlertCircle, Loader, FileText, RefreshCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import Uheader from '../Header/User_header';
+import UFooter from '../Footer/User_Footer';
 
 function DocumentStatusTracker() {
   const [applications, setApplications] = useState([]);
@@ -9,33 +10,66 @@ function DocumentStatusTracker() {
   const [expandedCards, setExpandedCards] = useState({});
   
   useEffect(() => {
-    const fetchPermitData = async () => {
+    const fetchAllPermitData = async () => {
       try {
-        const response = await fetch('http://localhost:8081/api/businesspermits', {
-          credentials: 'include'
-        });
+        // Fetch both business permits and electrical permits
+        const [businessResponse, electricalResponse] = await Promise.all([
+          fetch('http://localhost:8081/api/businesspermits', {
+            credentials: 'include'
+          }),
+          fetch('http://localhost:8081/api/getelectrical-permits', {
+            credentials: 'include'
+          })
+        ]);
         
-        const data = await response.json();
+        const businessData = await businessResponse.json();
+        const electricalData = await electricalResponse.json();
         
-        if (data.permits && data.permits.length > 0) {
-          // Transform ALL permits, not just the first one
-          const transformedApplications = data.permits.map(permit => ({
-            id: permit.BusinessP_id,
+        let allApplications = [];
+        
+        // Transform business permits
+        if (businessData.permits && businessData.permits.length > 0) {
+          const transformedBusinessPermits = businessData.permits.map(permit => ({
+            id: `business_${permit.BusinessP_id}`,
             title: `${permit.application_type} - ${permit.business_name}`,
+            type: 'Business Permit',
             status: permit.status,
             email: permit.email,
             applicationDate: new Date(permit.application_date).toLocaleString(),
             createdAt: new Date(permit.created_at).toLocaleString(),
             steps: transformStatusToSteps(permit.status)
           }));
-          
-          setApplications(transformedApplications);
-          
-          // Auto-expand the first (most recent) application
-          if (transformedApplications.length > 0) {
-            setExpandedCards({ [transformedApplications[0].id]: true });
-          }
+          allApplications = [...allApplications, ...transformedBusinessPermits];
         }
+        
+        // Transform electrical permits
+        if (electricalData.success && electricalData.permits && electricalData.permits.length > 0) {
+          const transformedElectricalPermits = electricalData.permits.map(permit => ({
+            id: `electrical_${permit.id}`,
+            title: `Electrical Permit - ${permit.first_name} ${permit.last_name}`,
+            type: 'Electrical Permit',
+            status: permit.status,
+            email: permit.email,
+            applicationDate: new Date(permit.created_at).toLocaleString(),
+            createdAt: new Date(permit.created_at).toLocaleString(),
+            applicationNo: permit.application_no,
+            epNo: permit.ep_no,
+            scopeOfWork: permit.scope_of_work,
+            steps: transformStatusToSteps(permit.status)
+          }));
+          allApplications = [...allApplications, ...transformedElectricalPermits];
+        }
+        
+        // Sort all applications by creation date (most recent first)
+        allApplications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        setApplications(allApplications);
+        
+        // Auto-expand the first (most recent) application
+        if (allApplications.length > 0) {
+          setExpandedCards({ [allApplications[0].id]: true });
+        }
+        
         setLoading(false);
       } catch (err) {
         console.error("Error fetching permit data:", err);
@@ -44,7 +78,7 @@ function DocumentStatusTracker() {
       }
     };
     
-    fetchPermitData();
+    fetchAllPermitData();
   }, []);
 
   // Function to transform the status into a steps array
@@ -154,6 +188,17 @@ function DocumentStatusTracker() {
     }
   }
 
+  function getPermitTypeBadgeColor(type) {
+    switch(type) {
+      case 'Business Permit':
+        return "bg-blue-100 text-blue-800";
+      case 'Electrical Permit':
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  }
+
   const toggleCard = (applicationId) => {
     setExpandedCards(prev => ({
       ...prev,
@@ -164,7 +209,6 @@ function DocumentStatusTracker() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        
         <div className="flex justify-center items-center h-64">
           <RefreshCcw className="animate-spin mr-2" />
           <span>Loading your application status...</span>
@@ -197,6 +241,7 @@ function DocumentStatusTracker() {
   if (!applications || applications.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
+        <Uheader/>
         <div className="max-w-4xl mx-auto p-6">
           <div className="bg-white rounded-lg shadow-lg">
             <div className="p-4 bg-yellow-50 text-yellow-700 rounded-lg">
@@ -205,12 +250,12 @@ function DocumentStatusTracker() {
             </div>
           </div>
         </div>
+        <UFooter/>
       </div>
     );
   }
 
   return (
-    
     <div className="min-h-screen bg-gray-50">
        <Uheader/>
       <div className="max-w-4xl mx-auto p-6">
@@ -237,11 +282,23 @@ function DocumentStatusTracker() {
                         </span>
                       )}
                     </h2>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPermitTypeBadgeColor(application.type)}`}>
+                        {application.type}
+                      </span>
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
-                      <span>ID: {application.id}</span>
+                      <span>ID: {application.id.replace(/^(business_|electrical_)/, '')}</span>
+                      {application.applicationNo && <span>App No: {application.applicationNo}</span>}
+                      {application.epNo && <span>EP No: {application.epNo}</span>}
                       <span>Applied: {application.applicationDate}</span>
                       <span>Email: {application.email}</span>
                     </div>
+                    {application.scopeOfWork && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        <span>Scope: {application.scopeOfWork}</span>
+                      </div>
+                    )}
                     <div className={`mt-2 inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(application.status)}`}>
                       Status: {application.status}
                     </div>
@@ -317,6 +374,7 @@ function DocumentStatusTracker() {
           ))}
         </div>
       </div>
+      <UFooter/>
     </div>
   );
 }

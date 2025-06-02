@@ -30,37 +30,28 @@ router.post('/addemployee', addemployeeController.addEmployee);
 //route for get path
 router.get('/businesspermits', isAuthenticated, BuspermitController.getAllPermits);
 
-//route path for manage office 
-// OFFICE MANAGEMENT ROUTES
+// OFFICE MANAGEMENT ROUTES route path for manage office 
 router.get('/offices', officeManagementController.getAllOffices);
 router.get('/offices/:id', officeManagementController.getOfficeById);
 router.post('/offices', officeManagementController.createOffice);
 router.put('/offices/:id', officeManagementController.updateOffice);
 router.delete('/offices/:id', officeManagementController.deleteOffice);
-
 router.post('/offices/assign', officeManagementController.assignEmployeesToOffice);
 router.put('/offices/unassign/:assignment_id', officeManagementController.removeEmployeeFromOffice);
 router.get('/offices/available-employees', officeManagementController.getUnassignedEmployees);
 router.get('/offices/:id/employees', officeManagementController.getOfficeEmployees);
-//newly added for fetch application to accept 
+//--------------------------------------------------------------
 router.put('/applications/:id/accept', applicationController.acceptApplication);
 
-// Create new electrical permit application
+// this is for creating new electrical permits
 router.post('/electrical-permits', electricalPermitController.createElectricalPermit);
-
-// Get all electrical permits for a specific user
-router.get('/electrical-permits/user/:userId', electricalPermitController.getUserElectricalPermits);
-
-// Get all electrical permits (for admin/employees)
-router.get('/electrical-permits', electricalPermitController.getAllElectricalPermits);
-
-// Get electrical permit by ID
-router.get('/electrical-permits/:id', electricalPermitController.getElectricalPermitById);
-
+router.get('/getelectrical-permits', electricalPermitController.getAllElectricalPermits);
+// Get all electrical permits for employee dashboard
+router.get('/electrical-applications', electricalPermitController.getAllElectricalPermitsForEmployee);
+// Get single electrical permit details
+router.get('/electrical-applications/:id', electricalPermitController.getElectricalPermitById);
 // Update electrical permit status
-router.put('/electrical-permits/:id/status', electricalPermitController.updateElectricalPermitStatus);
+router.put('/electrical-applications/:id/accept', electricalPermitController.updateElectricalPermitStatus);
 
-// Delete electrical permit
-router.delete('/electrical-permits/:id', electricalPermitController.deleteElectricalPermit);
 module.exports = router;
     

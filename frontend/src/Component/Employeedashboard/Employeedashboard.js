@@ -8,7 +8,7 @@ import Sidebar from '../Header/Sidebar';
 
 const API_BASE_URL = "http://localhost:8081";
 
-export default function EmployeeDashboard() {
+export default function EmployeeDashboard() { 
   const [selectedTab, setSelectedTab] = useState('pending');
   const [expandedApplication, setExpandedApplication] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // Start with loading state
@@ -16,6 +16,12 @@ export default function EmployeeDashboard() {
   const [userData, setUserData] = useState(null);
   const [selectedApplication, setSelectedApplication] = useState(null);
    const [modalVisible, setModalVisible] = useState(false);
+   const [electricalApplications, setElectricalApplications] = useState({
+  pending: [],
+  inReview: [],
+  approved: [],
+  rejected: []
+});
 
   const [applications, setApplications] = useState({
     pending: [],
@@ -93,24 +99,26 @@ export default function EmployeeDashboard() {
     }
   };
 
-  const checkSession = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
-        withCredentials: true
-      });
+const checkSession = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
+      withCredentials: true
+    });
 
-      if (response.data.loggedIn) {
-        setIsLoggedIn(true);
-        await fetchUserData(); // Get user data after confirming login
-        await fetchApplications(); // Get applications data
-      } else {
-        navigate('/');
-      }
-    } catch (error) {
-      console.error("Session check error:", error);
+    if (response.data.loggedIn) {
+      setIsLoggedIn(true);
+      await fetchUserData();
+      await fetchApplications();
+      await fetchElectricalApplications(); // ADD THIS LINE
+    } else {
       navigate('/');
     }
-  };
+  } catch (error) {
+    console.error("Session check error:", error);
+    navigate('/');
+  }
+};
+
 
   const handleLogout = async () => {
     try {
@@ -132,7 +140,12 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     checkSession();
   }, []);
-
+const getCurrentApplications = () => {
+  return [
+    ...applications[selectedTab],
+    ...electricalApplications[selectedTab]
+  ];
+};
 const handleAcceptApplication = async (id) => {
   try {
     const response = await axios.put(`${API_BASE_URL}/api/applications/${id}/accept`, {}, {
@@ -146,6 +159,23 @@ const handleAcceptApplication = async (id) => {
     }
   } catch (err) {
     console.error("Accept error:", err);
+  }
+};
+
+const handleAcceptElectricalApplication = async (id) => {
+  try {
+    const response = await axios.put(`${API_BASE_URL}/api/electrical-applications/${id}/accept`, 
+      { status: 'approved' }, // Add status in request body
+      { withCredentials: true }
+    );
+
+    if (response.data.success) {
+      await fetchElectricalApplications(); // Refresh electrical applications
+    } else {
+      alert("Failed to accept the electrical permit application.");
+    }
+  } catch (err) {
+    console.error("Accept electrical application error:", err);
   }
 };
 const handleViewApplication = async (id) => {
@@ -164,7 +194,66 @@ const handleViewApplication = async (id) => {
     console.error("Failed to fetch application info:", error);
   }
 };
+const handleViewElectricalApplication = async (id) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/electrical-applications/${id}`, {
+      withCredentials: true,
+    });
 
+    if (response.data.success) {
+      setSelectedApplication(response.data.application);
+      setModalVisible(true);
+    } else {
+      alert("Electrical permit application not found.");
+    }
+  } catch (error) {
+    console.error("Failed to fetch electrical application info:", error);
+  }
+};
+
+const fetchElectricalApplications = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/electrical-applications`, {
+      withCredentials: true
+    });
+    
+    if (response.data.success) {
+      // Organize electrical applications by status
+      const organizedElectricalData = {
+        pending: [],
+        inReview: [],
+        approved: [],
+        rejected: []
+      };
+      
+      response.data.applications.forEach(app => {
+  // Add type field to distinguish electrical permits
+  const appWithType = { ...app, type: 'Electrical Permit' };
+  
+  switch(app.status) {
+    case 'pending':
+      organizedElectricalData.pending.push(appWithType);
+      break;
+    case 'in-review':
+      organizedElectricalData.inReview.push(appWithType);
+      break;
+    case 'approved':
+      organizedElectricalData.approved.push(appWithType);
+      break;
+    case 'rejected':
+      organizedElectricalData.rejected.push(appWithType);
+      break;
+    default:
+      organizedElectricalData.pending.push(appWithType);
+  }
+});
+      
+      setElectricalApplications(organizedElectricalData);
+    }
+  } catch (error) {
+    console.error("Error fetching electrical applications:", error);
+  }
+};
 
 
   return (
@@ -216,13 +305,13 @@ const handleViewApplication = async (id) => {
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                tab === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                tab === 'inReview' ? 'bg-blue-100 text-blue-800' :
-                tab === 'approved' ? 'bg-green-100 text-green-800' :
-                'bg-red-100 text-red-800'
-              }`}>
-                {applications[tab].length}
-              </span>
+  tab === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+  tab === 'inReview' ? 'bg-blue-100 text-blue-800' :
+  tab === 'approved' ? 'bg-green-100 text-green-800' :
+  'bg-red-100 text-red-800'
+}`}>
+  {applications[tab].length + electricalApplications[tab].length}
+</span>
             </button>
           ))}
         </div>
@@ -231,52 +320,58 @@ const handleViewApplication = async (id) => {
       {/* Application Cards */}
       <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
         <div className="grid grid-cols-1 gap-4">
-          {applications[selectedTab].length > 0 ? (
-            applications[selectedTab].map((application) => (
-              <div key={application.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                <div className="p-4 flex items-center justify-between">
-                  <div className="flex items-center cursor-pointer" onClick={() => toggleExpandApplication(application.id)}>
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center">
-                      <FileText size={20} />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="font-medium">{application.name}</h3>
-                      <p className="text-sm text-gray-500">
-                        {application.type} • Submitted on {new Date(application.submitted).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-x-2">
-                   <button
-                       onClick={() => handleViewApplication(application.id)}
-                       className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200">
-                       View Info
-                        </button>
+          {getCurrentApplications().length > 0 ? (
+  getCurrentApplications().map((application) => (
+    <div key={`${application.type === 'Electrical Permit' ? 'electrical' : 'business'}-${application.id}`} className="bg-white rounded-lg shadow-sm overflow-hidden">
+      <div className="p-4 flex items-center justify-between">
+        <div className="flex items-center cursor-pointer" onClick={() => toggleExpandApplication(application.id)}>
+          <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center">
+            <FileText size={20} />
+          </div>
+          <div className="ml-4">
+            <h3 className="font-medium">{application.name || application.applicant_name}</h3>
+            <p className="text-sm text-gray-500">
+              {application.type || 'Electrical Permit'} • Submitted on {new Date(application.submitted || application.created_at).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        <div className="space-x-2">
+          <button
+            onClick={() => application.type === 'Electrical Permit' 
+              ? handleViewElectricalApplication(application.id) 
+              : handleViewApplication(application.id)
+            }
+            className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200">
+            View Info
+          </button>
 
-                    {application.status === "pending" && (
-                      <button
-                        onClick={() => handleAcceptApplication(application.id)}
-                        className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
-                      >
-                        Accept
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {expandedApplication === application.id && (
-                  <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600">
-                    <p><strong>Type:</strong> {application.type}</p>
-                    <p><strong>Submitted:</strong> {new Date(application.submitted).toLocaleDateString()}</p>
-                    <p><strong>Status:</strong> {application.status}</p>
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-500">
-              No applications found in this category.
-            </div>
+          {application.status === "pending" && (
+            <button
+              onClick={() => application.type === 'Electrical Permit' 
+                ? handleAcceptElectricalApplication(application.id) 
+                : handleAcceptApplication(application.id)
+              }
+              className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
+            >
+              Accept
+            </button>
           )}
+        </div>
+      </div>
+      {expandedApplication === application.id && (
+        <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600">
+          <p><strong>Type:</strong> {application.type || 'Electrical Permit'}</p>
+          <p><strong>Submitted:</strong> {new Date(application.submitted || application.created_at).toLocaleDateString()}</p>
+          <p><strong>Status:</strong> {application.status}</p>
+        </div>
+      )}
+    </div>
+  ))
+) : (
+  <div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-500">
+    No applications found in this category.
+  </div>
+)}
           
           {/* Improved Modal */}
           {modalVisible && selectedApplication && (
@@ -295,7 +390,9 @@ const handleViewApplication = async (id) => {
                       <FileText size={24} />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold">Business Permit Application</h2>
+                      <h2 className="text-2xl font-bold">
+  {selectedApplication?.type === 'Electrical Permit' ? 'Electrical Permit Application' : 'Business Permit Application'}
+</h2>
                       <p className="text-blue-100">Application Details & Information</p>
                     </div>
                   </div>
@@ -317,143 +414,260 @@ const handleViewApplication = async (id) => {
                       </span>
                     </div>
 
-                    {/* Business Information */}
-                    <div className="bg-gray-50 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                        <div className="bg-blue-100 p-2 rounded-lg mr-3">
-                          <FileText size={18} className="text-blue-600" />
-                        </div>
-                        Business Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-black">Business Name</label>
-                            <p className="text-gray-800 font-medium">{selectedApplication.business_name || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Trade Name</label>
-                            <p className="text-gray-900">{selectedApplication.trade_name || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Business Type</label>
-                            <p className="text-gray-900">{selectedApplication.business_type || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Application Type</label>
-                            <p className="text-gray-900">{selectedApplication.application_type || 'N/A'}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-black">Business Address</label>
-                            <p className="text-gray-900">{selectedApplication.business_address || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Postal Code</label>
-                            <p className="text-gray-900">{selectedApplication.business_postal_code || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Email</label>
-                            <p className="text-gray-900">{selectedApplication.business_email || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Phone Number</label>
-                            <p className="text-gray-900">{selectedApplication.business_telephone || 'N/A'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  {/* Business Information */}
+<div className="bg-gray-50 rounded-lg p-6">
+  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+    <div className="bg-blue-100 p-2 rounded-lg mr-3">
+      <FileText size={18} className="text-blue-600" />
+    </div>
+    {selectedApplication?.type === 'Electrical Permit' ? 'Project Information' : 'Business Information'}
+  </h3>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="space-y-4">
+      <div>
+        <label className="text-sm font-medium text-black">
+          {selectedApplication?.type === 'Electrical Permit' ? 'Scope of Work' : 'Business Name'}
+        </label>
+        <p className="text-gray-800 font-medium">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? (selectedApplication.scope_of_work || 'N/A')
+            : (selectedApplication.business_name || 'N/A')
+          }
+        </p>
+      </div>
+      <div>
+        <label className="text-sm font-medium text-black">
+          {selectedApplication?.type === 'Electrical Permit' ? 'Use or Character' : 'Trade Name'}
+        </label>
+        <p className="text-gray-900">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? (selectedApplication.use_or_character || 'N/A')
+            : (selectedApplication.trade_name || 'N/A')
+          }
+        </p>
+      </div>
+      <div>
+        <label className="text-sm font-medium text-black">
+          {selectedApplication?.type === 'Electrical Permit' ? 'Construction Owned' : 'Business Type'}
+        </label>
+        <p className="text-gray-900">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? (selectedApplication.construction_owned || 'N/A')
+            : (selectedApplication.business_type || 'N/A')
+          }
+        </p>
+      </div>
+      <div>
+        <label className="text-sm font-medium text-black">
+          {selectedApplication?.type === 'Electrical Permit' ? 'Form of Ownership' : 'Application Type'}
+        </label>
+        <p className="text-gray-900">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? (selectedApplication.form_of_ownership || 'N/A')
+            : (selectedApplication.application_type || 'N/A')
+          }
+        </p>
+      </div>
+    </div>
+    <div className="space-y-4">
+      <div>
+        <label className="text-sm font-medium text-black">
+          {selectedApplication?.type === 'Electrical Permit' ? 'Building Permit No' : 'Business Address'}
+        </label>
+        <p className="text-gray-900">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? (selectedApplication.building_permit_no || 'N/A')
+            : (selectedApplication.business_address || 'N/A')
+          }
+        </p>
+      </div>
+      <div>
+        <label className="text-sm font-medium text-black">
+          {selectedApplication?.type === 'Electrical Permit' ? 'EP No' : 'Postal Code'}
+        </label>
+        <p className="text-gray-900">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? (selectedApplication.ep_no || 'N/A')
+            : (selectedApplication.business_postal_code || 'N/A')
+          }
+        </p>
+      </div>
+      <div>
+        <label className="text-sm font-medium text-black">Email</label>
+        <p className="text-gray-900">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? (selectedApplication.email || 'N/A')
+            : (selectedApplication.business_email || 'N/A')
+          }
+        </p>
+      </div>
+      <div>
+        <label className="text-sm font-medium text-black">
+          {selectedApplication?.type === 'Electrical Permit' ? 'Telephone' : 'Phone Number'}
+        </label>
+        <p className="text-gray-900">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? (selectedApplication.telephone_no || 'N/A')
+            : (selectedApplication.business_telephone || 'N/A')
+          }
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
 
                     {/* Owner Information */}
-                    <div className="bg-green-50 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                        <div className="bg-green-100 p-2 rounded-lg mr-3">
-                          <User size={18} className="text-green-600" />
-                        </div>
-                        Owner Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-black">Full Name</label>
-                            <p className="text-gray-800 font-medium">
-                              {`${selectedApplication.first_name || ''} ${selectedApplication.middle_name || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'}
-                            </p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Owner Address</label>
-                            <p className="text-gray-900">{selectedApplication.owner_address || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Postal Code</label>
-                            <p className="text-gray-900">{selectedApplication.owner_postal_code || 'N/A'}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-black">Email</label>
-                            <p className="text-gray-900">{selectedApplication.owner_email || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Phone Number</label>
-                            <p className="text-gray-900">{selectedApplication.owner_telephone || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Mobile Number</label>
-                            <p className="text-gray-900">{selectedApplication.owner_mobile || 'N/A'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+<div className="bg-green-50 rounded-lg p-6">
+  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+    <div className="bg-green-100 p-2 rounded-lg mr-3">
+      <User size={18} className="text-green-600" />
+    </div>
+    {selectedApplication?.type === 'Electrical Permit' ? 'Applicant Information' : 'Owner Information'}
+  </h3>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="space-y-4">
+      <div>
+        <label className="text-sm font-medium text-black">Full Name</label>
+        <p className="text-gray-800 font-medium">
+          {selectedApplication?.type === 'Electrical Permit' 
+            ? `${selectedApplication.first_name || ''} ${selectedApplication.middle_initial || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'
+            : `${selectedApplication.first_name || ''} ${selectedApplication.middle_name || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'
+          }
+        </p>
+      </div>
+      {selectedApplication?.type !== 'Electrical Permit' && (
+        <>
+          <div>
+            <label className="text-sm font-medium text-black">Owner Address</label>
+            <p className="text-gray-900">{selectedApplication.owner_address || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Postal Code</label>
+            <p className="text-gray-900">{selectedApplication.owner_postal_code || 'N/A'}</p>
+          </div>
+        </>
+      )}
+    </div>
+    <div className="space-y-4">
+      <div>
+        <label className="text-sm font-medium text-black">Email</label>
+        <p className="text-gray-900">{selectedApplication.email || selectedApplication.owner_email || 'N/A'}</p>
+      </div>
+      {selectedApplication?.type !== 'Electrical Permit' && (
+        <>
+          <div>
+            <label className="text-sm font-medium text-black">Phone Number</label>
+            <p className="text-gray-900">{selectedApplication.owner_telephone || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Mobile Number</label>
+            <p className="text-gray-900">{selectedApplication.owner_mobile || 'N/A'}</p>
+          </div>
+        </>
+      )}
+      {selectedApplication?.type === 'Electrical Permit' && (
+        <div>
+          <label className="text-sm font-medium text-black">Telephone</label>
+          <p className="text-gray-900">{selectedApplication.telephone_no || 'N/A'}</p>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
 
-                    {/* Application Details */}
-                    <div className="bg-purple-50 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                        <div className="bg-purple-100 p-2 rounded-lg mr-3">
-                          <FileText size={18} className="text-purple-600" />
-                        </div>
-                        Application Details
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-black">Business ID</label>
-                            <p className="text-gray-900 font-mono">{selectedApplication.business_id || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">TIN Number</label>
-                            <p className="text-gray-900 font-mono">{selectedApplication.tin_no || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Registration Number</label>
-                            <p className="text-gray-900 font-mono">{selectedApplication.registration_no || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Payment Mode</label>
-                            <p className="text-gray-900">{selectedApplication.payment_mode || 'N/A'}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium text-black">Application Date</label>
-                            <p className="text-gray-900">{selectedApplication.application_date ? new Date(selectedApplication.application_date).toLocaleDateString() : 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Registration Date</label>
-                            <p className="text-gray-900">{selectedApplication.registration_date ? new Date(selectedApplication.registration_date).toLocaleDateString() : 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Tax Incentive</label>
-                            <p className="text-gray-900">{selectedApplication.tax_incentive || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium text-black">Emergency Contact</label>
-                            <p className="text-gray-900">{selectedApplication.emergency_contact || 'N/A'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                   {/* Application Details */}
+<div className="bg-purple-50 rounded-lg p-6">
+  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+    <div className="bg-purple-100 p-2 rounded-lg mr-3">
+      <FileText size={18} className="text-purple-600" />
+    </div>
+    Application Details
+  </h3>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {selectedApplication?.type === 'Electrical Permit' ? (
+      // Electrical Permit Details
+      <>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Application No</label>
+            <p className="text-gray-900 font-mono">{selectedApplication.application_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">EP No</label>
+            <p className="text-gray-900 font-mono">{selectedApplication.ep_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Building Permit No</label>
+            <p className="text-gray-900 font-mono">{selectedApplication.building_permit_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">TIN</label>
+            <p className="text-gray-900 font-mono">{selectedApplication.tin || 'N/A'}</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Application Date</label>
+            <p className="text-gray-900">{selectedApplication.created_at ? new Date(selectedApplication.created_at).toLocaleDateString() : 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Last Updated</label>
+            <p className="text-gray-900">{selectedApplication.updated_at ? new Date(selectedApplication.updated_at).toLocaleDateString() : 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Construction Owned</label>
+            <p className="text-gray-900">{selectedApplication.construction_owned || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Form of Ownership</label>
+            <p className="text-gray-900">{selectedApplication.form_of_ownership || 'N/A'}</p>
+          </div>
+        </div>
+      </>
+    ) : (
+      // Business Permit Details
+      <>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Business ID</label>
+            <p className="text-gray-900 font-mono">{selectedApplication.business_id || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">TIN Number</label>
+            <p className="text-gray-900 font-mono">{selectedApplication.tin_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Registration Number</label>
+            <p className="text-gray-900 font-mono">{selectedApplication.registration_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Payment Mode</label>
+            <p className="text-gray-900">{selectedApplication.payment_mode || 'N/A'}</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Application Date</label>
+            <p className="text-gray-900">{selectedApplication.application_date ? new Date(selectedApplication.application_date).toLocaleDateString() : 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Registration Date</label>
+            <p className="text-gray-900">{selectedApplication.registration_date ? new Date(selectedApplication.registration_date).toLocaleDateString() : 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Tax Incentive</label>
+            <p className="text-gray-900">{selectedApplication.tax_incentive || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Emergency Contact</label>
+            <p className="text-gray-900">{selectedApplication.emergency_contact || 'N/A'}</p>
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+</div>
 
                     {/* Business Activities */}
                     <div className="bg-orange-50 rounded-lg p-6">
@@ -497,6 +711,141 @@ const handleViewApplication = async (id) => {
                     
                   </div>
                 </div>
+                {selectedApplication?.type === 'Electrical Permit' && (
+  <>
+    {/* Electrical Permit Information */}
+    <div className="bg-yellow-50 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+        <div className="bg-yellow-100 p-2 rounded-lg mr-3">
+          <FileText size={18} className="text-yellow-600" />
+        </div>
+        Electrical Permit Information
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Application No</label>
+            <p className="text-gray-800 font-medium">{selectedApplication.application_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">EP No</label>
+            <p className="text-gray-900">{selectedApplication.ep_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Building Permit No</label>
+            <p className="text-gray-900">{selectedApplication.building_permit_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Scope of Work</label>
+            <p className="text-gray-900">{selectedApplication.scope_of_work || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">TIN</label>
+            <p className="text-gray-900">{selectedApplication.tin || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Construction Owned</label>
+            <p className="text-gray-900">{selectedApplication.construction_owned || 'N/A'}</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Form of Ownership</label>
+            <p className="text-gray-900">{selectedApplication.form_of_ownership || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Use or Character</label>
+            <p className="text-gray-900">{selectedApplication.use_or_character || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Telephone No</label>
+            <p className="text-gray-900">{selectedApplication.telephone_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Email</label>
+            <p className="text-gray-900">{selectedApplication.email || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Status</label>
+            <p className="text-gray-900">{selectedApplication.status || 'Pending'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Application Date</label>
+            <p className="text-gray-900">{selectedApplication.created_at ? new Date(selectedApplication.created_at).toLocaleDateString() : 'N/A'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Address Information */}
+    <div className="bg-blue-50 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+        <div className="bg-blue-100 p-2 rounded-lg mr-3">
+          <FileText size={18} className="text-blue-600" />
+        </div>
+        Address Information
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-700">Property Address</h4>
+          <div>
+            <label className="text-sm font-medium text-black">Address No</label>
+            <p className="text-gray-900">{selectedApplication.address_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Street</label>
+            <p className="text-gray-900">{selectedApplication.address_street || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Barangay</label>
+            <p className="text-gray-900">{selectedApplication.address_barangay || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">City</label>
+            <p className="text-gray-900">{selectedApplication.address_city || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Zip Code</label>
+            <p className="text-gray-900">{selectedApplication.address_zip_code || 'N/A'}</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-700">Installation Location</h4>
+          <div>
+            <label className="text-sm font-medium text-black">Street</label>
+            <p className="text-gray-900">{selectedApplication.location_street || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Lot No</label>
+            <p className="text-gray-900">{selectedApplication.location_lot_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Block No</label>
+            <p className="text-gray-900">{selectedApplication.location_blk_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">TCT No</label>
+            <p className="text-gray-900">{selectedApplication.location_tct_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Tax Declaration No</label>
+            <p className="text-gray-900">{selectedApplication.location_tax_dec_no || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Barangay</label>
+            <p className="text-gray-900">{selectedApplication.location_barangay || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">City</label>
+            <p className="text-gray-900">{selectedApplication.location_city || 'N/A'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+  </>
+)}
 
                 {/* Footer */}
                 <div className="bg-gray-50 px-6 py-4 flex justify-end">
