@@ -134,7 +134,7 @@ function Uheader() {
               
               {profileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                  <a href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  <a href="/Userprofile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     My Profile
                   </a>
                   <a href="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -182,7 +182,7 @@ function Uheader() {
             <a href="Docutracker" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
               <Clock className="mr-3" size={20} /> Track Status
             </a>
-            <a href="/profile" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
+            <a href="/Userprofile" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
               <User className="mr-3" size={20} /> My Profile
             </a>
             <a href="/settings" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">

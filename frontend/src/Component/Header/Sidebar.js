@@ -25,15 +25,17 @@ const Sidebar = ({ userData, onLogout, isLoading, onNavigate }) => {
             <CheckSquare size={20} className="mr-3" />
             <span>Verifications</span>
           </div>
+          <a href="/Employeehistory" className="block">
           <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-            <Clock size={20} className="mr-3" />
-            <span>History</span>
-          </div>
+          <Clock size={20} className="mr-3" />
+           <span>History</span>
+            </div>
+              </a>
           <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
             <Archive size={20} className="mr-3" />
             <span>Archives</span>
           </div>
-          <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
+          <div href="/Employeeprofile" className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
             <Settings size={20} className="mr-3" />
             <span>Settings</span>
           </div>
