@@ -19,6 +19,9 @@ import ElectricalPermitForm from './Component/Form/Electricalpermit/electricalpe
 import PlumbingPermitForm from './Component/Form/Plumbingpermit/plumbingpermit';
 import CedulaPermitForm from './Component/Form/Cedulapermit/cedulapermit';
 import FencingPermitForm from './Component/Form/Fencingpermit/fencingpermit';
+import MunicipalUserProfileDashboard from './Component/Userprofile/userprofile';
+import EmployeeProfileDashboard from './Component/Employeeprofile/employeeprofile';
+import EmployeeHistoryDashboard from './Component/Employeedashboard/employeehistory';
 function App() {
   return (
     <div className="App">
@@ -85,6 +88,24 @@ function App() {
             <Route path="/Docutracker" element={
             <ProtectedRoute>
               <DocumentStatusTracker />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/Userprofile" element={
+            <ProtectedRoute>
+              <MunicipalUserProfileDashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/Employeeprofile" element={
+            <ProtectedRoute>
+              <EmployeeProfileDashboard />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/Employeehistory" element={
+            <ProtectedRoute>
+              < EmployeeHistoryDashboard />
             </ProtectedRoute>
           } />
 
