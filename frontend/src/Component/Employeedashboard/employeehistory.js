@@ -14,6 +14,8 @@ import {
   RotateCcw,
   Archive
 } from 'lucide-react';
+import Sidebar from '../Header/Sidebar';
+
 
 // History Filter Component
 function HistoryFilters ({ 
@@ -406,10 +408,13 @@ function EmployeeHistoryDashboard() {
   const filteredHistory = getFilteredHistory();
 
   return (
+
     <div className="min-h-screen bg-gray-50">
+       
       {/* Space for your sidebar */}
       <div className="flex">
-        <div className="w-64 flex-shrink-0">
+        <div className="w-50 flex-shrink-0">
+          <Sidebar/>
           {/* Your sidebar will go here */}
         </div>
         
