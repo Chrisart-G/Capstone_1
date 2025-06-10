@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 02, 2025 at 01:40 PM
+-- Generation Time: Jun 10, 2025 at 03:42 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -45,7 +45,8 @@ CREATE TABLE `business_activities` (
 
 INSERT INTO `business_activities` (`id`, `permit_id`, `line_of_business`, `units`, `capitalization`, `gross_essential`, `gross_non_essential`, `created_at`, `updated_at`) VALUES
 (61, 55, 'Dolor necessitatibus', 'Dolorum voluptatibus', 0.00, 0.00, 0.00, '2025-05-31 18:48:33', '2025-05-31 18:48:33'),
-(62, 56, 'Est quasi sunt duis ', 'Iste debitis eos lab', 0.00, 0.00, 0.00, '2025-05-31 19:34:59', '2025-05-31 19:34:59');
+(62, 56, 'Est quasi sunt duis ', 'Iste debitis eos lab', 0.00, 0.00, 0.00, '2025-05-31 19:34:59', '2025-05-31 19:34:59'),
+(63, 57, 'Ut reprehenderit vo', 'Inventore deserunt N', 0.00, 0.00, 0.00, '2025-06-02 15:24:17', '2025-06-02 15:24:17');
 
 -- --------------------------------------------------------
 
@@ -113,7 +114,39 @@ CREATE TABLE `business_permits` (
 
 INSERT INTO `business_permits` (`BusinessP_id`, `application_type`, `payment_mode`, `application_date`, `tin_no`, `registration_no`, `registration_date`, `business_type`, `amendment_from`, `amendment_to`, `tax_incentive`, `tax_incentive_entity`, `last_name`, `first_name`, `middle_name`, `business_name`, `trade_name`, `business_address`, `business_postal_code`, `business_email`, `business_telephone`, `business_mobile`, `owner_address`, `owner_postal_code`, `owner_email`, `owner_telephone`, `owner_mobile`, `emergency_contact`, `emergency_phone`, `emergency_email`, `business_area`, `male_employees`, `female_employees`, `local_employees`, `lessor_name`, `lessor_address`, `lessor_phone`, `lessor_email`, `monthly_rental`, `status`, `created_at`, `updated_at`, `user_id`, `filled_up_forms`, `sec_dti_cda_certificate`, `local_sketch`, `sworn_statement_capital`, `tax_clearance`, `brgy_clearance_business`, `cedula`, `docu_type`) VALUES
 (55, 'renewal', 'quarterly', '1974-05-08', 'Dignissimos culpa i', 'Facilis odio perfere', '2005-09-12', 'corporation', 'corporation', 'single', 'no', '', 'Hendricks', 'Velma', 'Chadwick Aguirre', 'Noble Reynolds', 'Fritz Dunlap', 'Molestiae iure incid', 'Dolores la', 'pukycax@mailinator.com', '+1 (549) 513-2597', 'Ad odio qui neque ni', 'Autem officia quas s', 'Quis dolor', 'jovobehe@mailinator.com', '+1 (941) 299-3073', 'Excepteur quis ipsam', 'Eugenia Sutton', '+1 (658) 894-6185', 'ryweb@mailinator.com', 'Tempor porro anim ex', 15, 73, 60, 'Winifred Rocha', 'Ut corporis doloribu', '+1 (227) 263-2373', 'kyrabih@mailinator.com', 5.00, 'in-review', '2025-05-31 18:48:33', '2025-05-31 18:54:15', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit'),
-(56, 'new', 'quarterly', '2003-11-29', 'Proident architecto', 'At et velit autem p', '2016-01-21', 'corporation', 'single', 'partnership', 'no', '', 'Eaton', 'Donovan', 'Inga Gill', 'Quynn Cox', 'Kirby Shannon', 'Culpa sapiente irure', 'Autem ut s', 'rifiq@mailinator.com', '+1 (412) 178-5625', 'Sunt voluptate sed t', 'Quo laudantium arch', 'Quas exerc', 'sedaqomuf@mailinator.com', '+1 (367) 113-3186', 'Quis minim qui culpa', 'Brenna William', '+1 (632) 367-6608', 'kazosy@mailinator.com', 'Nostrud incidunt re', 72, 7, 97, 'Russell Anderson', 'Incididunt vel eum a', '+1 (427) 254-8133', 'hixewyri@mailinator.com', 2.00, 'in-review', '2025-05-31 19:34:59', '2025-05-31 20:07:17', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit');
+(56, 'new', 'quarterly', '2003-11-29', 'Proident architecto', 'At et velit autem p', '2016-01-21', 'corporation', 'single', 'partnership', 'no', '', 'Eaton', 'Donovan', 'Inga Gill', 'Quynn Cox', 'Kirby Shannon', 'Culpa sapiente irure', 'Autem ut s', 'rifiq@mailinator.com', '+1 (412) 178-5625', 'Sunt voluptate sed t', 'Quo laudantium arch', 'Quas exerc', 'sedaqomuf@mailinator.com', '+1 (367) 113-3186', 'Quis minim qui culpa', 'Brenna William', '+1 (632) 367-6608', 'kazosy@mailinator.com', 'Nostrud incidunt re', 72, 7, 97, 'Russell Anderson', 'Incididunt vel eum a', '+1 (427) 254-8133', 'hixewyri@mailinator.com', 2.00, 'in-review', '2025-05-31 19:34:59', '2025-05-31 20:07:17', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit'),
+(57, 'new', 'annually', '2001-02-08', 'Rerum officiis Nam c', 'Cupidatat doloremque', '1991-03-01', 'partnership', 'partnership', 'partnership', 'yes', '', 'Vega', 'Winter', 'Keefe Lambert', 'Xander Gutierrez', 'Sean Slater', 'Nemo sint enim nisi ', 'Ut vero au', 'nilyjakyb@mailinator.com', '+1 (901) 469-1187', 'Nulla culpa molesti', 'Asperiores esse qui', 'Reiciendis', 'tocoteg@mailinator.com', '+1 (938) 366-2375', 'Voluptatem numquam ', 'Tatiana William', '+1 (698) 594-3738', 'zijugyqin@mailinator.com', 'Aliquam laborum Min', 23, 3, 53, 'Hasad Doyle', 'Suscipit officia est', '+1 (591) 331-4116', 'hitawi@mailinator.com', 10.00, 'in-review', '2025-06-02 15:24:17', '2025-06-02 15:54:33', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_cedula`
+--
+
+CREATE TABLE `tbl_cedula` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `address` text NOT NULL,
+  `place_of_birth` varchar(255) NOT NULL,
+  `date_of_birth` date NOT NULL,
+  `profession` varchar(255) NOT NULL,
+  `yearly_income` decimal(15,2) NOT NULL,
+  `purpose` text NOT NULL,
+  `sex` enum('male','female') NOT NULL,
+  `status` enum('single','married','widowed') NOT NULL,
+  `tin` varchar(50) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_cedula`
+--
+
+INSERT INTO `tbl_cedula` (`id`, `name`, `address`, `place_of_birth`, `date_of_birth`, `profession`, `yearly_income`, `purpose`, `sex`, `status`, `tin`, `user_id`, `created_at`, `updated_at`) VALUES
+(1, 'Lavinia Horn', 'Ullam adipisicing al', 'Omnis quam praesenti', '2016-07-10', 'Quia maxime ullamco ', 264.00, 'Optio culpa natus ', 'male', 'widowed', 'Consequuntur maxime ', 1, '2025-06-02 14:32:15', '2025-06-02 14:32:15'),
+(2, 'Drake Castillo', 'Irure ratione quo ab', 'Cupidatat atque cupi', '1992-11-22', 'Accusantium ad occae', 373.00, 'Qui hic fugit ut et', 'female', 'single', 'Earum quia qui ut ar', 1, '2025-06-02 15:02:58', '2025-06-02 16:19:06');
 
 -- --------------------------------------------------------
 
@@ -289,6 +322,13 @@ ALTER TABLE `business_permits`
   ADD KEY `user_id` (`user_id`);
 
 --
+-- Indexes for table `tbl_cedula`
+--
+ALTER TABLE `tbl_cedula`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_user_id` (`user_id`);
+
+--
 -- Indexes for table `tbl_electrical_permits`
 --
 ALTER TABLE `tbl_electrical_permits`
@@ -338,13 +378,19 @@ ALTER TABLE `tb_logins`
 -- AUTO_INCREMENT for table `business_activities`
 --
 ALTER TABLE `business_activities`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=64;
 
 --
 -- AUTO_INCREMENT for table `business_permits`
 --
 ALTER TABLE `business_permits`
-  MODIFY `BusinessP_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
+  MODIFY `BusinessP_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=58;
+
+--
+-- AUTO_INCREMENT for table `tbl_cedula`
+--
+ALTER TABLE `tbl_cedula`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tbl_electrical_permits`
@@ -391,6 +437,12 @@ ALTER TABLE `business_activities`
 --
 ALTER TABLE `business_permits`
   ADD CONSTRAINT `business_permits_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `tb_logins` (`user_id`);
+
+--
+-- Constraints for table `tbl_cedula`
+--
+ALTER TABLE `tbl_cedula`
+  ADD CONSTRAINT `tbl_cedula_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `tb_logins` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `tbl_electrical_permits`
