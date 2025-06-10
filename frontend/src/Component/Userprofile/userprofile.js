@@ -240,8 +240,8 @@ export default function MunicipalUserProfileDashboard() {
 
   const PersonalInfoTab = () => (
     <div className="bg-white rounded-lg p-6 shadow-sm border">
-      <h3 className="text-lg font-semibold mb-6">Personal & Business Information</h3>
-      <div className="grid md:grid-cols-2 gap-8">
+      <h3 className="text-lg font-semibold mb-6">Personal Information</h3>
+      <div className="max-w-md mx-auto">
         <div className="space-y-6">
           <h4 className="font-medium text-gray-900 border-b pb-2">Personal Details</h4>
           
@@ -299,56 +299,6 @@ export default function MunicipalUserProfileDashboard() {
               ) : (
                 <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.address}</p>
               )}
-            </div>
-          </div>
-        </div>
-        
-        <div className="space-y-6">
-          <h4 className="font-medium text-gray-900 border-b pb-2">Business Information</h4>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Business Name</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={tempUserInfo.businessName}
-                  onChange={(e) => handleInputChange('businessName', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.businessName}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Business Type</label>
-              {isEditing ? (
-                <select
-                  value={tempUserInfo.businessType}
-                  onChange={(e) => handleInputChange('businessType', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Retail Store">Retail Store</option>
-                  <option value="Restaurant">Restaurant</option>
-                  <option value="Service Business">Service Business</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="Other">Other</option>
-                </select>
-              ) : (
-                <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.businessType}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">TIN Number</label>
-              <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.tinNumber}</p>
-              <p className="text-xs text-gray-500 mt-1">Contact municipal office to update TIN</p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Member Since</label>
-              <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.memberSince}</p>
             </div>
           </div>
         </div>

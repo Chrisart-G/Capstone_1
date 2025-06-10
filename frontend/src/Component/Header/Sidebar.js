@@ -12,15 +12,17 @@ const Sidebar = ({ userData, onLogout, isLoading, onNavigate }) => {
     <div className="w-64 bg-blue-600 text-white flex flex-col justify-between">
       <div>
         <div className="p-4 text-center">
-          <img src="/img/logo.png" alt="Logo" className="w-20 h-20 mx-auto" />
+          <img src="/img/logo.png" alt="Logo" className="w-15 h-18 mx-auto" />
           <h1 className="text-2xl font-bold mt-2">Employee Dashboard</h1>
           <p className="text-indigo-200 text-sm">Hinigaran Municipality</p>
         </div>
         <nav className="mt-6">
-          <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center" onClick={() => onNavigate('pending')}>
+          <a href="/EmployDash" className="block">
+          <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
             <FileText size={20} className="mr-3" />
             <span className="font-medium">Applications</span>
           </div>
+          </a>
           <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
             <CheckSquare size={20} className="mr-3" />
             <span>Verifications</span>

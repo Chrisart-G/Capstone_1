@@ -185,7 +185,7 @@ function Uheader() {
             <a href="/Userprofile" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
               <User className="mr-3" size={20} /> My Profile
             </a>
-            <a href="/settings" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
+            <a href="/Usersettings" className="w-full px-6 py-3 hover:bg-blue-700 flex items-center">
               Settings
             </a>
             <button
