@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Clock, AlertCircle, Loader, FileText, RefreshCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, Clock, AlertCircle, Loader, FileText, RefreshCcw, ChevronDown, ChevronUp, User } from 'lucide-react';
 import Uheader from '../Header/User_header';
 import UFooter from '../Footer/User_Footer';
-
 function DocumentStatusTracker() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,18 +11,22 @@ function DocumentStatusTracker() {
   useEffect(() => {
     const fetchAllPermitData = async () => {
       try {
-        // Fetch both business permits and electrical permits
-        const [businessResponse, electricalResponse] = await Promise.all([
+        // Fetch business permits, electrical permits, and cedulas
+        const [businessResponse, electricalResponse, cedulaResponse] = await Promise.all([
           fetch('http://localhost:8081/api/businesspermits', {
             credentials: 'include'
           }),
           fetch('http://localhost:8081/api/getelectrical-permits', {
+            credentials: 'include'
+          }),
+          fetch('http://localhost:8081/api/cedulas-tracking', {
             credentials: 'include'
           })
         ]);
         
         const businessData = await businessResponse.json();
         const electricalData = await electricalResponse.json();
+        const cedulaData = await cedulaResponse.json();
         
         let allApplications = [];
         
@@ -58,6 +61,30 @@ function DocumentStatusTracker() {
             steps: transformStatusToSteps(permit.status)
           }));
           allApplications = [...allApplications, ...transformedElectricalPermits];
+        }
+
+        // Transform cedula records
+        if (cedulaData.success && cedulaData.cedulas && cedulaData.cedulas.length > 0) {
+          const transformedCedulas = cedulaData.cedulas.map(cedula => ({
+            id: `cedula_${cedula.id}`,
+            title: `Cedula - ${cedula.name}`,
+            type: 'Cedula',
+            status: cedula.cedula_status || 'pending',
+            email: '', // Cedula doesn't have email in the data
+            applicationDate: new Date(cedula.created_at).toLocaleString(),
+            createdAt: new Date(cedula.created_at).toLocaleString(),
+            address: cedula.address,
+            placeOfBirth: cedula.place_of_birth,
+            dateOfBirth: new Date(cedula.date_of_birth).toLocaleDateString(),
+            profession: cedula.profession,
+            yearlyIncome: cedula.yearly_income,
+            purpose: cedula.purpose,
+            sex: cedula.sex,
+            maritalStatus: cedula.status,
+            tin: cedula.tin,
+            steps: transformStatusToSteps(cedula.cedula_status || 'pending')
+          }));
+          allApplications = [...allApplications, ...transformedCedulas];
         }
         
         // Sort all applications by creation date (most recent first)
@@ -116,7 +143,7 @@ function DocumentStatusTracker() {
       },
       {
         name: "Ready for Pickup",
-        message: "Your permit is ready for pickup at the municipal office.",
+        message: "Your permit/cedula is ready for pickup at the municipal office.",
         icon: Check
       }
     ];
@@ -194,6 +221,8 @@ function DocumentStatusTracker() {
         return "bg-blue-100 text-blue-800";
       case 'Electrical Permit':
         return "bg-orange-100 text-orange-800";
+      case 'Cedula':
+        return "bg-green-100 text-green-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -257,11 +286,11 @@ function DocumentStatusTracker() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-       <Uheader/>
+      <Uheader/>
       <div className="max-w-4xl mx-auto p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Application Status Tracker</h1>
-          <p className="text-gray-600 mt-2">Track the progress of your permit applications</p>
+          <p className="text-gray-600 mt-2">Track the progress of your permit applications and cedula records</p>
         </div>
 
         <div className="space-y-4">
@@ -288,12 +317,22 @@ function DocumentStatusTracker() {
                       </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
-                      <span>ID: {application.id.replace(/^(business_|electrical_)/, '')}</span>
+                      <span>ID: {application.id.replace(/^(business_|electrical_|cedula_)/, '')}</span>
                       {application.applicationNo && <span>App No: {application.applicationNo}</span>}
                       {application.epNo && <span>EP No: {application.epNo}</span>}
                       <span>Applied: {application.applicationDate}</span>
-                      <span>Email: {application.email}</span>
+                      {application.email && <span>Email: {application.email}</span>}
                     </div>
+                    
+                    {/* Cedula specific details */}
+                    {application.type === 'Cedula' && (
+                      <div className="mt-2 text-sm text-gray-600 space-y-1">
+                        <div>Address: {application.address}</div>
+                        <div>Profession: {application.profession}</div>
+                        <div>Purpose: {application.purpose}</div>
+                      </div>
+                    )}
+                    
                     {application.scopeOfWork && (
                       <div className="mt-2 text-sm text-gray-600">
                         <span>Scope: {application.scopeOfWork}</span>
@@ -316,6 +355,29 @@ function DocumentStatusTracker() {
               {/* Expandable Timeline */}
               {expandedCards[application.id] && (
                 <div className="px-6 pb-6 border-t border-gray-200">
+                  
+                  {/* Cedula Details Section */}
+                  {application.type === 'Cedula' && (
+                    <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                      <h3 className="font-medium text-green-800 mb-3 flex items-center">
+                        <User className="h-4 w-4 mr-2" />
+                        Personal Information
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><span className="font-medium">Full Name:</span> {application.title.replace('Cedula - ', '')}</div>
+                        <div><span className="font-medium">Date of Birth:</span> {application.dateOfBirth}</div>
+                        <div><span className="font-medium">Place of Birth:</span> {application.placeOfBirth}</div>
+                        <div><span className="font-medium">Sex:</span> {application.sex}</div>
+                        <div><span className="font-medium">Marital Status:</span> {application.maritalStatus}</div>
+                        <div><span className="font-medium">Profession:</span> {application.profession}</div>
+                        <div><span className="font-medium">Yearly Income:</span> ₱{application.yearlyIncome?.toLocaleString()}</div>
+                        <div><span className="font-medium">TIN:</span> {application.tin}</div>
+                        <div className="col-span-2"><span className="font-medium">Address:</span> {application.address}</div>
+                        <div className="col-span-2"><span className="font-medium">Purpose:</span> {application.purpose}</div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Timeline Steps */}
                   <div className="relative mt-6">
                     {application.steps.map((step, index) => (

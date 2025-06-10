@@ -10,6 +10,7 @@ const employeeController = require('../controller/viewemployeeController');
 const officeManagementController = require('../Controller/officeManagementController');
 const applicationController = require('../Controller/applicationController'); 
 const electricalPermitController = require('../Controller/electricalPermitController');
+const CedulaController = require('../Controller/cedulaController');
 //route path 
 router.post('/login', loginController.Login);
 router.post('/Signup', SignupControler.Signup);
@@ -53,5 +54,15 @@ router.get('/electrical-applications/:id', electricalPermitController.getElectri
 // Update electrical permit status
 router.put('/electrical-applications/:id/accept', electricalPermitController.updateElectricalPermitStatus);
 
+//<---------------------------------------------------------------->
+router.post('/cedula', isAuthenticated, CedulaController.submitCedula);
+router.get('/cedula', isAuthenticated, CedulaController.getUserCedulas);
+router.get('/cedula/:id', isAuthenticated, CedulaController.getCedulaById);
+router.put('/cedula/:id', isAuthenticated, CedulaController.updateCedula);
+router.delete('/cedula/:id', isAuthenticated, CedulaController.deleteCedula);
+router.get('/cedulas-tracking', isAuthenticated, CedulaController.getCedulasForTracking);
+router.get('/cedula-application/:id', CedulaController.getCedulaById);
+router.get('/cedula-applications', CedulaController.getAllCedulaForEmployee);
+router.put('/cedula-applications/:id/accept', CedulaController.updateCedulaStatus);
 module.exports = router;
     

@@ -120,10 +120,6 @@ const saveFile = (file) => {
   
 
 
-
-
-
-
 // this coode to get the data from tbl_business_permits and get the email from tb_logins display
 exports.getAllPermits = (req, res) => {
     console.log("Session in BusinessPermit:", req.session);

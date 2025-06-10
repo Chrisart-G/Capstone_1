@@ -278,7 +278,6 @@ exports.getAllElectricalPermitsForEmployee = (req, res) => {
         res.json({ success: true, applications: transformedResults });
     });
 };
-// un-use
 // function to update electrical permit status
 exports.updateElectricalPermitStatus = (req, res) => {
     const permitId = req.params.id;
@@ -313,7 +312,6 @@ exports.updateElectricalPermitStatus = (req, res) => {
         });
     });
 };
-// un-use
 //this function to get single electrical permit details
 exports.getElectricalPermitById = (req, res) => {
     const permitId = req.params.id;

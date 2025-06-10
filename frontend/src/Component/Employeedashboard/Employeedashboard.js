@@ -22,6 +22,12 @@ export default function EmployeeDashboard() {
   approved: [],
   rejected: []
 });
+const [cedulaApplications, setCedulaApplications] = useState({
+  pending: [],
+  inReview: [],
+  approved: [],
+  rejected: []
+});
 
   const [applications, setApplications] = useState({
     pending: [],
@@ -109,7 +115,8 @@ const checkSession = async () => {
       setIsLoggedIn(true);
       await fetchUserData();
       await fetchApplications();
-      await fetchElectricalApplications(); // ADD THIS LINE
+      await fetchElectricalApplications();
+      await fetchCedulaApplications(); 
     } else {
       navigate('/');
     }
@@ -143,8 +150,25 @@ const checkSession = async () => {
 const getCurrentApplications = () => {
   return [
     ...applications[selectedTab],
-    ...electricalApplications[selectedTab]
+    ...electricalApplications[selectedTab],
+    ...cedulaApplications[selectedTab]
   ];
+};
+const handleViewApplication = async (id) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/applications/${id}`, {
+      withCredentials: true,
+    });
+
+    if (response.data.success) {
+      setSelectedApplication(response.data.application);
+      setModalVisible(true);
+    } else {
+      alert("Application not found.");
+    }
+  } catch (error) {
+    console.error("Failed to fetch application info:", error);
+  }
 };
 const handleAcceptApplication = async (id) => {
   try {
@@ -178,22 +202,7 @@ const handleAcceptElectricalApplication = async (id) => {
     console.error("Accept electrical application error:", err);
   }
 };
-const handleViewApplication = async (id) => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/applications/${id}`, {
-      withCredentials: true,
-    });
 
-    if (response.data.success) {
-      setSelectedApplication(response.data.application);
-      setModalVisible(true);
-    } else {
-      alert("Application not found.");
-    }
-  } catch (error) {
-    console.error("Failed to fetch application info:", error);
-  }
-};
 const handleViewElectricalApplication = async (id) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/electrical-applications/${id}`, {
@@ -254,7 +263,86 @@ const fetchElectricalApplications = async () => {
     console.error("Error fetching electrical applications:", error);
   }
 };
+// Fetch all cedula applications and organize by status
+const fetchCedulaApplications = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/cedula-applications`, {
+      withCredentials: true
+    });
+    
+    if (response.data.success) {
+      // Organize cedula applications by status
+      const organizedCedulaData = {
+        pending: [],
+        inReview: [],
+        approved: [],
+        rejected: []
+      };
+      
+      response.data.applications.forEach(app => {
+        // Add type field to distinguish cedula applications
+        const appWithType = { ...app, type: 'Cedula' };
+        
+        switch(app.status) {
+          case 'pending':
+            organizedCedulaData.pending.push(appWithType);
+            break;
+          case 'in-review':
+            organizedCedulaData.inReview.push(appWithType);
+            break;
+          case 'approved':
+            organizedCedulaData.approved.push(appWithType);
+            break;
+          case 'rejected':
+            organizedCedulaData.rejected.push(appWithType);
+            break;
+          default:
+            organizedCedulaData.pending.push(appWithType);
+        }
+      });
+      
+      setCedulaApplications(organizedCedulaData);
+    }
+  } catch (error) {
+    console.error("Error fetching cedula applications:", error);
+  }
+};
 
+// View specific cedula application by ID
+const handleViewCedulaApplication = async (id) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/cedula-applications/${id}`, {
+      withCredentials: true,
+    });
+
+    if (response.data.success) {
+      setSelectedApplication(response.data.application);
+      setModalVisible(true);
+    } else {
+      alert("Cedula application not found.");
+    }
+  } catch (error) {
+    console.error("Failed to fetch cedula application info:", error);
+  }
+};
+
+// Accept cedula application
+const handleAcceptCedulaApplication = async (id) => {
+  try {
+    const response = await axios.put(`${API_BASE_URL}/api/cedula-applications/${id}/accept`, 
+      { status: 'approved' }, // Add status in request body
+      { withCredentials: true }
+    );
+
+    if (response.data.success) {
+      await fetchCedulaApplications(); // Refresh cedula applications
+    } else {
+      alert("Failed to accept the cedula application.");
+    }
+  } catch (err) {
+    console.error("Accept cedula application error:", err);
+  }
+};
 
   return (
   <div className="flex h-screen bg-gray-100">
@@ -310,7 +398,7 @@ const fetchElectricalApplications = async () => {
   tab === 'approved' ? 'bg-green-100 text-green-800' :
   'bg-red-100 text-red-800'
 }`}>
-  {applications[tab].length + electricalApplications[tab].length}
+  {applications[tab].length + electricalApplications[tab].length + cedulaApplications[tab].length}
 </span>
             </button>
           ))}
@@ -336,27 +424,36 @@ const fetchElectricalApplications = async () => {
           </div>
         </div>
         <div className="space-x-2">
-          <button
-            onClick={() => application.type === 'Electrical Permit' 
-              ? handleViewElectricalApplication(application.id) 
-              : handleViewApplication(application.id)
-            }
-            className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200">
-            View Info
-          </button>
+  <button
+    onClick={() => {
+      if (application.type === 'Electrical Permit') {
+        handleViewElectricalApplication(application.id);
+      } else if (application.type === 'Cedula') {
+        handleViewCedulaApplication(application.id);
+      } else {
+        handleViewApplication(application.id);
+      }
+    }}
+    className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200">
+    View Info
+  </button>
 
-          {application.status === "pending" && (
-            <button
-              onClick={() => application.type === 'Electrical Permit' 
-                ? handleAcceptElectricalApplication(application.id) 
-                : handleAcceptApplication(application.id)
-              }
-              className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
-            >
-              Accept
-            </button>
-          )}
-        </div>
+  {application.status === "pending" && (
+    <button
+      onClick={() => {
+        if (application.type === 'Electrical Permit') {
+          handleAcceptElectricalApplication(application.id);
+        } else if (application.type === 'Cedula') {
+          handleAcceptCedulaApplication(application.id);
+        } else {
+          handleAcceptApplication(application.id);
+        }
+      }}
+      className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200">
+      Accept
+    </button>
+  )}
+</div>
       </div>
       {expandedApplication === application.id && (
         <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600">
@@ -842,7 +939,97 @@ const fetchElectricalApplications = async () => {
         </div>
       </div>
     </div>
+{selectedApplication?.type === 'Cedula' && (
+  <>
+    {/* Cedula Information */}
+    <div className="bg-indigo-50 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+        <div className="bg-indigo-100 p-2 rounded-lg mr-3">
+          <FileText size={18} className="text-indigo-600" />
+        </div>
+        Cedula Information
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Full Name</label>
+            <p className="text-gray-800 font-medium">{selectedApplication.name || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Address</label>
+            <p className="text-gray-900">{selectedApplication.address || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Place of Birth</label>
+            <p className="text-gray-900">{selectedApplication.place_of_birth || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Date of Birth</label>
+            <p className="text-gray-900">{selectedApplication.date_of_birth ? new Date(selectedApplication.date_of_birth).toLocaleDateString() : 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Profession</label>
+            <p className="text-gray-900">{selectedApplication.profession || 'N/A'}</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Yearly Income</label>
+            <p className="text-gray-900">₱{selectedApplication.yearly_income ? Number(selectedApplication.yearly_income).toLocaleString() : 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Purpose</label>
+            <p className="text-gray-900">{selectedApplication.purpose || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Sex</label>
+            <p className="text-gray-900">{selectedApplication.sex || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Civil Status</label>
+            <p className="text-gray-900">{selectedApplication.marital_status || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">TIN</label>
+            <p className="text-gray-900">{selectedApplication.tin || 'N/A'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    {/* Contact Information */}
+    <div className="bg-green-50 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+        <div className="bg-green-100 p-2 rounded-lg mr-3">
+          <User size={18} className="text-green-600" />
+        </div>
+        Contact Information
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Email</label>
+            <p className="text-gray-900">{selectedApplication.email || 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">Application Date</label>
+            <p className="text-gray-900">{selectedApplication.created_at ? new Date(selectedApplication.created_at).toLocaleDateString() : 'N/A'}</p>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-black">Last Updated</label>
+            <p className="text-gray-900">{selectedApplication.updated_at ? new Date(selectedApplication.updated_at).toLocaleDateString() : 'N/A'}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-black">User ID</label>
+            <p className="text-gray-900">{selectedApplication.user_id || 'N/A'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </>
+)}
 
   </>
 )}
