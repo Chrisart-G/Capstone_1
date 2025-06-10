@@ -17,8 +17,13 @@ import {
   Calendar,
   Award,
   TrendingUp,
-  Users
+  Users,
+  Menu,
+  Archive,
+  History,
+  UserCheck
 } from 'lucide-react';
+
 // Employee Profile Header Component
 function EmployeeProfileHeader({ employee, onEditProfile }) {
   return (
@@ -393,13 +398,13 @@ function EmployeeProfileDashboard() {
   };
 
   return (
-    <div>
-        <Sidebar/>
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      < Sidebar/>
       
-      <div className="min-h-screen bg-gray-50">
-        
+      {/* Main Content */}
+      <div className="flex-1 ml-64">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          
           <EmployeeProfileHeader 
             employee={employee}
             onEditProfile={handleEditProfile}

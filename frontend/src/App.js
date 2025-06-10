@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Logins from './Component/Logins/Login';
 import Singnup from './Component/Signup/Signup';
 import MunicipalLandingPage from './Component/Home/Home';
-import BusinessPermitForm from './Component/Form/businesspermit/businesspermit';
+import BusinessPermitForm from './Component/Form/Businesspermit/businesspermit';
 import PermitsHomepage from './Component/Home/Requesthome';
 import AdminDashboard from './Component/Adminhomepage/Adminhome';
 import ProtectedRoute from './Component/Auth/ProtectedRoute'; 
@@ -20,6 +20,7 @@ import PlumbingPermitForm from './Component/Form/Plumbingpermit/plumbingpermit';
 import CedulaPermitForm from './Component/Form/Cedulapermit/cedulapermit';
 import FencingPermitForm from './Component/Form/Fencingpermit/fencingpermit';
 import MunicipalUserProfileDashboard from './Component/Userprofile/userprofile';
+import Usersettings from './Component/Usersettings/usersettings';
 import EmployeeProfileDashboard from './Component/Employeeprofile/employeeprofile';
 import EmployeeHistoryDashboard from './Component/Employeedashboard/employeehistory';
 function App() {
@@ -96,6 +97,13 @@ function App() {
               <MunicipalUserProfileDashboard />
             </ProtectedRoute>
           } />
+
+          <Route path="/Usesettings" element={
+            <ProtectedRoute>
+              <Usersettings />
+            </ProtectedRoute>
+          } />
+
 
           <Route path="/Employeeprofile" element={
             <ProtectedRoute>

@@ -373,9 +373,12 @@ const handleAcceptCedulaApplication = async (id) => {
               <Bell size={20} className="text-gray-600 cursor-pointer" />
               <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">3</span>
             </div>
-            <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center">
+            <a 
+              href="/Employeeprofile" 
+              className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition-colors"
+            >
               <User size={16} />
-            </div>
+              </a>
           </div>
         </div>
 
