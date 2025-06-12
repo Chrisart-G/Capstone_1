@@ -57,12 +57,15 @@ router.put('/electrical-applications/:id/accept', electricalPermitController.upd
 //<---------------------------------------------------------------->
 router.post('/cedula', isAuthenticated, CedulaController.submitCedula);
 router.get('/cedula', isAuthenticated, CedulaController.getUserCedulas);
-router.get('/cedula/:id', isAuthenticated, CedulaController.getCedulaById);
+
 router.put('/cedula/:id', isAuthenticated, CedulaController.updateCedula);
 router.delete('/cedula/:id', isAuthenticated, CedulaController.deleteCedula);
 router.get('/cedulas-tracking', isAuthenticated, CedulaController.getCedulasForTracking);
-router.get('/cedula-application/:id', CedulaController.getCedulaById);
+//----------------- 6/10/25
+// Cedula routes for employee dashboard
 router.get('/cedula-applications', CedulaController.getAllCedulaForEmployee);
+router.get('/cedula-applications/:id', CedulaController.getCedulaById);
 router.put('/cedula-applications/:id/accept', CedulaController.updateCedulaStatus);
+//--------------------------------
 module.exports = router;
     

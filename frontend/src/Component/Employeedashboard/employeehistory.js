@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   Clock, 
@@ -15,8 +16,8 @@ import {
   Archive
 } from 'lucide-react';
 import Sidebar from '../Header/Sidebar';
-
-
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 // History Filter Component
 function HistoryFilters ({ 
   searchTerm, 
@@ -404,19 +405,83 @@ function EmployeeHistoryDashboard() {
     console.log('Download document:', item);
     // Implement download logic
   };
+const API_BASE_URL = "http://localhost:8081";
+const filteredHistory = getFilteredHistory();
+const [userData, setUserData] = useState(null);
+const [isLoading, setIsLoading] = useState(true);
+const [isLoggedIn, setIsLoggedIn] = useState(false);
+const navigate = useNavigate();
+const [selectedTab, setSelectedTab] = useState('pending');
+const handleLogout = async () => {
+    try {
+      setIsLoading(true);
+      await axios.post(`${API_BASE_URL}/api/logout`, {}, { withCredentials: true });
+      navigate('/');
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Failed to logout.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+    const handleNavigate = (tab) => {
+    setSelectedTab(tab);
+  };
+const checkSession = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
+      withCredentials: true
+    });
 
-  const filteredHistory = getFilteredHistory();
-
+    if (response.data.loggedIn) {
+      setIsLoggedIn(true);
+      await fetchUserData();
+    } else {
+      navigate('/');
+    }
+  } catch (error) {
+    console.error("Session check error:", error);
+    navigate('/');
+  }
+};
+  // Fetch user data from database
+  const fetchUserData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/auth/userinfo`, {
+        withCredentials: true
+      });
+      
+      // Debug response
+      console.log("User data API response:", response.data);
+      
+      if (response.data.success) {
+        // Store the userData rather than user property
+        setUserData(response.data.userData);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+    useEffect(() => {
+      checkSession();
+    }, []);
   return (
 
     <div className="min-h-screen bg-gray-50">
        
       {/* Space for your sidebar */}
       <div className="flex">
-        <div className="w-50 flex-shrink-0">
-          <Sidebar/>
+     
+          <Sidebar
+          userData={userData} 
+          onLogout={handleLogout} 
+          isLoading={isLoading}
+         onNavigate={handleNavigate}
+          />
           {/* Your sidebar will go here */}
-        </div>
+ 
         
         {/* Main content area */}
         <div className="flex-1 p-8">

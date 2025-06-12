@@ -87,125 +87,138 @@ exports.submitCedula = async (req, res) => {
     }
 };
     // this function to fetch the cedula app in employee end 
+//use in employee dashboard 
 exports.getAllCedulaForEmployee = (req, res) => {
-    console.log("Session in Cedula (Employee):", req.session);
-    console.log("User in session:", req.session?.user);
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ message: "Unauthorized. Please log in." });
+  }
 
-    if (!req.session || !req.session.user) {
-        console.log("User not authenticated");
-        return res.status(401).json({ message: "Unauthorized. Please log in." });
+  const sql = `
+    SELECT c.*, l.email
+    FROM tbl_cedula c
+    LEFT JOIN tb_logins l ON c.user_id = l.user_id
+    ORDER BY c.created_at DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching cedula applications:", err);
+      return res.status(500).json({ success: false, message: "Error retrieving cedula applications" });
     }
 
-    const sql = `
-        SELECT c.id, c.name, c.address, c.place_of_birth, c.date_of_birth,
-               c.profession, c.yearly_income, c.purpose, c.sex, c.status as marital_status,
-               c.tin, c.user_id, c.created_at, c.updated_at, l.email
-        FROM tbl_cedula c
-        LEFT JOIN tb_logins l ON c.user_id = l.user_id
-        ORDER BY c.created_at DESC
-    `;
-    
-    db.query(sql, (err, results) => {
-        if (err) {
-            console.error("Error fetching cedula applications for employee:", err);
-            return res.status(500).json({
-                success: false,
-                message: "Error retrieving cedula applications",
-                error: err.message
-            });
-        }
-        
-        // Transform the data to match the expected format (same as electrical permits)
-        const transformedResults = results.map(cedula => ({
-            id: cedula.id,
-            type: 'Cedula',
-            name: cedula.name,
-            status: cedula.application_status || 'pending', // Use application_status if exists, otherwise default to pending
-            submitted: cedula.created_at,
-            // Cedula specific fields
-            address: cedula.address,
-            place_of_birth: cedula.place_of_birth,
-            date_of_birth: cedula.date_of_birth,
-            profession: cedula.profession,
-            yearly_income: cedula.yearly_income,
-            purpose: cedula.purpose,
-            sex: cedula.sex,
-            marital_status: cedula.marital_status,
-            tin: cedula.tin,
-            email: cedula.email,
-            user_id: cedula.user_id,
-            created_at: cedula.created_at,
-            updated_at: cedula.updated_at
-        }));
-        
-        res.json({ success: true, applications: transformedResults });
-    });
+    const transformedResults = results.map(app => ({
+      id: app.id,
+      type: 'Cedula',
+      name: app.name,
+      status: app.status || 'pending',
+      submitted: app.created_at,
+      email: app.email,
+      user_id: app.user_id,
+      ...app
+    }));
+
+    res.json({ success: true, applications: transformedResults });
+  });
 };
 
+// Get single Cedula by ID
 exports.getCedulaById = (req, res) => {
-    const cedulaId = req.params.id;
+  const cedulaId = req.params.id;
+  console.log("📥 Cedula ID received:", cedulaId);
 
-    if (!req.session || !req.session.user) {
-        return res.status(401).json({ message: "Unauthorized. Please log in." });
+  // Check session
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ message: "Unauthorized. Please log in." });
+  }
+
+  const sql = `
+    SELECT c.*, l.email
+    FROM tbl_cedula c
+    LEFT JOIN tb_logins l ON c.user_id = l.user_id
+    WHERE c.id = ?
+  `;
+
+  db.query(sql, [cedulaId], (err, results) => {
+    if (err) {
+      console.error("❌ SQL Error fetching cedula details:", err);
+      return res.status(500).json({ success: false, message: "Server error retrieving cedula details" });
     }
 
-    const sql = `
-        SELECT c.*, l.email
-        FROM tbl_cedula c
-        LEFT JOIN tb_logins l ON c.user_id = l.user_id
-        WHERE c.id = ?
-    `;
+    if (!results || results.length === 0) {
+      console.warn("⚠️ No Cedula record found for ID:", cedulaId);
+      return res.status(404).json({ success: false, message: "Cedula application not found" });
+    }
 
-    db.query(sql, [cedulaId], (err, results) => {
-        if (err) {
-            console.error("Error fetching cedula details:", err);
-            return res.status(500).json({ 
-                success: false, 
-                message: "Error retrieving cedula details", 
-                error: err.message 
-            });
-        }
+    const cedula = results[0];
 
-        if (results.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: "Cedula application not found" 
-            });
-        }
+    // Build response object
+    const transformedCedula = {
+      id: cedula.id,
+      type: 'Cedula', // ✅ Important for modal condition
+      name: cedula.name,
+      address: cedula.address,
+      place_of_birth: cedula.place_of_birth,
+      date_of_birth: cedula.date_of_birth,
+      profession: cedula.profession,
+      yearly_income: cedula.yearly_income,
+      purpose: cedula.purpose,
+      sex: cedula.sex,
+      civil_status: cedula.status, // renamed for frontend label clarity
+      tin: cedula.tin,
+      created_at: cedula.created_at,
+      updated_at: cedula.updated_at,
+      email: cedula.email,
+      user_id: cedula.user_id,
+      status: cedula.status || 'pending'
+    };
 
-        const cedula = results[0];
-        const transformedCedula = {
-            id: cedula.id,
-            type: 'Cedula',
-            name: cedula.name,
-            status: cedula.application_status || 'pending', // Use application_status if exists
-            submitted: cedula.created_at,
-            ...cedula // Include all fields
-        };
+    console.log("✅ Cedula details sent:", transformedCedula);
 
-        res.json({ success: true, application: transformedCedula });
-    });
+    return res.json({ success: true, application: transformedCedula });
+  });
 };
 
-// Add this controller for accepting cedula applications
+
+
+// Accept Cedula
 exports.updateCedulaStatus = (req, res) => {
+  const cedulaId = req.params.id;
+  const { status } = req.body;
+
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ message: "Unauthorized. Please log in." });
+  }
+
+  const sql = `UPDATE tbl_cedula SET status = ?, updated_at = NOW() WHERE id = ?`;
+
+  db.query(sql, [status, cedulaId], (err, result) => {
+    if (err) {
+      console.error("Error updating cedula status:", err);
+      return res.status(500).json({ success: false, message: "Error updating cedula status" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Cedula application not found" });
+    }
+
+    res.json({ success: true, message: "Cedula application accepted successfully" });
+  });
+};
+exports.acceptCedula = (req, res) => {
     const cedulaId = req.params.id;
-    const { status } = req.body;
 
     if (!req.session || !req.session.user) {
         return res.status(401).json({ message: "Unauthorized. Please log in." });
     }
 
-    // If your cedula table doesn't have application_status column, you need to add it
-    // OR modify this to update a different field that represents status
-    const sql = `UPDATE tbl_cedula SET application_status = ?, updated_at = NOW() WHERE id = ?`;
+    const sql = `UPDATE tbl_cedula SET status = 'approved', updated_at = NOW() WHERE id = ?`;
 
-    db.query(sql, [status, cedulaId], (err, result) => {
+    db.query(sql, [cedulaId], (err, result) => {
         if (err) {
-            console.error("Error updating cedula status:", err);
+            console.error("Error accepting cedula:", err);
             return res.status(500).json({ 
                 success: false, 
-                message: "Error updating cedula status", 
+                message: "Error accepting cedula application", 
                 error: err.message 
             });
         }
@@ -217,13 +230,9 @@ exports.updateCedulaStatus = (req, res) => {
             });
         }
 
-        res.json({ 
-            success: true, 
-            message: "Cedula status updated successfully" 
-        });
+        res.json({ success: true, message: "Cedula application accepted successfully" });
     });
 };
-
 //-----------------------------------------------------------------------------------------
 // to get the data to fetch in document tracking 
 exports.getCedulasForTracking = async (req, res) => {
@@ -314,45 +323,6 @@ exports.getUserCedulas = async (req, res) => {
   }
 };
 
-// Get a specific cedula id not use
-exports.getCedulaById = async (req, res) => {
-    try {
-      if (!req.session?.user?.user_id) {
-        return res.status(401).json({ message: "Unauthorized. Please log in." });
-      }
-
-      const userId = req.session.user.user_id;
-      const cedulaId = req.params.id;
-
-      const sql = `SELECT * FROM tbl_cedula WHERE id = ? AND user_id = ?`;
-
-      db.query(sql, [cedulaId, userId], (err, results) => {
-        if (err) {
-          console.error("Get cedula failed:", err);
-          return res.status(500).json({ 
-            message: "Failed to retrieve cedula record", 
-            error: err.message 
-          });
-        }
-
-        if (results.length === 0) {
-          return res.status(404).json({ message: "Cedula record not found" });
-        }
-
-        res.status(200).json({
-          success: true,
-          cedula: results[0]
-        });
-      });
-
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      res.status(500).json({ 
-        message: "Unexpected server error", 
-        error: err.message 
-      });
-  }
-};
 
 // Update cedula not use
 exports.updateCedula = async (req, res) => {

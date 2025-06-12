@@ -264,26 +264,29 @@ const fetchElectricalApplications = async () => {
   }
 };
 // Fetch all cedula applications and organize by status
+// Fetch Cedula Applications
 const fetchCedulaApplications = async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/cedula-applications`, {
       withCredentials: true
     });
-    
+
     if (response.data.success) {
-      // Organize cedula applications by status
       const organizedCedulaData = {
         pending: [],
         inReview: [],
         approved: [],
         rejected: []
       };
-      
+
       response.data.applications.forEach(app => {
-        // Add type field to distinguish cedula applications
-        const appWithType = { ...app, type: 'Cedula' };
-        
-        switch(app.status) {
+        const appWithType = {
+          ...app,
+          id: app.id || app.cedula_id,
+          type: 'Cedula' // ✅ required!
+        };
+
+        switch (app.status) {
           case 'pending':
             organizedCedulaData.pending.push(appWithType);
             break;
@@ -300,42 +303,75 @@ const fetchCedulaApplications = async () => {
             organizedCedulaData.pending.push(appWithType);
         }
       });
-      
-      setCedulaApplications(organizedCedulaData);
+
+      setCedulaApplications(organizedCedulaData); // ✅ correct
     }
   } catch (error) {
     console.error("Error fetching cedula applications:", error);
   }
 };
 
-// View specific cedula application by ID
+
+
+// View Cedula by ID
 const handleViewCedulaApplication = async (id) => {
   try {
+    console.log("🔍 Fetching cedula application with ID:", id);
+
     const response = await axios.get(`${API_BASE_URL}/api/cedula-applications/${id}`, {
       withCredentials: true,
     });
 
-    if (response.data.success) {
-      setSelectedApplication(response.data.application);
+    console.log("📋 Full Cedula Response:", response.data);
+
+    if (response.data.success && response.data.application) {
+      const cedula = response.data.application;
+
+      // Map database fields directly to match the database structure
+      const applicationData = {
+        id: cedula.id,
+        user_id: cedula.user_id,
+        type: "Cedula",
+        // Cedula specific fields from database
+        name: cedula.name,
+        address: cedula.address,
+        place_of_birth: cedula.place_of_birth,
+        date_of_birth: cedula.date_of_birth,
+        profession: cedula.profession,
+        yearly_income: cedula.yearly_income,
+        purpose: cedula.purpose,
+        sex: cedula.sex,
+        status: cedula.status, // This is civil status from database
+        tin: cedula.tin,
+        created_at: cedula.created_at,
+        updated_at: cedula.updated_at,
+        // Set application status (you might need to add this field to your database)
+        application_status: "pending" // or get from database if you have a status field
+      };
+
+      setSelectedApplication(applicationData);
       setModalVisible(true);
     } else {
       alert("Cedula application not found.");
     }
   } catch (error) {
-    console.error("Failed to fetch cedula application info:", error);
+    console.error("❌ Failed to fetch cedula application info:", error);
   }
 };
 
-// Accept cedula application
+
+
+
+// Accept Cedula
 const handleAcceptCedulaApplication = async (id) => {
   try {
-    const response = await axios.put(`${API_BASE_URL}/api/cedula-applications/${id}/accept`, 
-      { status: 'approved' }, // Add status in request body
+    const response = await axios.put(`${API_BASE_URL}/api/cedula-applications/${id}/accept`,
+      { status: 'approved' },
       { withCredentials: true }
     );
 
     if (response.data.success) {
-      await fetchCedulaApplications(); // Refresh cedula applications
+      await fetchCedulaApplications();
     } else {
       alert("Failed to accept the cedula application.");
     }
@@ -343,6 +379,7 @@ const handleAcceptCedulaApplication = async (id) => {
     console.error("Accept cedula application error:", err);
   }
 };
+
 
   return (
   <div className="flex h-screen bg-gray-100">
@@ -428,18 +465,22 @@ const handleAcceptCedulaApplication = async (id) => {
         </div>
         <div className="space-x-2">
   <button
-    onClick={() => {
-      if (application.type === 'Electrical Permit') {
-        handleViewElectricalApplication(application.id);
-      } else if (application.type === 'Cedula') {
-        handleViewCedulaApplication(application.id);
-      } else {
-        handleViewApplication(application.id);
-      }
-    }}
-    className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200">
-    View Info
-  </button>
+  onClick={() => {
+    const appId = application.id || application.cedula_id; // ensure ID fallback
+
+    if (application.type === 'Electrical Permit') {
+      handleViewElectricalApplication(appId);
+    } else if (application.type === 'Cedula') {
+      handleViewCedulaApplication(appId); 
+    } else {
+      handleViewApplication(appId);
+    }
+  }}
+  className="text-blue-600 hover:underline"
+>
+  View Info
+</button>
+
 
   {application.status === "pending" && (
     <button
@@ -448,6 +489,7 @@ const handleAcceptCedulaApplication = async (id) => {
           handleAcceptElectricalApplication(application.id);
         } else if (application.type === 'Cedula') {
           handleAcceptCedulaApplication(application.id);
+          
         } else {
           handleAcceptApplication(application.id);
         }
@@ -491,7 +533,9 @@ const handleAcceptCedulaApplication = async (id) => {
                     </div>
                     <div>
                       <h2 className="text-2xl font-bold">
-  {selectedApplication?.type === 'Electrical Permit' ? 'Electrical Permit Application' : 'Business Permit Application'}
+  {selectedApplication?.type === 'Electrical Permit' ? 'Electrical Permit Application' : 
+   selectedApplication?.type === 'Cedula' ? 'Cedula Application' : 
+   'Business Permit Application'}
 </h2>
                       <p className="text-blue-100">Application Details & Information</p>
                     </div>
@@ -513,7 +557,100 @@ const handleAcceptCedulaApplication = async (id) => {
                         Status: {selectedApplication.status?.toUpperCase() || 'PENDING'}
                       </span>
                     </div>
+                    
+ {selectedApplication?.type === 'Cedula' && (
+            <>
+              <div className="bg-indigo-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <div className="bg-indigo-100 p-2 rounded-lg mr-3">
+                    <FileText size={18} className="text-indigo-600" />
+                  </div>
+                  Cedula Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-black">Full Name</label>
+                      <p className="text-gray-800 font-medium">{selectedApplication.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Address</label>
+                      <p className="text-gray-900">{selectedApplication.address || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Place of Birth</label>
+                      <p className="text-gray-900">{selectedApplication.place_of_birth || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Date of Birth</label>
+                      <p className="text-gray-900">{selectedApplication.date_of_birth ? new Date(selectedApplication.date_of_birth).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Profession</label>
+                      <p className="text-gray-900">{selectedApplication.profession || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-black">Yearly Income</label>
+                      <p className="text-gray-900 font-semibold">₱{selectedApplication.yearly_income?.toLocaleString() || '0.00'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Purpose</label>
+                      <p className="text-gray-900">{selectedApplication.purpose || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Sex</label>
+                      <p className="text-gray-900">{selectedApplication.sex ? selectedApplication.sex.charAt(0).toUpperCase() + selectedApplication.sex.slice(1) : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Civil Status</label>
+                      <p className="text-gray-900">{selectedApplication.status ? selectedApplication.status.charAt(0).toUpperCase() + selectedApplication.status.slice(1) : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">TIN</label>
+                      <p className="text-gray-900">{selectedApplication.tin || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
+              <div className="bg-green-50 rounded-lg p-6 mt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <div className="bg-green-100 p-2 rounded-lg mr-3">
+                    <User size={18} className="text-green-600" />
+                  </div>
+                  Application Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-black">Application ID</label>
+                      <p className="text-gray-900 font-mono">{selectedApplication.id || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">User ID</label>
+                      <p className="text-gray-900 font-mono">{selectedApplication.user_id || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Application Date</label>
+                      <p className="text-gray-900">{selectedApplication.created_at ? new Date(selectedApplication.created_at).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-black">Last Updated</label>
+                      <p className="text-gray-900">{selectedApplication.updated_at ? new Date(selectedApplication.updated_at).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-black">Application Status</label>
+                      <p className="text-gray-900">{selectedApplication.application_status || 'Pending'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
                   {/* Business Information */}
 <div className="bg-gray-50 rounded-lg p-6">
   <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -811,7 +948,9 @@ const handleAcceptCedulaApplication = async (id) => {
                     
                   </div>
                 </div>
-                {selectedApplication?.type === 'Electrical Permit' && (
+
+                
+{selectedApplication?.type === 'Electrical Permit' && (
   <>
     {/* Electrical Permit Information */}
     <div className="bg-yellow-50 rounded-lg p-6">
@@ -942,100 +1081,19 @@ const handleAcceptCedulaApplication = async (id) => {
         </div>
       </div>
     </div>
-{selectedApplication?.type === 'Cedula' && (
-  <>
-    {/* Cedula Information */}
-    <div className="bg-indigo-50 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <div className="bg-indigo-100 p-2 rounded-lg mr-3">
-          <FileText size={18} className="text-indigo-600" />
-        </div>
-        Cedula Information
-      </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Full Name</label>
-            <p className="text-gray-800 font-medium">{selectedApplication.name || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Address</label>
-            <p className="text-gray-900">{selectedApplication.address || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Place of Birth</label>
-            <p className="text-gray-900">{selectedApplication.place_of_birth || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Date of Birth</label>
-            <p className="text-gray-900">{selectedApplication.date_of_birth ? new Date(selectedApplication.date_of_birth).toLocaleDateString() : 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Profession</label>
-            <p className="text-gray-900">{selectedApplication.profession || 'N/A'}</p>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Yearly Income</label>
-            <p className="text-gray-900">₱{selectedApplication.yearly_income ? Number(selectedApplication.yearly_income).toLocaleString() : 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Purpose</label>
-            <p className="text-gray-900">{selectedApplication.purpose || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Sex</label>
-            <p className="text-gray-900">{selectedApplication.sex || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Civil Status</label>
-            <p className="text-gray-900">{selectedApplication.marital_status || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">TIN</label>
-            <p className="text-gray-900">{selectedApplication.tin || 'N/A'}</p>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    {/* Contact Information */}
-    <div className="bg-green-50 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <div className="bg-green-100 p-2 rounded-lg mr-3">
-          <User size={18} className="text-green-600" />
-        </div>
-        Contact Information
-      </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Email</label>
-            <p className="text-gray-900">{selectedApplication.email || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Application Date</label>
-            <p className="text-gray-900">{selectedApplication.created_at ? new Date(selectedApplication.created_at).toLocaleDateString() : 'N/A'}</p>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Last Updated</label>
-            <p className="text-gray-900">{selectedApplication.updated_at ? new Date(selectedApplication.updated_at).toLocaleDateString() : 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">User ID</label>
-            <p className="text-gray-900">{selectedApplication.user_id || 'N/A'}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </>
-)}
 
   </>
+  
 )}
+
+
+
+
+
+
+
+
 
                 {/* Footer */}
                 <div className="bg-gray-50 px-6 py-4 flex justify-end">

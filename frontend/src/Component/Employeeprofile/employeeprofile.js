@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '../Header/Sidebar';
 import { 
   User, 
@@ -23,7 +23,8 @@ import {
   History,
   UserCheck
 } from 'lucide-react';
-
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 // Employee Profile Header Component
 function EmployeeProfileHeader({ employee, onEditProfile }) {
   return (
@@ -396,11 +397,77 @@ function EmployeeProfileDashboard() {
   const handleFilterChange = (value) => {
     setFilterStatus(value);
   };
+  const [userData, setUserData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true); 
+      const navigate = useNavigate();
+        const [selectedTab, setSelectedTab] = useState('pending');
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+const API_BASE_URL = "http://localhost:8081";
+const checkSession = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
+      withCredentials: true
+    });
 
+    if (response.data.loggedIn) {
+      setIsLoggedIn(true);
+      await fetchUserData();
+    } else {
+      navigate('/');
+    }
+  } catch (error) {
+    console.error("Session check error:", error);
+    navigate('/');
+  }
+};
+    useEffect(() => {
+      checkSession();
+    }, []);
+  const fetchUserData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/auth/userinfo`, {
+        withCredentials: true
+      });
+      
+      // Debug response
+      console.log("User data API response:", response.data);
+      
+      if (response.data.success) {
+        // Store the userData rather than user property
+        setUserData(response.data.userData);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+    const handleLogout = async () => {
+    try {
+      setIsLoading(true);
+      await axios.post(`${API_BASE_URL}/api/logout`, {}, { withCredentials: true });
+      navigate('/');
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Failed to logout.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+    const handleNavigate = (tab) => {
+    setSelectedTab(tab);
+  };
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      < Sidebar/>
+          <Sidebar 
+      userData={userData} 
+      onLogout={handleLogout} 
+      isLoading={isLoading}
+      onNavigate={handleNavigate}
+    />
+
       
       {/* Main Content */}
       <div className="flex-1 ml-64">
