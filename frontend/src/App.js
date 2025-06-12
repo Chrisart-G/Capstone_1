@@ -23,6 +23,8 @@ import MunicipalUserProfileDashboard from './Component/Userprofile/userprofile';
 import Usersettings from './Component/Usersettings/usersettings';
 import EmployeeProfileDashboard from './Component/Employeeprofile/employeeprofile';
 import EmployeeHistoryDashboard from './Component/Employeedashboard/employeehistory';
+import ElectronicsPermitForm from './Component/Form/Electronicspermit/electronicspermit';
+import BuildingPermitForm from './Component/Form/Buildingpermit/buildingpermit';
 function App() {
   return (
     <div className="App">
@@ -62,6 +64,16 @@ function App() {
           <Route path="/FencingPermitForm" element={
             <ProtectedRoute>
               <FencingPermitForm/>
+            </ProtectedRoute>
+          } />
+          <Route path="/ElectronicsPermitForm" element={
+            <ProtectedRoute>
+              <ElectronicsPermitForm/>
+            </ProtectedRoute>
+          } />
+          <Route path="/BuildingPermitForm" element={
+            <ProtectedRoute>
+              <BuildingPermitForm/>
             </ProtectedRoute>
           } />
           <Route path="/Permits" element={

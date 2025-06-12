@@ -104,7 +104,7 @@ function Uheader() {
             <img 
               src="/img/logo.png" 
               alt="Municipal Seal" 
-              className="h-12 sm:h-16 md:h-20 rounded-full"
+              className="h-15 sm:h-16 md:h-20 rounded-full"
             />
             <span className="text-lg md:text-xl font-bold">Municipal Services</span>
           </div>

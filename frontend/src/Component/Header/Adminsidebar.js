@@ -17,11 +17,13 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
   };
 
   return (
-    <div className="w-64 bg-blue-700 text-white flex flex-col">
-      <div className="p-4 border-b border-gray-700 flex items-center justify-center">
-        <img src="/img/logo.png" alt="Company Logo" className="h-16 w-16 mr-2" />
-        <h1 className="text-lg font-bold">Hinigaran Municipality</h1>
-      </div>
+    <div className="w-64 bg-blue-600 text-white flex flex-col justify-between">
+      <div>
+        <div className="p-4 text-center">
+          <img src="/img/logo.png" alt="Logo" className="w-15 h-18 mx-auto" />
+          <h1 className="text-2xl font-bold mt-2">Admin Dashboard</h1>
+          <p className="text-indigo-200 text-sm">Hinigaran Municipality</p>
+        </div>
       
       <div className="flex-1 overflow-y-auto">
         <nav className="p-2">
@@ -139,6 +141,7 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 };
