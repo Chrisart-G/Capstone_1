@@ -1,40 +1,41 @@
 const db = require('../db/dbconnect');
-const bcrypt = require('bcrypt'); 
+const bcrypt = require('bcrypt');
 
 exports.Signup = async (req, res) => {
-    try {
-        const email = req.body.email;
-        
-        db.query('SELECT email FROM tb_logins WHERE email = ?', [email], async (err, result) => {
-            if (err) {
-                console.error("Error checking for existing email:", err);
-                return res.status(500).json({ message: "Database error during signup" }); 
-            }
+  try {
+    const { email, password, fullName, address, phoneNumber } = req.body;
 
-            if (result.length > 0) {
-                return res.status(409).json({ message: "Email already exists" }); 
-            }
+    db.query('SELECT email FROM tb_logins WHERE email = ?', [email], async (err, result) => {
+      if (err) return res.status(500).json({ message: "Database error during signup" });
 
-            const saltRounds = 10;
-            const hashedPassword = await bcrypt.hash(req.body.password, saltRounds);
-            const role = 'citizen'; // amo ni ang free fix value no need to fill up in body forms.
+      if (result.length > 0) {
+        return res.status(409).json({ message: "Email already exists" });
+      }
 
-            const sql = "INSERT INTO tb_logins (email, password, role) VALUES (?, ?, ?)";
-            const values = [email, hashedPassword, role];
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const role = 'citizen';
 
-            db.query(sql, values, (err, data) => {
-                if (err) {
-                    console.error("Signup error:", err);
-                    return res.status(500).json({ message: "Error during signup" });
-                }
-                return res.status(201).json({ message: "Signup successful", data }); 
-            });
+      // Insert into tb_logins
+      const loginQuery = "INSERT INTO tb_logins (email, password, role) VALUES (?, ?, ?)";
+      db.query(loginQuery, [email, hashedPassword, role], (err, loginResult) => {
+        if (err) return res.status(500).json({ message: "Error during login insert" });
+
+        const userId = loginResult.insertId;
+
+        // Insert into tbl_user_info
+        const infoQuery = `
+          INSERT INTO tbl_user_info (user_id, full_name, address, phone_number)
+          VALUES (?, ?, ?, ?)
+        `;
+        db.query(infoQuery, [userId, fullName, address, phoneNumber], (err, infoResult) => {
+          if (err) return res.status(500).json({ message: "Error inserting user info" });
+
+          return res.status(201).json({ message: "Signup successful", userId });
         });
-
-    } catch (error) {
-        console.error("Signup error:", error);
-        return res.status(500).json({ message: "Error during signup" });
-    }
+      });
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 };
-
-  

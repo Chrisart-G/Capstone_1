@@ -1,101 +1,122 @@
-import React, { useState } from 'react';
-import { User, Mail, Phone, MapPin, Calendar, Settings, Bell, Shield, FileText, Clock, CheckCircle, AlertCircle, Building, Download, Eye } from 'lucide-react';
-import Uheader from '../Header/User_header';
-import UFooter from '../Footer/User_Footer';
-
+import React, { useState, useEffect } from 'react';
+import {
+  User, Mail, Phone, MapPin, Calendar, Settings, Bell, Shield, FileText,
+  Clock, CheckCircle, AlertCircle, Building, Download, Eye
+} from 'lucide-react';
+import Uheader from'../Header/User_header'
+import UFooter from '../Footer/User_Footer'
 export default function MunicipalUserProfileDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [notifications, setNotifications] = useState(true);
   const [privacy, setPrivacy] = useState('public');
-  
   const [userInfo, setUserInfo] = useState({
-    name: 'Juan Carlos dela Cruz',
-    email: 'juan.delacruz@email.com',
-    phone: '+63 915 123 4567',
-    address: 'Brgy. Poblacion, Hinigaran, Negros Occidental',
-    businessName: 'JC General Merchandise',
-    businessType: 'Retail Store',
-    tinNumber: '123-456-789-000',
-    memberSince: 'March 2024',
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    businessName: '',
+    businessType: '',
+    tinNumber: '',
+    memberSince: '',
     avatar: null
   });
-
   const [tempUserInfo, setTempUserInfo] = useState(userInfo);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [permitHistory, setPermitHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Municipal-specific statistics
-  const stats = [
-    { label: 'Total Applications', value: '12', icon: FileText, color: 'text-blue-600' },
-    { label: 'Approved Permits', value: '8', icon: CheckCircle, color: 'text-green-600' },
-    { label: 'Pending Review', value: '3', icon: Clock, color: 'text-yellow-600' },
-    { label: 'Active Permits', value: '6', icon: Building, color: 'text-purple-600' }
-  ];
+  // Calculate stats based on permit data
+  const [stats, setStats] = useState([
+    { label: 'Total Applications', value: '0', icon: FileText, color: 'text-blue-600' },
+    { label: 'Approved Permits', value: '0', icon: CheckCircle, color: 'text-green-600' },
+    { label: 'Pending Review', value: '0', icon: Clock, color: 'text-yellow-600' },
+    { label: 'Active Permits', value: '0', icon: Building, color: 'text-purple-600' }
+  ]);
 
-  // Recent permit applications and activities
-  const recentActivity = [
-    { 
-      action: 'Business Permit Renewal Application Submitted', 
-      time: '2 days ago', 
-      type: 'application',
-      status: 'pending',
-      referenceNo: 'BP-2024-001234'
-    },
-    { 
-      action: 'Market Stall Permit Approved', 
-      time: '1 week ago', 
-      type: 'approval',
-      status: 'approved',
-      referenceNo: 'MS-2024-000567'
-    },
-    { 
-      action: 'Cedula Permit Application Submitted', 
-      time: '2 weeks ago', 
-      type: 'application',
-      status: 'approved',
-      referenceNo: 'CD-2024-000890'
-    },
-    { 
-      action: 'Profile Information Updated', 
-      time: '3 weeks ago', 
-      type: 'profile',
-      status: 'completed',
-      referenceNo: null
-    }
-  ];
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setLoading(true);
+        // Replace with your actual axios API call
+        const response = await fetch("http://localhost:8081/api/user/profile", { 
+          credentials: 'include'
+        });
+        const data = await response.json();
+        const { userInfo: fetchedUserInfo, permits, recentActivity: fetchedActivity } = data;
 
-  // User's permit history
-  const permitHistory = [
-    {
-      permitType: 'Business Permit',
-      applicationDate: '2024-05-15',
-      status: 'Active',
-      expiryDate: '2025-05-15',
-      referenceNo: 'BP-2024-001234'
-    },
-    {
-      permitType: 'Market Stall Permit',
-      applicationDate: '2024-04-10',
-      status: 'Active',
-      expiryDate: '2024-12-31',
-      referenceNo: 'MS-2024-000567'
-    },
-    {
-      permitType: 'Cedula Permit',
-      applicationDate: '2024-03-20',
-      status: 'Active',
-      expiryDate: '2024-12-31',
-      referenceNo: 'CD-2024-000890'
-    }
-  ];
+        // Set user info
+        const userData = {
+          name: fetchedUserInfo.full_name || '',
+          email: localStorage.getItem('email') || '',
+          phone: fetchedUserInfo.phone_number || '',
+          address: fetchedUserInfo.address || '',
+          businessName: fetchedUserInfo.business_name || '',
+          businessType: fetchedUserInfo.business_type || '',
+          tinNumber: fetchedUserInfo.tin_number || '',
+          memberSince: fetchedUserInfo.member_since || 'N/A',
+          avatar: null
+        };
+        setUserInfo(userData);
+        setTempUserInfo(userData);
+
+        // Process permit history
+        const processedPermits = permits.map(p => ({
+          permitType: p.permitType,
+          applicationDate: p.application_date,
+          status: p.status,
+          expiryDate: p.expiry_date || '2025-12-31',
+          referenceNo: `BP-${String(p.referenceNo).padStart(6, '0')}`
+        }));
+        setPermitHistory(processedPermits);
+
+        // Process recent activity
+        const processedActivity = fetchedActivity.map(a => ({
+          action: a.action,
+          time: new Date(a.time).toLocaleDateString(),
+          type: a.type,
+          status: a.status,
+          referenceNo: a.referenceNo ? `REF-${String(a.referenceNo).padStart(6, '0')}` : null
+        }));
+        setRecentActivity(processedActivity);
+
+        // Calculate statistics
+        const totalApplications = permits.length;
+        const approvedPermits = permits.filter(p => p.status === 'Approved' || p.status === 'Active').length;
+        const pendingPermits = permits.filter(p => p.status === 'Pending' || p.status === 'Under Review').length;
+        const activePermits = permits.filter(p => p.status === 'Active').length;
+
+        setStats([
+          { label: 'Total Applications', value: totalApplications.toString(), icon: FileText, color: 'text-blue-600' },
+          { label: 'Approved Permits', value: approvedPermits.toString(), icon: CheckCircle, color: 'text-green-600' },
+          { label: 'Pending Review', value: pendingPermits.toString(), icon: Clock, color: 'text-yellow-600' },
+          { label: 'Active Permits', value: activePermits.toString(), icon: Building, color: 'text-purple-600' }
+        ]);
+
+      } catch (err) {
+        console.error("Failed to load user profile", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, []);
 
   const handleEdit = () => {
     setIsEditing(true);
     setTempUserInfo(userInfo);
   };
 
-  const handleSave = () => {
-    setUserInfo(tempUserInfo);
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      // You can add API call here to save the updated user info
+      // await axios.put("http://localhost:8081/api/user/profile", tempUserInfo, { withCredentials: true });
+      setUserInfo(tempUserInfo);
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Failed to save user profile", err);
+    }
   };
 
   const handleCancel = () => {
@@ -146,9 +167,10 @@ export default function MunicipalUserProfileDashboard() {
         </div>
         
         <div className="flex-1">
-          <h2 className="text-xl font-bold mb-1">{userInfo.name}</h2>
-          <p className="text-blue-100 mb-2">{userInfo.businessName} • {userInfo.businessType}</p>
-          <p className="text-blue-200 text-sm">Municipal ID: {userInfo.tinNumber}</p>
+          <h2 className="text-xl font-bold mb-1">{userInfo.name || 'Loading...'}</h2>
+          {userInfo.memberSince && (
+            <p className="text-blue-100">Member since {userInfo.memberSince}</p>
+          )}
         </div>
       </div>
     </div>
@@ -161,7 +183,7 @@ export default function MunicipalUserProfileDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-2xl font-bold text-gray-900">{loading ? '...' : stat.value}</p>
             </div>
             <div className={`p-2 rounded-lg bg-gray-50`}>
               <stat.icon className={`${stat.color} w-6 h-6`} />
@@ -203,21 +225,27 @@ export default function MunicipalUserProfileDashboard() {
           Recent Activity
         </h3>
         <div className="space-y-3">
-          {recentActivity.map((activity, index) => (
-            <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-              <div className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${
-                activity.status === 'approved' || activity.status === 'completed' ? 'bg-green-500' :
-                activity.status === 'pending' ? 'bg-yellow-500' : 'bg-blue-500'
-              }`} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-900 font-medium">{activity.action}</p>
-                {activity.referenceNo && (
-                  <p className="text-xs text-blue-600 font-mono">{activity.referenceNo}</p>
-                )}
-                <p className="text-xs text-gray-500">{activity.time}</p>
+          {loading ? (
+            <div className="text-center py-4">Loading...</div>
+          ) : recentActivity.length > 0 ? (
+            recentActivity.map((activity, index) => (
+              <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${
+                  activity.status === 'approved' || activity.status === 'completed' ? 'bg-green-500' :
+                  activity.status === 'pending' ? 'bg-yellow-500' : 'bg-blue-500'
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-900 font-medium">{activity.action}</p>
+                  {activity.referenceNo && (
+                    <p className="text-xs text-blue-600 font-mono">{activity.referenceNo}</p>
+                  )}
+                  <p className="text-xs text-gray-500">{activity.time}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="text-gray-500 text-center py-4">No recent activity</p>
+          )}
         </div>
       </div>
       
@@ -226,13 +254,13 @@ export default function MunicipalUserProfileDashboard() {
           <FileText className="text-blue-600" size={20} />
           Quick Actions
         </h3>
-          <div class="grid grid-cols-1 md:grid-cols-1 gap-1">
-           <a href="/Permits" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg transition-colors duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1">
+        <div className="grid grid-cols-1 gap-3">
+          <a href="/Permits" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg transition-colors duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1">
             Apply for New Permit
-        </a>
-        <a href="/Docutracker" class="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg transition-colors duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1">
+          </a>
+          <a href="/Docutracker" className="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg transition-colors duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1">
             Track Application Status
-        </a>
+          </a>
         </div>
       </div>
     </div>
@@ -246,60 +274,39 @@ export default function MunicipalUserProfileDashboard() {
           <h4 className="font-medium text-gray-900 border-b pb-2">Personal Details</h4>
           
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={tempUserInfo.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.name}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-              {isEditing ? (
-                <input
-                  type="email"
-                  value={tempUserInfo.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.email}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-              {isEditing ? (
-                <input
-                  type="tel"
-                  value={tempUserInfo.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              ) : (
-                <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.phone}</p>
-              )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-              {isEditing ? (
-                <textarea
-                  value={tempUserInfo.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
-                />
-              ) : (
-                <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">{userInfo.address}</p>
-              )}
-            </div>
+            {[
+              { field: 'name', label: 'Full Name', type: 'text' },
+              { field: 'email', label: 'Email Address', type: 'email' },
+              { field: 'phone', label: 'Phone Number', type: 'tel' },
+              { field: 'address', label: 'Address', type: 'textarea' },
+              { field: 'businessName', label: 'Business Name', type: 'text' },
+              { field: 'businessType', label: 'Business Type', type: 'text' },
+              { field: 'tinNumber', label: 'TIN Number', type: 'text' }
+            ].map(({ field, label, type }) => (
+              <div key={field}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+                {isEditing ? (
+                  type === 'textarea' ? (
+                    <textarea
+                      value={tempUserInfo[field] || ''}
+                      onChange={(e) => handleInputChange(field, e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
+                    />
+                  ) : (
+                    <input
+                      type={type}
+                      value={tempUserInfo[field] || ''}
+                      onChange={(e) => handleInputChange(field, e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  )
+                ) : (
+                  <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">
+                    {userInfo[field] || 'Not provided'}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -313,52 +320,60 @@ export default function MunicipalUserProfileDashboard() {
         My Permits & Applications
       </h3>
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 font-medium text-gray-700">Permit Type</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-700">Reference No.</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-700">Expiry Date</th>
-              <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {permitHistory.map((permit, index) => (
-              <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="py-3 px-4">
-                  <div className="font-medium text-gray-900">{permit.permitType}</div>
-                  <div className="text-sm text-gray-500">Applied: {permit.applicationDate}</div>
-                </td>
-                <td className="py-3 px-4">
-                  <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
-                    {permit.referenceNo}
-                  </span>
-                </td>
-                <td className="py-3 px-4">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    permit.status === 'Active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {permit.status}
-                  </span>
-                </td>
-                <td className="py-3 px-4 text-sm text-gray-900">{permit.expiryDate}</td>
-                <td className="py-3 px-4">
-                  <div className="flex gap-2">
-                    <button className="text-blue-600 hover:text-blue-800 text-sm">
-                      <Eye size={16} />
-                    </button>
-                    <button className="text-green-600 hover:text-green-800 text-sm">
-                      <Download size={16} />
-                    </button>
-                  </div>
-                </td>
+        {loading ? (
+          <div className="text-center py-8">Loading permits...</div>
+        ) : permitHistory.length > 0 ? (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Permit Type</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Reference No.</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Expiry Date</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {permitHistory.map((permit, index) => (
+                <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="py-3 px-4">
+                    <div className="font-medium text-gray-900">{permit.permitType}</div>
+                    <div className="text-sm text-gray-500">Applied: {permit.applicationDate}</div>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                      {permit.referenceNo}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      permit.status === 'Active' || permit.status === 'Approved'
+                        ? 'bg-green-100 text-green-800' 
+                        : permit.status === 'Pending' || permit.status === 'Under Review'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {permit.status}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-sm text-gray-900">{permit.expiryDate}</td>
+                  <td className="py-3 px-4">
+                    <div className="flex gap-2">
+                      <button className="text-blue-600 hover:text-blue-800 text-sm">
+                        <Eye size={16} />
+                      </button>
+                      <button className="text-green-600 hover:text-green-800 text-sm">
+                        <Download size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="text-center py-8 text-gray-500">No permits found</div>
+        )}
       </div>
     </div>
   );
@@ -438,20 +453,20 @@ export default function MunicipalUserProfileDashboard() {
 
   return (
     <div>
-        <Uheader/>
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-6xl mx-auto">
-        <ProfileHeader />
-        <StatsGrid />
-        <TabNavigation />
-        
-        {activeTab === 'overview' && <OverviewTab />}
-        {activeTab === 'personal' && <PersonalInfoTab />}
-        {activeTab === 'permits' && <PermitsTab />}
-        {activeTab === 'settings' && <SettingsTab />}
+      <Uheader />
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="max-w-6xl mx-auto">
+          <ProfileHeader />
+          <StatsGrid />
+          <TabNavigation />
+          
+          {activeTab === 'overview' && <OverviewTab />}
+          {activeTab === 'personal' && <PersonalInfoTab />}
+          {activeTab === 'permits' && <PermitsTab />}
+          {activeTab === 'settings' && <SettingsTab />}
+        </div>
       </div>
-    </div>
-    <UFooter/>
+      <UFooter />
     </div>
   );
 }

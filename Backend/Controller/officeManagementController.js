@@ -1,5 +1,245 @@
 const db = require('../db/dbconnect');
-
+// Assign employees to office
+exports.assignEmployeesToOffice = (req, res) => {
+  try {
+    const officeId = req.params.id;
+    const { employee_assignments } = req.body;
+    
+    if (!employee_assignments || !Array.isArray(employee_assignments) || employee_assignments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Employee assignments are required'
+      });
+    }
+    
+    // Check if office exists
+    db.query('SELECT * FROM tbl_offices WHERE office_id = ?', [officeId], (err, existingOffice) => {
+      if (err) {
+        console.error('Error checking office:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to assign employees to office',
+          error: err.message
+        });
+      }
+      
+      if (existingOffice.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Office not found'
+        });
+      }
+      
+      // Start transaction
+      db.query('START TRANSACTION', (err) => {
+        if (err) {
+          console.error('Error starting transaction:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to assign employees to office',
+            error: err.message
+          });
+        }
+        
+        let processedCount = 0;
+        let hasError = false;
+        
+        // Process each assignment
+        const processAssignment = (index) => {
+          if (index >= employee_assignments.length) {
+            // All assignments processed successfully
+            db.query('COMMIT', (err) => {
+              if (err) {
+                console.error('Error committing transaction:', err);
+                return res.status(500).json({
+                  success: false,
+                  message: 'Failed to assign employees to office',
+                  error: err.message
+                });
+              }
+              
+              return res.status(200).json({
+                success: true,
+                message: 'Employees assigned to office successfully'
+              });
+            });
+            return;
+          }
+          
+          if (hasError) return;
+          
+          const assignment = employee_assignments[index];
+          
+          if (!assignment.employee_id) {
+            hasError = true;
+            db.query('ROLLBACK');
+            return res.status(400).json({
+              success: false,
+              message: 'Employee ID is required for each assignment'
+            });
+          }
+          
+          // Check if employee exists
+          db.query(
+            'SELECT * FROM tbl_employeeinformation WHERE employee_id = ?',
+            [assignment.employee_id],
+            (err, existingEmployee) => {
+              if (err || hasError) {
+                if (!hasError) {
+                  hasError = true;
+                  db.query('ROLLBACK');
+                  console.error('Error checking employee:', err);
+                  return res.status(500).json({
+                    success: false,
+                    message: 'Failed to assign employees to office',
+                    error: err.message
+                  });
+                }
+                return;
+              }
+              
+              if (existingEmployee.length === 0) {
+                hasError = true;
+                db.query('ROLLBACK');
+                return res.status(404).json({
+                  success: false,
+                  message: `Employee with ID ${assignment.employee_id} not found`
+                });
+              }
+              
+              // Check if assignment already exists
+              db.query(
+                'SELECT * FROM tbl_employee_offices WHERE employee_id = ? AND office_id = ?',
+                [assignment.employee_id, officeId],
+                (err, existingAssignment) => {
+                  if (err || hasError) {
+                    if (!hasError) {
+                      hasError = true;
+                      db.query('ROLLBACK');
+                      console.error('Error checking existing assignment:', err);
+                      return res.status(500).json({
+                        success: false,
+                        message: 'Failed to assign employees to office',
+                        error: err.message
+                      });
+                    }
+                    return;
+                  }
+                  
+                  if (existingAssignment.length > 0) {
+                    // Update existing assignment
+                    db.query(
+                      'UPDATE tbl_employee_offices SET assignment_date = ?, is_primary = ?, status = ? WHERE employee_id = ? AND office_id = ?',
+                      [
+                        assignment.assignment_date || new Date().toISOString().split('T')[0],
+                        assignment.is_primary ? 1 : 0,
+                        assignment.status || 'active',
+                        assignment.employee_id,
+                        officeId
+                      ],
+                      (err) => {
+                        if (err || hasError) {
+                          if (!hasError) {
+                            hasError = true;
+                            db.query('ROLLBACK');
+                            console.error('Error updating assignment:', err);
+                            return res.status(500).json({
+                              success: false,
+                              message: 'Failed to assign employees to office',
+                              error: err.message
+                            });
+                          }
+                          return;
+                        }
+                        
+                        // Handle primary office logic
+                        handlePrimaryOffice(assignment, index);
+                      }
+                    );
+                  } else {
+                    // Create new assignment
+                    db.query(
+                      'INSERT INTO tbl_employee_offices (employee_id, office_id, assignment_date, is_primary, status) VALUES (?, ?, ?, ?, ?)',
+                      [
+                        assignment.employee_id,
+                        officeId,
+                        assignment.assignment_date || new Date().toISOString().split('T')[0],
+                        assignment.is_primary ? 1 : 0,
+                        assignment.status || 'active'
+                      ],
+                      (err) => {
+                        if (err || hasError) {
+                          if (!hasError) {
+                            hasError = true;
+                            db.query('ROLLBACK');
+                            console.error('Error creating assignment:', err);
+                            return res.status(500).json({
+                              success: false,
+                              message: 'Failed to assign employees to office',
+                              error: err.message
+                            });
+                          }
+                          return;
+                        }
+                        
+                        // Handle primary office logic
+                        handlePrimaryOffice(assignment, index);
+                      }
+                    );
+                  }
+                }
+              );
+            }
+          );
+        };
+        
+        // Helper function to handle primary office logic
+        const handlePrimaryOffice = (assignment, index) => {
+          if (hasError) return;
+          
+          if (assignment.is_primary) {
+            // Update any other primary offices for this employee
+            db.query(
+              'UPDATE tbl_employee_offices SET is_primary = 0 WHERE employee_id = ? AND office_id != ?',
+              [assignment.employee_id, officeId],
+              (err) => {
+                if (err || hasError) {
+                  if (!hasError) {
+                    hasError = true;
+                    db.query('ROLLBACK');
+                    console.error('Error updating primary offices:', err);
+                    return res.status(500).json({
+                      success: false,
+                      message: 'Failed to assign employees to office',
+                      error: err.message
+                    });
+                  }
+                  return;
+                }
+                
+                // Process next assignment
+                processAssignment(index + 1);
+              }
+            );
+          } else {
+            // Process next assignment
+            processAssignment(index + 1);
+          }
+        };
+        
+        // Start processing assignments
+        processAssignment(0);
+      });
+    });
+  } catch (error) {
+    console.error('Error assigning employees to office:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to assign employees to office',
+      error: error.message
+    });
+  }
+};
 // Get all offices
 
 exports.getAllOffices = (req, res) => {
@@ -481,96 +721,7 @@ exports.deleteOffice = (req, res) => {
   }
 };
 
-// Get office statistics
-exports.getOfficeStats = async (req, res) => {
-  try {
-    // Get count of offices by status
-    const [statusStats] = await db.query(`
-      SELECT status, COUNT(*) as count 
-      FROM tbl_offices 
-      GROUP BY status
-    `);
-    
-    // Get office with most employees
-    const [officeWithMostEmployees] = await db.query(`
-      SELECT o.office_id, o.office_name, COUNT(eo.employee_id) as employee_count
-      FROM tbl_offices o
-      LEFT JOIN tbl_employee_offices eo ON o.office_id = eo.office_id
-      GROUP BY o.office_id, o.office_name
-      ORDER BY employee_count DESC
-      LIMIT 1
-    `);
-    
-    // Get total number of offices
-    const [totalOffices] = await db.query('SELECT COUNT(*) as total FROM tbl_offices');
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        totalOffices: totalOffices[0].total,
-        statusBreakdown: statusStats,
-        officeWithMostEmployees: officeWithMostEmployees[0] || null
-      }
-    });
-  } catch (error) {
-    console.error('Error getting office statistics:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve office statistics',
-      error: error.message
-    });
-  }
-};
 
-// Search offices
-exports.searchOffices = (req, res) => {
-  try {
-    const { query } = req.query;
-    
-    if (!query) {
-      return res.status(400).json({
-        success: false,
-        message: 'Search query is required'
-      });
-    }
-    
-    const searchTerm = `%${query}%`;
-    
-    db.query(`
-      SELECT * FROM tbl_offices 
-      WHERE office_name LIKE ? 
-      OR office_code LIKE ? 
-      OR office_description LIKE ?
-      OR office_location LIKE ?
-      ORDER BY office_name ASC
-    `, 
-    [searchTerm, searchTerm, searchTerm, searchTerm],
-    (err, results) => {
-      if (err) {
-        console.error('Error searching offices:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to search offices',
-          error: err.message
-        });
-      }
-      
-      res.status(200).json({
-        success: true,
-        count: results.length,
-        data: results
-      });
-    });
-  } catch (error) {
-    console.error('Error searching offices:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to search offices',
-      error: error.message
-    });
-  }
-};
-// Update office status
 exports.updateOfficeStatus = async (req, res) => {
   try {
     const officeId = req.params.id;
@@ -609,177 +760,40 @@ exports.updateOfficeStatus = async (req, res) => {
   }
 };
 
-// Assign employees to office
-exports.assignEmployeesToOffice = async (req, res) => {
-  try {
-    const officeId = req.params.id;
-    const { employee_assignments } = req.body;
-    
-    if (!employee_assignments || !Array.isArray(employee_assignments) || employee_assignments.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Employee assignments are required'
-      });
-    }
-    
-    // Check if office exists
-    const [existingOffice] = await db.query('SELECT * FROM tbl_offices WHERE office_id = ?', [officeId]);
-    if (existingOffice.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Office not found'
-      });
-    }
-    
-    // Start transaction
-    await db.query('START TRANSACTION');
-    
-    try {
-      // Process each assignment
-      for (const assignment of employee_assignments) {
-        if (!assignment.employee_id) {
-          throw new Error('Employee ID is required for each assignment');
-        }
-        
-        // Check if employee exists
-        const [existingEmployee] = await db.query(
-          'SELECT * FROM tbl_employeeinformation WHERE employee_id = ?', 
-          [assignment.employee_id]
-        );
-        
-        if (existingEmployee.length === 0) {
-          throw new Error(`Employee with ID ${assignment.employee_id} not found`);
-        }
-        
-        // Check if assignment already exists
-        const [existingAssignment] = await db.query(
-          'SELECT * FROM tbl_employee_offices WHERE employee_id = ? AND office_id = ?',
-          [assignment.employee_id, officeId]
-        );
-        
-        if (existingAssignment.length > 0) {
-          // Update existing assignment
-          await db.query(
-            'UPDATE tbl_employee_offices SET assignment_date = ?, is_primary = ?, status = ? WHERE employee_id = ? AND office_id = ?',
-            [
-              assignment.assignment_date || new Date().toISOString().split('T')[0],
-              assignment.is_primary ? 1 : 0,
-              assignment.status || 'active',
-              assignment.employee_id,
-              officeId
-            ]
-          );
-        } else {
-          // Create new assignment
-          await db.query(
-            'INSERT INTO tbl_employee_offices (employee_id, office_id, assignment_date, is_primary, status) VALUES (?, ?, ?, ?, ?)',
-            [
-              assignment.employee_id,
-              officeId,
-              assignment.assignment_date || new Date().toISOString().split('T')[0],
-              assignment.is_primary ? 1 : 0,
-              assignment.status || 'active'
-            ]
-          );
-        }
-        
-        // If this is primary office, update any other primary offices for this employee
-        if (assignment.is_primary) {
-          await db.query(
-            'UPDATE tbl_employee_offices SET is_primary = 0 WHERE employee_id = ? AND office_id != ?',
-            [assignment.employee_id, officeId]
-          );
-        }
-      }
-      
-      // Commit transaction
-      await db.query('COMMIT');
-      
-      res.status(200).json({
-        success: true,
-        message: 'Employees assigned to office successfully'
-      });
-    } catch (error) {
-      // Rollback transaction in case of error
-      await db.query('ROLLBACK');
-      throw error;
-    }
-  } catch (error) {
-    console.error('Error assigning employees to office:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to assign employees to office',
-      error: error.message
-    });
-  }
-};
 
-// Remove employee from office
-exports.removeEmployeeFromOffice = async (req, res) => {
-  try {
-    const officeId = req.params.officeId;
-    const employeeId = req.params.employeeId;
-    
-    // Check if assignment exists
-    const [existingAssignment] = await db.query(
-      'SELECT * FROM tbl_employee_offices WHERE employee_id = ? AND office_id = ?',
-      [employeeId, officeId]
-    );
-    
-    if (existingAssignment.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Employee is not assigned to this office'
-      });
-    }
-    
-    // Remove assignment
-    await db.query(
-      'DELETE FROM tbl_employee_offices WHERE employee_id = ? AND office_id = ?',
-      [employeeId, officeId]
-    );
-    
-    res.status(200).json({
-      success: true,
-      message: 'Employee removed from office successfully'
-    });
-  } catch (error) {
-    console.error('Error removing employee from office:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to remove employee from office',
-      error: error.message
-    });
-  }
-};
-exports.getUnassignedEmployees = (req, res) => {
+
+exports.getAllEmployees = (req, res) => {
   try {
     db.query(`
-      SELECT e.* 
+      SELECT 
+        e.employee_id,
+        e.first_name,
+        e.last_name,
+        e.position,
+        e.department,
+        e.phone,
+        l.email
       FROM tbl_employeeinformation e
-      LEFT JOIN tbl_employee_offices eo ON e.employee_id = eo.employee_id
-      WHERE eo.employee_id IS NULL
+      JOIN tb_logins l ON e.user_id = l.user_id
+      ORDER BY e.first_name, e.last_name
     `, 
     (err, employees) => {
       if (err) {
-        console.error('Error getting unassigned employees:', err);
+        console.error('Error getting employees:', err);
         return res.status(500).json({
           success: false,
-          message: 'Failed to retrieve unassigned employees',
+          message: 'Failed to retrieve employees',
           error: err.message
         });
       }
       
-      res.status(200).json({
-        success: true,
-        data: employees
-      });
+      return res.status(200).json(employees);
     });
   } catch (error) {
-    console.error('Error getting unassigned employees:', error);
+    console.error('Error getting employees:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to retrieve unassigned employees',
+      message: 'Failed to retrieve employees',
       error: error.message
     });
   }
@@ -826,4 +840,19 @@ exports.getOfficeEmployees = (req, res) => {
       error: error.message
     });
   }
+};
+exports.removeEmployeeFromOffice = (req, res) => {
+  const { officeId, employeeId } = req.params;
+
+  db.query(
+    'DELETE FROM tbl_employee_offices WHERE office_id = ? AND employee_id = ?',
+    [officeId, employeeId],
+    (err, result) => {
+      if (err) {
+        console.error('Error removing employee from office:', err);
+        return res.status(500).json({ success: false, message: 'Failed to remove employee' });
+      }
+      return res.status(200).json({ success: true, message: 'Employee removed from office' });
+    }
+  );
 };

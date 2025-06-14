@@ -185,15 +185,22 @@ exports.updateCedulaStatus = (req, res) => {
   const cedulaId = req.params.id;
   const { status } = req.body;
 
+  console.log("🔥 Body received from frontend:", req.body);
+
   if (!req.session || !req.session.user) {
     return res.status(401).json({ message: "Unauthorized. Please log in." });
   }
 
-  const sql = `UPDATE tbl_cedula SET status = ?, updated_at = NOW() WHERE id = ?`;
+  if (!status) {
+    console.warn("⚠️ Missing status in request body.");
+    return res.status(400).json({ success: false, message: "Status is required." });
+  }
+
+  const sql = `UPDATE tbl_cedula SET application_status = ?, updated_at = NOW() WHERE id = ?`;
 
   db.query(sql, [status, cedulaId], (err, result) => {
     if (err) {
-      console.error("Error updating cedula status:", err);
+      console.error("❌ SQL Error:", err);
       return res.status(500).json({ success: false, message: "Error updating cedula status" });
     }
 
@@ -201,38 +208,12 @@ exports.updateCedulaStatus = (req, res) => {
       return res.status(404).json({ success: false, message: "Cedula application not found" });
     }
 
-    res.json({ success: true, message: "Cedula application accepted successfully" });
+    res.json({ success: true, message: "Cedula application status updated successfully" });
   });
 };
-exports.acceptCedula = (req, res) => {
-    const cedulaId = req.params.id;
 
-    if (!req.session || !req.session.user) {
-        return res.status(401).json({ message: "Unauthorized. Please log in." });
-    }
 
-    const sql = `UPDATE tbl_cedula SET status = 'approved', updated_at = NOW() WHERE id = ?`;
 
-    db.query(sql, [cedulaId], (err, result) => {
-        if (err) {
-            console.error("Error accepting cedula:", err);
-            return res.status(500).json({ 
-                success: false, 
-                message: "Error accepting cedula application", 
-                error: err.message 
-            });
-        }
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: "Cedula application not found" 
-            });
-        }
-
-        res.json({ success: true, message: "Cedula application accepted successfully" });
-    });
-};
 //-----------------------------------------------------------------------------------------
 // to get the data to fetch in document tracking 
 exports.getCedulasForTracking = async (req, res) => {
@@ -254,9 +235,9 @@ exports.getCedulasForTracking = async (req, res) => {
         yearly_income,
         purpose,
         sex,
-        status as application_status,
+        status,
         tin,
-        status as cedula_status,
+        application_status,
         created_at,
         updated_at
       FROM tbl_cedula 
@@ -287,7 +268,6 @@ exports.getCedulasForTracking = async (req, res) => {
     });
   }
 };
-
 // Get all cedula records for the logged-in not use
 exports.getUserCedulas = async (req, res) => {
     try {

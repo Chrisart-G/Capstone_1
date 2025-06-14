@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Clock, AlertCircle, Loader, FileText, RefreshCcw, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { Check, Clock, AlertCircle, Loader, FileText, RefreshCcw, ChevronDown, ChevronUp, User, Pencil } from 'lucide-react';
 import Uheader from '../Header/User_header';
 import UFooter from '../Footer/User_Footer';
+import { useNavigate } from 'react-router-dom';
 function DocumentStatusTracker() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,30 +64,29 @@ function DocumentStatusTracker() {
           allApplications = [...allApplications, ...transformedElectricalPermits];
         }
 
-        // Transform cedula records
-        if (cedulaData.success && cedulaData.cedulas && cedulaData.cedulas.length > 0) {
-          const transformedCedulas = cedulaData.cedulas.map(cedula => ({
-            id: `cedula_${cedula.id}`,
-            title: `Cedula - ${cedula.name}`,
-            type: 'Cedula',
-            status: cedula.cedula_status || 'pending',
-            email: '', // Cedula doesn't have email in the data
-            applicationDate: new Date(cedula.created_at).toLocaleString(),
-            createdAt: new Date(cedula.created_at).toLocaleString(),
-            address: cedula.address,
-            placeOfBirth: cedula.place_of_birth,
-            dateOfBirth: new Date(cedula.date_of_birth).toLocaleDateString(),
-            profession: cedula.profession,
-            yearlyIncome: cedula.yearly_income,
-            purpose: cedula.purpose,
-            sex: cedula.sex,
-            maritalStatus: cedula.status,
-            tin: cedula.tin,
-            steps: transformStatusToSteps(cedula.cedula_status || 'pending')
-          }));
-          allApplications = [...allApplications, ...transformedCedulas];
-        }
-        
+// ✅ Transform cedula records correctly - FIXED THE STATUS MAPPING
+if (cedulaData.success && cedulaData.cedulas && cedulaData.cedulas.length > 0) {
+  const transformedCedulas = cedulaData.cedulas.map(cedula => ({
+    id: `cedula_${cedula.id}`,
+    title: `Cedula - ${cedula.name}`,
+    type: 'Cedula',
+    status: cedula.application_status || 'pending', // ✅ This should be the APPLICATION status
+    email: '',
+    applicationDate: new Date(cedula.created_at).toLocaleString(),
+    createdAt: new Date(cedula.created_at).toLocaleString(),
+    address: cedula.address,
+    placeOfBirth: cedula.place_of_birth,
+    dateOfBirth: new Date(cedula.date_of_birth).toLocaleDateString(),
+    profession: cedula.profession,
+    yearlyIncome: parseFloat(cedula.yearly_income),
+    purpose: cedula.purpose,
+    sex: cedula.sex,
+    maritalStatus: cedula.status, // ✅ This is the CIVIL/MARITAL status
+    tin: cedula.tin,
+    steps: transformStatusToSteps(cedula.application_status || 'pending')
+  }));
+  allApplications = [...allApplications, ...transformedCedulas];
+}
         // Sort all applications by creation date (most recent first)
         allApplications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
@@ -109,88 +109,67 @@ function DocumentStatusTracker() {
   }, []);
 
   // Function to transform the status into a steps array
-  function transformStatusToSteps(status) {
-    const allSteps = [
-      {
-        name: "Submitted",
-        message: "Your application has been successfully submitted. We'll begin processing it shortly.",
-        icon: FileText
-      },
-      {
-        name: "Under Review",
-        message: "Your application is currently being reviewed by our planning department.",
-        icon: Clock
-      },
-      {
-        name: "In Review",
-        message: "Your application is currently being reviewed by our planning department.",
-        icon: Clock
-      },
-      {
-        name: "Verified",
-        message: "Your application information has been verified.",
-        icon: Loader
-      },
-      {
-        name: "Approved",
-        message: "Your application has been approved.",
-        icon: Check
-      },
-      {
-        name: "Rejected",
-        message: "Your application has been rejected. Please check your email for details.",
-        icon: AlertCircle
-      },
-      {
-        name: "Ready for Pickup",
-        message: "Your permit/cedula is ready for pickup at the municipal office.",
-        icon: Check
-      }
-    ];
-    
-    // Determine the current step based on status
-    let currentStepIndex;
-    let relevantSteps = [];
-    
-    switch(status?.toLowerCase()) {
-      case 'pending':
-        currentStepIndex = 0;
-        relevantSteps = [allSteps[0], allSteps[1], allSteps[3], allSteps[4], allSteps[6]];
-        break;
-      case 'in-review':
-      case 'under review':
-        currentStepIndex = 1;
-        relevantSteps = [allSteps[0], allSteps[2], allSteps[3], allSteps[4], allSteps[6]];
-        break;
-      case 'verified':
-        currentStepIndex = 2;
-        relevantSteps = [allSteps[0], allSteps[2], allSteps[3], allSteps[4], allSteps[6]];
-        break;
-      case 'approved':
-        currentStepIndex = 3;
-        relevantSteps = [allSteps[0], allSteps[2], allSteps[3], allSteps[4], allSteps[6]];
-        break;
-      case 'rejected':
-        currentStepIndex = 3;
-        relevantSteps = [allSteps[0], allSteps[2], allSteps[3], allSteps[5]];
-        break;
-      case 'ready for pickup':
-        currentStepIndex = 4;
-        relevantSteps = [allSteps[0], allSteps[2], allSteps[3], allSteps[4], allSteps[6]];
-        break;
-      default:
-        currentStepIndex = 0;
-        relevantSteps = [allSteps[0], allSteps[1], allSteps[3], allSteps[4], allSteps[6]];
+function transformStatusToSteps(status) {
+  const steps = [
+    {
+      name: "Pending",
+      message: "Your application has been submitted and is waiting to be reviewed.",
+      icon: FileText
+    },
+    {
+      name: "InReview",
+      message: "Your application is currently under initial review.",
+      icon: Clock
+    },
+    {
+      name: "InProgress",
+      message: "Please complete the required documents for verification.",
+      icon: Loader
+    },
+    {
+      name: "RequirementsCompleted",
+      message: "All required documents have been submitted and verified.",
+      icon: Check
+    },
+    {
+      name: "Approved",
+      message: "Your application has been approved.",
+      icon: Check
+    },
+    {
+      name: "ReadyForPickup",
+      message: "Your document is ready for pickup at the municipal office.",
+      icon: Check
+    },
+    {
+      name: "Rejected",
+      message: "Your application has been rejected. Please check your email for details.",
+      icon: AlertCircle
     }
-    
-    // Update steps with completed and current flags
-    return relevantSteps.map((step, index) => ({
-      ...step,
-      completed: index < currentStepIndex,
-      current: index === currentStepIndex,
-      date: index <= currentStepIndex ? new Date().toLocaleString() : ""
-    }));
-  }
+  ];
+
+  const statusOrder = {
+    "pending": 0,
+    "in-review": 1,
+    "inprogress": 2,
+    "requirements-completed": 3,
+    "approved": 4,
+    "ready-for-pickup": 5,
+    "rejected": 6
+  };
+
+  const currentIndex = statusOrder[status?.toLowerCase().replace(/\s+/g, '-')] ?? 0;
+
+  return steps.map((step, index) => ({
+    ...step,
+    completed: index < currentIndex && currentIndex !== 6,
+    current: index === currentIndex && currentIndex !== 6,
+    rejected: currentIndex === 6,
+    date: index <= currentIndex && currentIndex !== 6 ? new Date().toLocaleString() : ""
+  }));
+}
+
+
 
   function getStatusColor(step) {
     if (step.completed) return "bg-green-500";
@@ -301,55 +280,70 @@ function DocumentStatusTracker() {
                 className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
                 onClick={() => toggleCard(application.id)}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                      {application.title}
-                      {appIndex === 0 && (
-                        <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                          Latest
-                        </span>
-                      )}
-                    </h2>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPermitTypeBadgeColor(application.type)}`}>
-                        {application.type}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
-                      <span>ID: {application.id.replace(/^(business_|electrical_|cedula_)/, '')}</span>
-                      {application.applicationNo && <span>App No: {application.applicationNo}</span>}
-                      {application.epNo && <span>EP No: {application.epNo}</span>}
-                      <span>Applied: {application.applicationDate}</span>
-                      {application.email && <span>Email: {application.email}</span>}
-                    </div>
-                    
-                    {/* Cedula specific details */}
-                    {application.type === 'Cedula' && (
-                      <div className="mt-2 text-sm text-gray-600 space-y-1">
-                        <div>Address: {application.address}</div>
-                        <div>Profession: {application.profession}</div>
-                        <div>Purpose: {application.purpose}</div>
-                      </div>
-                    )}
-                    
-                    {application.scopeOfWork && (
-                      <div className="mt-2 text-sm text-gray-600">
-                        <span>Scope: {application.scopeOfWork}</span>
-                      </div>
-                    )}
-                    <div className={`mt-2 inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(application.status)}`}>
-                      Status: {application.status}
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    {expandedCards[application.id] ? (
-                      <ChevronUp className="h-6 w-6 text-gray-400" />
-                    ) : (
-                      <ChevronDown className="h-6 w-6 text-gray-400" />
-                    )}
-                  </div>
-                </div>
+<div className="flex items-start justify-between">
+  <div className="flex-1">
+    <h2 className="text-xl font-bold text-gray-800 flex items-center">
+      {application.title}
+      {appIndex === 0 && (
+        <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+          Latest
+        </span>
+      )}
+    </h2>
+    <div className="mt-2 flex flex-wrap gap-2">
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPermitTypeBadgeColor(application.type)}`}>
+        {application.type}
+      </span>
+    </div>
+    <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
+      <span>ID: {application.id.replace(/^(business_|electrical_|cedula_)/, '')}</span>
+      {application.applicationNo && <span>App No: {application.applicationNo}</span>}
+      {application.epNo && <span>EP No: {application.epNo}</span>}
+      <span>Applied: {application.applicationDate}</span>
+      {application.email && <span>Email: {application.email}</span>}
+    </div>
+    {application.status && (
+      <div className={`mt-2 inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(application.status)}`}>
+        Application Status: {application.status.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+      </div>
+    )}
+  </div>
+
+  {/* Action buttons (Edit + Cancel + Expand) */}
+  <div className="flex flex-col items-end space-y-2 ml-4">
+    {/* Edit Button */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        // navigation logic will go here
+      }}
+      className="flex items-center text-sm px-2 py-1 rounded-md text-indigo-600 hover:bg-indigo-100 transition"
+    >
+      <Pencil size={16} className="mr-1" />
+      Edit
+    </button>
+
+    {/* Cancel Button */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        // cancellation logic can go here
+      }}
+      className="flex items-center text-sm px-2 py-1 rounded-md text-red-600 hover:bg-red-100 transition"
+    >
+      <AlertCircle size={16} className="mr-1" />
+      Cancel
+    </button>
+
+    {/* Chevron */}
+    {expandedCards[application.id] ? (
+      <ChevronUp className="h-6 w-6 text-gray-400" />
+    ) : (
+      <ChevronDown className="h-6 w-6 text-gray-400" />
+    )}
+  </div>
+</div>
+
               </div>
 
               {/* Expandable Timeline */}
@@ -368,7 +362,8 @@ function DocumentStatusTracker() {
                         <div><span className="font-medium">Date of Birth:</span> {application.dateOfBirth}</div>
                         <div><span className="font-medium">Place of Birth:</span> {application.placeOfBirth}</div>
                         <div><span className="font-medium">Sex:</span> {application.sex}</div>
-                        <div><span className="font-medium">Marital Status:</span> {application.maritalStatus}</div>
+                        {/* ✅ FIXED: Now correctly shows CIVIL/MARITAL status */}
+                        <div><span className="font-medium">Civil Status:</span> {application.maritalStatus}</div>
                         <div><span className="font-medium">Profession:</span> {application.profession}</div>
                         <div><span className="font-medium">Yearly Income:</span> ₱{application.yearlyIncome?.toLocaleString()}</div>
                         <div><span className="font-medium">TIN:</span> {application.tin}</div>

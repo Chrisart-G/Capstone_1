@@ -5,6 +5,12 @@ import {
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../Header/Sidebar';
+import {
+  CedulaModalContent,
+  ElectricalPermitModalContent,
+  BusinessPermitModalContent,
+  AttachRequirementsModal 
+} from '../modals/ModalContents'; 
 
 const API_BASE_URL = "http://localhost:8081";
 
@@ -16,25 +22,37 @@ export default function EmployeeDashboard() {
   const [userData, setUserData] = useState(null);
   const [selectedApplication, setSelectedApplication] = useState(null);
    const [modalVisible, setModalVisible] = useState(false);
-   const [electricalApplications, setElectricalApplications] = useState({
+const [showAttachModal, setShowAttachModal] = useState(false);
+
+const [applications, setApplications] = useState({
   pending: [],
   inReview: [],
+  inProgress: [],              
+  requirementsCompleted: [],   
   approved: [],
-  rejected: []
-});
-const [cedulaApplications, setCedulaApplications] = useState({
-  pending: [],
-  inReview: [],
-  approved: [],
+  readyForPickup: [],
   rejected: []
 });
 
-  const [applications, setApplications] = useState({
-    pending: [],
-    inReview: [],
-    approved: [],
-    rejected: []
-  });
+const [electricalApplications, setElectricalApplications] = useState({
+  pending: [],
+  inReview: [],
+  inProgress: [],               
+  requirementsCompleted: [],    
+  approved: [],
+  readyForPickup: [],
+  rejected: []
+});
+
+const [cedulaApplications, setCedulaApplications] = useState({
+  pending: [],
+  inReview: [],
+  inProgress: [],               // 🆕
+  requirementsCompleted: [],    // 🆕
+  approved: [],
+  readyForPickup: [],
+  rejected: []
+});
   const navigate = useNavigate();
   
 
@@ -42,7 +60,7 @@ const [cedulaApplications, setCedulaApplications] = useState({
     setExpandedApplication(prev => (prev === id ? null : id));
   };
 
-  // Fetch user data from database
+
   const fetchUserData = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/auth/userinfo`, {
@@ -62,7 +80,6 @@ const [cedulaApplications, setCedulaApplications] = useState({
       setIsLoading(false);
     }
   };
-  
   // Fetch applications data
   const fetchApplications = async () => {
     try {
@@ -73,38 +90,50 @@ const [cedulaApplications, setCedulaApplications] = useState({
       if (response.data.success) {
         // Organize applications by status
         const organizedData = {
-          pending: [],
-          inReview: [],
-          approved: [],
-          rejected: []
-        };
+  pending: [],
+  inReview: [],
+  inProgress: [],                
+  requirementsCompleted: [],    
+  approved: [],
+  readyForPickup: [],
+  rejected: []
+};
         
         response.data.applications.forEach(app => {
-          switch(app.status) {
-            case 'pending':
-              organizedData.pending.push(app);
-              break;
-            case 'in-review':
-              organizedData.inReview.push(app);
-              break;
-            case 'approved':
-              organizedData.approved.push(app);
-              break;
-            case 'rejected':
-              organizedData.rejected.push(app);
-              break;
-            default:
-              organizedData.pending.push(app);
-          }
-        });
-        
+  switch(app.status) {
+    case 'pending':
+      organizedData.pending.push(app);
+      break;
+    case 'in-review':
+      organizedData.inReview.push(app);
+      break;
+    case 'in-progress':
+      organizedData.inProgress.push(app);
+      break;
+    case 'requirements-completed':
+      organizedData.requirementsCompleted.push(app);
+      break;
+    case 'approved':
+      organizedData.approved.push(app);
+      break;
+      case 'ready-for-pickup':
+  organizedData.readyForPickup.push(app);
+  break;
+
+    case 'rejected':
+      organizedData.rejected.push(app);
+      break;
+    default:
+      organizedData.pending.push(app);
+  }
+});
         setApplications(organizedData);
       }
     } catch (error) {
       console.error("Error fetching applications:", error);
     }
   };
-
+// for session parts --------------
 const checkSession = async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
@@ -125,8 +154,6 @@ const checkSession = async () => {
     navigate('/');
   }
 };
-
-
   const handleLogout = async () => {
     try {
       setIsLoading(true);
@@ -138,15 +165,15 @@ const checkSession = async () => {
     } finally {
       setIsLoading(false);
     }
-  };
-  
+  }; 
   const handleNavigate = (tab) => {
     setSelectedTab(tab);
   };
-
   useEffect(() => {
     checkSession();
   }, []);
+  //-----------------------------------
+//this part for fetching the application row records
 const getCurrentApplications = () => {
   return [
     ...applications[selectedTab],
@@ -154,6 +181,123 @@ const getCurrentApplications = () => {
     ...cedulaApplications[selectedTab]
   ];
 };
+//for electical permits
+const fetchElectricalApplications = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/electrical-applications`, {
+      withCredentials: true
+    });
+    
+    if (response.data.success) {
+      // Organize electrical applications by status
+      const organizedElectricalData = {
+  pending: [],
+  inReview: [],
+  inProgress: [],               
+  requirementsCompleted: [],    
+  approved: [],
+    readyForPickup: [],
+  rejected: []
+};
+      
+      response.data.applications.forEach(app => {
+  const appWithType = { ...app, type: 'Electrical Permit' };
+
+  switch (app.status) {
+    case 'pending':
+      organizedElectricalData.pending.push(appWithType);
+      break;
+    case 'in-review':
+      organizedElectricalData.inReview.push(appWithType);
+      break;
+    case 'in-progress':
+      organizedElectricalData.inProgress.push(appWithType); // 🛠️
+      break;
+    case 'requirements-completed':
+      organizedElectricalData.requirementsCompleted.push(appWithType); // 🛠️
+      break;
+    case 'approved':
+      organizedElectricalData.approved.push(appWithType);
+      break;
+      case 'ready-for-pickup':
+  organizedElectricalData.readyForPickup.push(app);
+  break;
+    case 'rejected':
+      organizedElectricalData.rejected.push(appWithType);
+      break;
+    default:
+      organizedElectricalData.pending.push(appWithType);
+  }
+});
+      
+      setElectricalApplications(organizedElectricalData);
+    }
+  } catch (error) {
+    console.error("Error fetching electrical applications:", error);
+  }
+};
+// Fetch Cedula Applications
+const fetchCedulaApplications = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/cedula-applications`, {
+      withCredentials: true
+    });
+
+    if (response.data.success) {
+      const organizedCedulaData = {
+  pending: [],
+  inReview: [],
+  inProgress: [],               
+  requirementsCompleted: [],    
+  approved: [],
+    readyForPickup: [],
+  rejected: []
+};
+
+ response.data.applications.forEach(app => {
+  const appWithType = {
+    ...app,
+    id: app.id || app.cedula_id,
+    type: 'Cedula'
+  };
+
+  switch (app.application_status) {
+    case 'pending':
+      organizedCedulaData.pending.push(appWithType);
+      break;
+    case 'in-review':
+      organizedCedulaData.inReview.push(appWithType);
+      break;
+    case 'in-progress':
+      organizedCedulaData.inProgress.push(appWithType); // 🛠️
+      break;
+    case 'requirements-completed':
+      organizedCedulaData.requirementsCompleted.push(appWithType); // 🛠️
+      break;
+    case 'approved':
+      organizedCedulaData.approved.push(appWithType);
+      break;
+      case 'ready-for-pickup':
+  organizedCedulaData.readyForPickup.push(app);
+  break;
+    case 'rejected':
+      organizedCedulaData.rejected.push(appWithType);
+      break;
+    default:
+      organizedCedulaData.pending.push(appWithType);
+  }
+});
+      setCedulaApplications(organizedCedulaData); // ✅ correct
+    }
+  } catch (error) {
+    console.error("Error fetching cedula applications:", error);
+  }
+};
+
+//-----------------------------------------
+
+//this section for open modal fetch data for the application 
+// for business permits
 const handleViewApplication = async (id) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/api/applications/${id}`, {
@@ -168,6 +312,81 @@ const handleViewApplication = async (id) => {
     }
   } catch (error) {
     console.error("Failed to fetch application info:", error);
+  }
+};
+//for electrical permits
+const handleViewElectricalApplication = async (id) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/electrical-applications/${id}`, {
+      withCredentials: true,
+    });
+
+    if (response.data.success) {
+      setSelectedApplication(response.data.application);
+      setModalVisible(true);
+    } else {
+      alert("Electrical permit application not found.");
+    }
+  } catch (error) {
+    console.error("Failed to fetch electrical application info:", error);
+  }
+};
+// for cedula
+const handleViewCedulaApplication = async (id) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/cedula-applications/${id}`, {
+      withCredentials: true,
+    });
+
+    if (response.data.success && response.data.application) {
+      const cedula = response.data.application;
+
+      const applicationData = {
+        id: cedula.id,
+        user_id: cedula.user_id,
+        type: "Cedula",
+        name: cedula.name,
+        address: cedula.address,
+        place_of_birth: cedula.place_of_birth,
+        date_of_birth: cedula.date_of_birth,
+        profession: cedula.profession,
+        yearly_income: cedula.yearly_income,
+        purpose: cedula.purpose,
+        sex: cedula.sex,
+        tin: cedula.tin,
+        created_at: cedula.created_at,
+        updated_at: cedula.updated_at,
+
+        // ✅ properly separated
+        application_status: cedula.application_status, // e.g. pending/approved
+        civil_status: cedula.status, // e.g. single/married
+      };
+
+      setSelectedApplication(applicationData);
+      setModalVisible(true);
+    } else {
+      alert("Cedula application not found.");
+    }
+  } catch (error) {
+    console.error("❌ Failed to fetch cedula application info:", error);
+  }
+};
+//----------------------------------------------------------
+// this section for action on the application 
+const handleAcceptElectricalApplication = async (id) => {
+  try {
+    const response = await axios.put(`${API_BASE_URL}/api/electrical-applications/${id}/accept`, 
+      { status: 'in-review' }, // ✅ change status here
+      { withCredentials: true }
+    );
+
+    if (response.data.success) {
+      await fetchElectricalApplications(); // Refresh electrical applications
+    } else {
+      alert("Failed to mark the electrical permit as in-review.");
+    }
+  } catch (err) {
+    console.error("Accept electrical application error:", err);
   }
 };
 const handleAcceptApplication = async (id) => {
@@ -185,202 +404,27 @@ const handleAcceptApplication = async (id) => {
     console.error("Accept error:", err);
   }
 };
-
-const handleAcceptElectricalApplication = async (id) => {
-  try {
-    const response = await axios.put(`${API_BASE_URL}/api/electrical-applications/${id}/accept`, 
-      { status: 'approved' }, // Add status in request body
-      { withCredentials: true }
-    );
-
-    if (response.data.success) {
-      await fetchElectricalApplications(); // Refresh electrical applications
-    } else {
-      alert("Failed to accept the electrical permit application.");
-    }
-  } catch (err) {
-    console.error("Accept electrical application error:", err);
-  }
-};
-
-const handleViewElectricalApplication = async (id) => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/electrical-applications/${id}`, {
-      withCredentials: true,
-    });
-
-    if (response.data.success) {
-      setSelectedApplication(response.data.application);
-      setModalVisible(true);
-    } else {
-      alert("Electrical permit application not found.");
-    }
-  } catch (error) {
-    console.error("Failed to fetch electrical application info:", error);
-  }
-};
-
-const fetchElectricalApplications = async () => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/electrical-applications`, {
-      withCredentials: true
-    });
-    
-    if (response.data.success) {
-      // Organize electrical applications by status
-      const organizedElectricalData = {
-        pending: [],
-        inReview: [],
-        approved: [],
-        rejected: []
-      };
-      
-      response.data.applications.forEach(app => {
-  // Add type field to distinguish electrical permits
-  const appWithType = { ...app, type: 'Electrical Permit' };
-  
-  switch(app.status) {
-    case 'pending':
-      organizedElectricalData.pending.push(appWithType);
-      break;
-    case 'in-review':
-      organizedElectricalData.inReview.push(appWithType);
-      break;
-    case 'approved':
-      organizedElectricalData.approved.push(appWithType);
-      break;
-    case 'rejected':
-      organizedElectricalData.rejected.push(appWithType);
-      break;
-    default:
-      organizedElectricalData.pending.push(appWithType);
-  }
-});
-      
-      setElectricalApplications(organizedElectricalData);
-    }
-  } catch (error) {
-    console.error("Error fetching electrical applications:", error);
-  }
-};
-// Fetch all cedula applications and organize by status
-// Fetch Cedula Applications
-const fetchCedulaApplications = async () => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/cedula-applications`, {
-      withCredentials: true
-    });
-
-    if (response.data.success) {
-      const organizedCedulaData = {
-        pending: [],
-        inReview: [],
-        approved: [],
-        rejected: []
-      };
-
-      response.data.applications.forEach(app => {
-        const appWithType = {
-          ...app,
-          id: app.id || app.cedula_id,
-          type: 'Cedula' // ✅ required!
-        };
-
-        switch (app.status) {
-          case 'pending':
-            organizedCedulaData.pending.push(appWithType);
-            break;
-          case 'in-review':
-            organizedCedulaData.inReview.push(appWithType);
-            break;
-          case 'approved':
-            organizedCedulaData.approved.push(appWithType);
-            break;
-          case 'rejected':
-            organizedCedulaData.rejected.push(appWithType);
-            break;
-          default:
-            organizedCedulaData.pending.push(appWithType);
-        }
-      });
-
-      setCedulaApplications(organizedCedulaData); // ✅ correct
-    }
-  } catch (error) {
-    console.error("Error fetching cedula applications:", error);
-  }
-};
-
-
-
-// View Cedula by ID
-const handleViewCedulaApplication = async (id) => {
-  try {
-    console.log("🔍 Fetching cedula application with ID:", id);
-
-    const response = await axios.get(`${API_BASE_URL}/api/cedula-applications/${id}`, {
-      withCredentials: true,
-    });
-
-    console.log("📋 Full Cedula Response:", response.data);
-
-    if (response.data.success && response.data.application) {
-      const cedula = response.data.application;
-
-      // Map database fields directly to match the database structure
-      const applicationData = {
-        id: cedula.id,
-        user_id: cedula.user_id,
-        type: "Cedula",
-        // Cedula specific fields from database
-        name: cedula.name,
-        address: cedula.address,
-        place_of_birth: cedula.place_of_birth,
-        date_of_birth: cedula.date_of_birth,
-        profession: cedula.profession,
-        yearly_income: cedula.yearly_income,
-        purpose: cedula.purpose,
-        sex: cedula.sex,
-        status: cedula.status, // This is civil status from database
-        tin: cedula.tin,
-        created_at: cedula.created_at,
-        updated_at: cedula.updated_at,
-        // Set application status (you might need to add this field to your database)
-        application_status: "pending" // or get from database if you have a status field
-      };
-
-      setSelectedApplication(applicationData);
-      setModalVisible(true);
-    } else {
-      alert("Cedula application not found.");
-    }
-  } catch (error) {
-    console.error("❌ Failed to fetch cedula application info:", error);
-  }
-};
-
-
-
-
-// Accept Cedula
 const handleAcceptCedulaApplication = async (id) => {
   try {
-    const response = await axios.put(`${API_BASE_URL}/api/cedula-applications/${id}/accept`,
-      { status: 'approved' },
-      { withCredentials: true }
-    );
+    const response = await axios.put(
+  `${API_BASE_URL}/api/cedula-applications/${id}/accept`,
+  { status: 'in-review' },
+  {
+    withCredentials: true,
+    headers: { 'Content-Type': 'application/json' }
+  }
+);
 
     if (response.data.success) {
-      await fetchCedulaApplications();
+      await fetchCedulaApplications(); // ✅ Refresh list
     } else {
-      alert("Failed to accept the cedula application.");
+      alert("Failed to move the cedula application to in-review.");
     }
   } catch (err) {
     console.error("Accept cedula application error:", err);
   }
 };
-
-
+//---------------------
   return (
   <div className="flex h-screen bg-gray-100">
     {/* Sidebar Component */}
@@ -421,7 +465,7 @@ const handleAcceptCedulaApplication = async (id) => {
 
         {/* Tabs */}
         <div className="px-6 border-t flex">
-          {['pending', 'inReview', 'approved', 'rejected'].map((tab) => (
+          {['pending', 'inReview', 'inProgress', 'requirementsCompleted', 'approved','readyForPickup', 'rejected'].map((tab) => (
             <button
               key={tab}
               onClick={() => setSelectedTab(tab)}
@@ -435,11 +479,15 @@ const handleAcceptCedulaApplication = async (id) => {
               <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
   tab === 'pending' ? 'bg-yellow-100 text-yellow-800' :
   tab === 'inReview' ? 'bg-blue-100 text-blue-800' :
+  tab === 'inProgress' ? 'bg-orange-100 text-orange-800' :
+  tab === 'requirementsCompleted' ? 'bg-purple-100 text-purple-800' :
   tab === 'approved' ? 'bg-green-100 text-green-800' :
+  tab === 'readyForPickup' ? 'bg-pink-100 text-pink-800' : 
   'bg-red-100 text-red-800'
 }`}>
   {applications[tab].length + electricalApplications[tab].length + cedulaApplications[tab].length}
 </span>
+
             </button>
           ))}
         </div>
@@ -482,22 +530,32 @@ const handleAcceptCedulaApplication = async (id) => {
 </button>
 
 
-  {application.status === "pending" && (
-    <button
-      onClick={() => {
-        if (application.type === 'Electrical Permit') {
-          handleAcceptElectricalApplication(application.id);
-        } else if (application.type === 'Cedula') {
-          handleAcceptCedulaApplication(application.id);
-          
-        } else {
-          handleAcceptApplication(application.id);
-        }
-      }}
-      className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200">
-      Accept
-    </button>
-  )}
+{(application.status === "pending" || application.application_status === "pending") && (
+  <button
+    onClick={() => {
+      if (application.type === 'Electrical Permit') {
+        handleAcceptElectricalApplication(application.id);
+      } else if (application.type === 'Cedula') {
+        handleAcceptCedulaApplication(application.id);
+      } else {
+        handleAcceptApplication(application.id);
+      }
+    }}
+    className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
+  >
+    Accept
+  </button>
+)}
+{/* Attach Requirements - only for in-review */}
+{(application.status === "in-review" || application.application_status === "in-review") && (
+  <button
+    onClick={() => setShowAttachModal(true)}
+    className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+  >
+    Attach Requirements
+  </button>
+)}
+
 </div>
       </div>
       {expandedApplication === application.id && (
@@ -541,559 +599,32 @@ const handleAcceptCedulaApplication = async (id) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Content */}
-                <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
-                  <div className="p-6 space-y-6">
-                    
-                    {/* Status Badge */}
-                    <div className="flex justify-center">
-                      <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                        selectedApplication.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        selectedApplication.status === 'approved' ? 'bg-green-100 text-green-800' :
-                        selectedApplication.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
-                        Status: {selectedApplication.status?.toUpperCase() || 'PENDING'}
-                      </span>
-                    </div>
-                    
- {selectedApplication?.type === 'Cedula' && (
-            <>
-              <div className="bg-indigo-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <div className="bg-indigo-100 p-2 rounded-lg mr-3">
-                    <FileText size={18} className="text-indigo-600" />
-                  </div>
-                  Cedula Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-black">Full Name</label>
-                      <p className="text-gray-800 font-medium">{selectedApplication.name || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Address</label>
-                      <p className="text-gray-900">{selectedApplication.address || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Place of Birth</label>
-                      <p className="text-gray-900">{selectedApplication.place_of_birth || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Date of Birth</label>
-                      <p className="text-gray-900">{selectedApplication.date_of_birth ? new Date(selectedApplication.date_of_birth).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Profession</label>
-                      <p className="text-gray-900">{selectedApplication.profession || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-black">Yearly Income</label>
-                      <p className="text-gray-900 font-semibold">₱{selectedApplication.yearly_income?.toLocaleString() || '0.00'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Purpose</label>
-                      <p className="text-gray-900">{selectedApplication.purpose || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Sex</label>
-                      <p className="text-gray-900">{selectedApplication.sex ? selectedApplication.sex.charAt(0).toUpperCase() + selectedApplication.sex.slice(1) : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Civil Status</label>
-                      <p className="text-gray-900">{selectedApplication.status ? selectedApplication.status.charAt(0).toUpperCase() + selectedApplication.status.slice(1) : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">TIN</label>
-                      <p className="text-gray-900">{selectedApplication.tin || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-green-50 rounded-lg p-6 mt-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <div className="bg-green-100 p-2 rounded-lg mr-3">
-                    <User size={18} className="text-green-600" />
-                  </div>
-                  Application Details
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-black">Application ID</label>
-                      <p className="text-gray-900 font-mono">{selectedApplication.id || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">User ID</label>
-                      <p className="text-gray-900 font-mono">{selectedApplication.user_id || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Application Date</label>
-                      <p className="text-gray-900">{selectedApplication.created_at ? new Date(selectedApplication.created_at).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-black">Last Updated</label>
-                      <p className="text-gray-900">{selectedApplication.updated_at ? new Date(selectedApplication.updated_at).toLocaleDateString() : 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-black">Application Status</label>
-                      <p className="text-gray-900">{selectedApplication.application_status || 'Pending'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-                  {/* Business Information */}
-<div className="bg-gray-50 rounded-lg p-6">
-  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-    <div className="bg-blue-100 p-2 rounded-lg mr-3">
-      <FileText size={18} className="text-blue-600" />
-    </div>
-    {selectedApplication?.type === 'Electrical Permit' ? 'Project Information' : 'Business Information'}
-  </h3>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-medium text-black">
-          {selectedApplication?.type === 'Electrical Permit' ? 'Scope of Work' : 'Business Name'}
-        </label>
-        <p className="text-gray-800 font-medium">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? (selectedApplication.scope_of_work || 'N/A')
-            : (selectedApplication.business_name || 'N/A')
-          }
-        </p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-black">
-          {selectedApplication?.type === 'Electrical Permit' ? 'Use or Character' : 'Trade Name'}
-        </label>
-        <p className="text-gray-900">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? (selectedApplication.use_or_character || 'N/A')
-            : (selectedApplication.trade_name || 'N/A')
-          }
-        </p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-black">
-          {selectedApplication?.type === 'Electrical Permit' ? 'Construction Owned' : 'Business Type'}
-        </label>
-        <p className="text-gray-900">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? (selectedApplication.construction_owned || 'N/A')
-            : (selectedApplication.business_type || 'N/A')
-          }
-        </p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-black">
-          {selectedApplication?.type === 'Electrical Permit' ? 'Form of Ownership' : 'Application Type'}
-        </label>
-        <p className="text-gray-900">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? (selectedApplication.form_of_ownership || 'N/A')
-            : (selectedApplication.application_type || 'N/A')
-          }
-        </p>
-      </div>
-    </div>
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-medium text-black">
-          {selectedApplication?.type === 'Electrical Permit' ? 'Building Permit No' : 'Business Address'}
-        </label>
-        <p className="text-gray-900">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? (selectedApplication.building_permit_no || 'N/A')
-            : (selectedApplication.business_address || 'N/A')
-          }
-        </p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-black">
-          {selectedApplication?.type === 'Electrical Permit' ? 'EP No' : 'Postal Code'}
-        </label>
-        <p className="text-gray-900">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? (selectedApplication.ep_no || 'N/A')
-            : (selectedApplication.business_postal_code || 'N/A')
-          }
-        </p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-black">Email</label>
-        <p className="text-gray-900">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? (selectedApplication.email || 'N/A')
-            : (selectedApplication.business_email || 'N/A')
-          }
-        </p>
-      </div>
-      <div>
-        <label className="text-sm font-medium text-black">
-          {selectedApplication?.type === 'Electrical Permit' ? 'Telephone' : 'Phone Number'}
-        </label>
-        <p className="text-gray-900">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? (selectedApplication.telephone_no || 'N/A')
-            : (selectedApplication.business_telephone || 'N/A')
-          }
-        </p>
-      </div>
-    </div>
+{/* Modal Body */}
+<div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6 space-y-6">
+  {/* Status Badge */}
+  <div className="flex justify-center">
+    <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+      selectedApplication.status === "pending"
+        ? "bg-yellow-100 text-yellow-800"
+        : selectedApplication.status === "approved"
+        ? "bg-green-100 text-green-800"
+        : selectedApplication.status === "rejected"
+        ? "bg-red-100 text-red-800"
+        : "bg-blue-100 text-blue-800"
+    }`}>
+      Status: {selectedApplication.status?.toUpperCase() || "PENDING"}
+    </span>
   </div>
+
+  {/* Dynamic Content */}
+  {selectedApplication?.type === "Cedula" ? (
+    <CedulaModalContent selectedApplication={selectedApplication} />
+  ) : selectedApplication?.type === "Electrical Permit" ? (
+    <ElectricalPermitModalContent selectedApplication={selectedApplication} />
+  ) : (
+    <BusinessPermitModalContent selectedApplication={selectedApplication} />
+  )}
 </div>
-
-
-                    {/* Owner Information */}
-<div className="bg-green-50 rounded-lg p-6">
-  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-    <div className="bg-green-100 p-2 rounded-lg mr-3">
-      <User size={18} className="text-green-600" />
-    </div>
-    {selectedApplication?.type === 'Electrical Permit' ? 'Applicant Information' : 'Owner Information'}
-  </h3>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-medium text-black">Full Name</label>
-        <p className="text-gray-800 font-medium">
-          {selectedApplication?.type === 'Electrical Permit' 
-            ? `${selectedApplication.first_name || ''} ${selectedApplication.middle_initial || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'
-            : `${selectedApplication.first_name || ''} ${selectedApplication.middle_name || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'
-          }
-        </p>
-      </div>
-      {selectedApplication?.type !== 'Electrical Permit' && (
-        <>
-          <div>
-            <label className="text-sm font-medium text-black">Owner Address</label>
-            <p className="text-gray-900">{selectedApplication.owner_address || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Postal Code</label>
-            <p className="text-gray-900">{selectedApplication.owner_postal_code || 'N/A'}</p>
-          </div>
-        </>
-      )}
-    </div>
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-medium text-black">Email</label>
-        <p className="text-gray-900">{selectedApplication.email || selectedApplication.owner_email || 'N/A'}</p>
-      </div>
-      {selectedApplication?.type !== 'Electrical Permit' && (
-        <>
-          <div>
-            <label className="text-sm font-medium text-black">Phone Number</label>
-            <p className="text-gray-900">{selectedApplication.owner_telephone || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Mobile Number</label>
-            <p className="text-gray-900">{selectedApplication.owner_mobile || 'N/A'}</p>
-          </div>
-        </>
-      )}
-      {selectedApplication?.type === 'Electrical Permit' && (
-        <div>
-          <label className="text-sm font-medium text-black">Telephone</label>
-          <p className="text-gray-900">{selectedApplication.telephone_no || 'N/A'}</p>
-        </div>
-      )}
-    </div>
-  </div>
-</div>
-
-                   {/* Application Details */}
-<div className="bg-purple-50 rounded-lg p-6">
-  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-    <div className="bg-purple-100 p-2 rounded-lg mr-3">
-      <FileText size={18} className="text-purple-600" />
-    </div>
-    Application Details
-  </h3>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-    {selectedApplication?.type === 'Electrical Permit' ? (
-      // Electrical Permit Details
-      <>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Application No</label>
-            <p className="text-gray-900 font-mono">{selectedApplication.application_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">EP No</label>
-            <p className="text-gray-900 font-mono">{selectedApplication.ep_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Building Permit No</label>
-            <p className="text-gray-900 font-mono">{selectedApplication.building_permit_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">TIN</label>
-            <p className="text-gray-900 font-mono">{selectedApplication.tin || 'N/A'}</p>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Application Date</label>
-            <p className="text-gray-900">{selectedApplication.created_at ? new Date(selectedApplication.created_at).toLocaleDateString() : 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Last Updated</label>
-            <p className="text-gray-900">{selectedApplication.updated_at ? new Date(selectedApplication.updated_at).toLocaleDateString() : 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Construction Owned</label>
-            <p className="text-gray-900">{selectedApplication.construction_owned || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Form of Ownership</label>
-            <p className="text-gray-900">{selectedApplication.form_of_ownership || 'N/A'}</p>
-          </div>
-        </div>
-      </>
-    ) : (
-      // Business Permit Details
-      <>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Business ID</label>
-            <p className="text-gray-900 font-mono">{selectedApplication.business_id || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">TIN Number</label>
-            <p className="text-gray-900 font-mono">{selectedApplication.tin_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Registration Number</label>
-            <p className="text-gray-900 font-mono">{selectedApplication.registration_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Payment Mode</label>
-            <p className="text-gray-900">{selectedApplication.payment_mode || 'N/A'}</p>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Application Date</label>
-            <p className="text-gray-900">{selectedApplication.application_date ? new Date(selectedApplication.application_date).toLocaleDateString() : 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Registration Date</label>
-            <p className="text-gray-900">{selectedApplication.registration_date ? new Date(selectedApplication.registration_date).toLocaleDateString() : 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Tax Incentive</label>
-            <p className="text-gray-900">{selectedApplication.tax_incentive || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Emergency Contact</label>
-            <p className="text-gray-900">{selectedApplication.emergency_contact || 'N/A'}</p>
-          </div>
-        </div>
-      </>
-    )}
-  </div>
-</div>
-
-                    {/* Business Activities */}
-                    <div className="bg-orange-50 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                        <div className="bg-orange-100 p-2 rounded-lg mr-3">
-                          <FileText size={18} className="text-orange-600" />
-                        </div>
-                        Business Activities
-                      </h3>
-                      
-                      {selectedApplication.activities?.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full bg-white rounded-lg shadow-sm overflow-hidden">
-                            <thead className="bg-gray-100">
-                              <tr>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-black">Line of Business</th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-black">Units</th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-black">Capitalization</th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-black">Date Added</th>
-                              </tr> 
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                              {selectedApplication.activities.map((activity, index) => (
-                                <tr key={index} className="hover:bg-gray-50">
-                                  <td className="px-4 py-3 text-sm text-gray-900">{activity.line_of_business}</td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">{activity.units}</td>
-                                  <td className="px-4 py-3 text-sm text-gray-900 font-semibold">₱{Number(activity.capitalization).toLocaleString()}</td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">{new Date(activity.created_at).toLocaleDateString()}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <FileText size={48} className="mx-auto mb-2 text-gray-300" />
-                          <p>No business activities recorded</p>
-                        </div>
-                      )}
-                    </div>
-                    
-                  </div>
-                </div>
-
-                
-{selectedApplication?.type === 'Electrical Permit' && (
-  <>
-    {/* Electrical Permit Information */}
-    <div className="bg-yellow-50 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <div className="bg-yellow-100 p-2 rounded-lg mr-3">
-          <FileText size={18} className="text-yellow-600" />
-        </div>
-        Electrical Permit Information
-      </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Application No</label>
-            <p className="text-gray-800 font-medium">{selectedApplication.application_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">EP No</label>
-            <p className="text-gray-900">{selectedApplication.ep_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Building Permit No</label>
-            <p className="text-gray-900">{selectedApplication.building_permit_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Scope of Work</label>
-            <p className="text-gray-900">{selectedApplication.scope_of_work || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">TIN</label>
-            <p className="text-gray-900">{selectedApplication.tin || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Construction Owned</label>
-            <p className="text-gray-900">{selectedApplication.construction_owned || 'N/A'}</p>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-black">Form of Ownership</label>
-            <p className="text-gray-900">{selectedApplication.form_of_ownership || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Use or Character</label>
-            <p className="text-gray-900">{selectedApplication.use_or_character || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Telephone No</label>
-            <p className="text-gray-900">{selectedApplication.telephone_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Email</label>
-            <p className="text-gray-900">{selectedApplication.email || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Status</label>
-            <p className="text-gray-900">{selectedApplication.status || 'Pending'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Application Date</label>
-            <p className="text-gray-900">{selectedApplication.created_at ? new Date(selectedApplication.created_at).toLocaleDateString() : 'N/A'}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Address Information */}
-    <div className="bg-blue-50 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-        <div className="bg-blue-100 p-2 rounded-lg mr-3">
-          <FileText size={18} className="text-blue-600" />
-        </div>
-        Address Information
-      </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <h4 className="font-semibold text-gray-700">Property Address</h4>
-          <div>
-            <label className="text-sm font-medium text-black">Address No</label>
-            <p className="text-gray-900">{selectedApplication.address_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Street</label>
-            <p className="text-gray-900">{selectedApplication.address_street || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Barangay</label>
-            <p className="text-gray-900">{selectedApplication.address_barangay || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">City</label>
-            <p className="text-gray-900">{selectedApplication.address_city || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Zip Code</label>
-            <p className="text-gray-900">{selectedApplication.address_zip_code || 'N/A'}</p>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <h4 className="font-semibold text-gray-700">Installation Location</h4>
-          <div>
-            <label className="text-sm font-medium text-black">Street</label>
-            <p className="text-gray-900">{selectedApplication.location_street || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Lot No</label>
-            <p className="text-gray-900">{selectedApplication.location_lot_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Block No</label>
-            <p className="text-gray-900">{selectedApplication.location_blk_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">TCT No</label>
-            <p className="text-gray-900">{selectedApplication.location_tct_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Tax Declaration No</label>
-            <p className="text-gray-900">{selectedApplication.location_tax_dec_no || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">Barangay</label>
-            <p className="text-gray-900">{selectedApplication.location_barangay || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-black">City</label>
-            <p className="text-gray-900">{selectedApplication.location_city || 'N/A'}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-
-  </>
-  
-)}
-
-
-
-
-
-
-
-
 
                 {/* Footer */}
                 <div className="bg-gray-50 px-6 py-4 flex justify-end">
@@ -1107,7 +638,7 @@ const handleAcceptCedulaApplication = async (id) => {
               </div>
             </div>
           )}
-
+{showAttachModal && <AttachRequirementsModal onClose={() => setShowAttachModal(false)} />}
         </div>
       </main>
     </div>
