@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Logins from './Component/Logins/Login';
 import Singnup from './Component/Signup/Signup';
 import MunicipalLandingPage from './Component/Home/Home';
-import BusinessPermitForm from './Component/Form/businesspermit/businesspermit';
+import BusinessPermitForm from './Component/Form/Businesspermit/businesspermit';
 import PermitsHomepage from './Component/Home/Requesthome';
 import AdminDashboard from './Component/Adminhomepage/Adminhome';
 import ProtectedRoute from './Component/Auth/ProtectedRoute'; 
@@ -25,6 +25,8 @@ import EmployeeProfileDashboard from './Component/Employeeprofile/employeeprofil
 import EmployeeHistoryDashboard from './Component/Employeedashboard/employeehistory';
 import ElectronicsPermitForm from './Component/Form/Electronicspermit/electronicspermit';
 import BuildingPermitForm from './Component/Form/Buildingpermit/buildingpermit';
+import AdminNotificationPage from './Component/Adminnotification/adminnotification';
+import DocumentRequirementsManager from './Component/Admindocumentrequirments/admindocumentrequirments';
 function App() {
   return (
     <div className="App">
@@ -132,6 +134,16 @@ function App() {
             <Route path="/Addemploy" element={
             <ProtectedRoute>
               <AddEmployeeForm />
+            </ProtectedRoute>
+          } />
+          <Route path="/AdminNotification" element={
+            <ProtectedRoute>
+              <AdminNotificationPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/AdminDocumentRequirments" element={
+            <ProtectedRoute>
+              <DocumentRequirementsManager />
             </ProtectedRoute>
           } />
 

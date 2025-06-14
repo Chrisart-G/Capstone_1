@@ -107,14 +107,36 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
             
             {expanded.notifications && (
               <div className="ml-6 mt-1">
-                <Link to="/admin/notifications" className="block">
+                <a href="/" className="block">
+                          <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
+                           <span>All Notifications</span>
+                            </div>
+                              </a>
+                <a href="/AdminDocumentRequirments" className="block">
+                          <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
+                           <span>Create Announcement</span>
+                            </div>
+                              </a>
+              </div>
+            )}
+
+          </div>
+          <div className="mt-2">
+            <div 
+              className="flex items-center justify-between p-3 rounded-lg cursor-pointer hover:bg-gray-700"
+              onClick={() => toggleExpand('requirments')}
+            >
+              <div className="flex items-center">
+                <span>Documents Requirments</span>
+              </div>
+              {expanded.requirments ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            </div>
+            
+            {expanded.requirments && (
+              <div className="ml-6 mt-1">
+                <Link to="/AdminDocumentRequirments" className="block">
                   <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
-                    All Notifications
-                  </div>
-                </Link>
-                <Link to="/admin/create-announcement" className="block">
-                  <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
-                    Create Announcement
+                    Manage Document Requirements
                   </div>
                 </Link>
               </div>
