@@ -9,17 +9,16 @@ const fileUpload = require('express-fileupload');
 const app = express();
 
 
-app.use(fileUpload());
+app.use('/uploads', express.static('uploads'));
 
+app.use(fileUpload());
 
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true
 }));
 
-
 app.use(express.json());
-
 
 app.use(session({
   secret: 'your-secret-key',
@@ -32,7 +31,7 @@ app.use(session({
   }
 }));
 
-
+// Debug route
 app.get('/api/debug-session', (req, res) => {
   console.log("Session debug:", req.session);
   res.json({
@@ -42,7 +41,7 @@ app.get('/api/debug-session', (req, res) => {
   });
 });
 
-// Check session endpoint
+// Check session
 app.get('/api/check-session', (req, res) => {
   if (req.session && req.session.user) {
     return res.status(200).json({ loggedIn: true, user: req.session.user });
@@ -50,12 +49,10 @@ app.get('/api/check-session', (req, res) => {
   return res.status(200).json({ loggedIn: false });
 });
 
-// Logout route
+// Logout
 app.post('/api/logout', (req, res) => {
   req.session.destroy((err) => {
-    if (err) {
-      return res.status(500).json({ message: 'Failed to logout' });
-    }
+    if (err) return res.status(500).json({ message: 'Failed to logout' });
     res.clearCookie('connect.sid'); 
     return res.status(200).json({ message: 'Logged out successfully' });
   });

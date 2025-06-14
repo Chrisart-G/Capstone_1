@@ -11,6 +11,8 @@ const officeManagementController = require('../Controller/officeManagementContro
 const applicationController = require('../Controller/applicationController'); 
 const electricalPermitController = require('../Controller/electricalPermitController');
 const CedulaController = require('../Controller/cedulaController');
+const userprofileController = require('../Controller/userprofileController')
+const applicationRequirementsController = require('../Controller/applicationrequirementsController');
 //route path 
 router.post('/login', loginController.Login);
 router.post('/Signup', SignupControler.Signup);
@@ -37,10 +39,17 @@ router.get('/offices/:id', officeManagementController.getOfficeById);
 router.post('/offices', officeManagementController.createOffice);
 router.put('/offices/:id', officeManagementController.updateOffice);
 router.delete('/offices/:id', officeManagementController.deleteOffice);
-router.post('/offices/assign', officeManagementController.assignEmployeesToOffice);
-router.put('/offices/unassign/:assignment_id', officeManagementController.removeEmployeeFromOffice);
-router.get('/offices/available-employees', officeManagementController.getUnassignedEmployees);
+router.delete('/offices/:officeId/employees/:employeeId', officeManagementController.removeEmployeeFromOffice);
+
+// EMPLOYEE ASSIGNMENT ROUTES
+router.post('/offices/:id/assign-employees', officeManagementController.assignEmployeesToOffice);
+
 router.get('/offices/:id/employees', officeManagementController.getOfficeEmployees);
+
+// EMPLOYEE ROUTES
+router.get('/employees', officeManagementController.getAllEmployees); // ADD THIS NEW ROUTE
+
+
 //--------------------------------------------------------------
 router.put('/applications/:id/accept', applicationController.acceptApplication);
 
@@ -67,5 +76,9 @@ router.get('/cedula-applications', CedulaController.getAllCedulaForEmployee);
 router.get('/cedula-applications/:id', CedulaController.getCedulaById);
 router.put('/cedula-applications/:id/accept', CedulaController.updateCedulaStatus);
 //--------------------------------
+router.get('/user/profile',userprofileController.MunicipalUserProfile );
+//-----------
+router.post('/upload-requirement', isAuthenticated, applicationRequirementsController.uploadRequirement);
+
 module.exports = router;
     

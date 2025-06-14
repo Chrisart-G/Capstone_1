@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 10, 2025 at 03:42 PM
+-- Generation Time: Jun 13, 2025 at 06:12 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -44,9 +44,8 @@ CREATE TABLE `business_activities` (
 --
 
 INSERT INTO `business_activities` (`id`, `permit_id`, `line_of_business`, `units`, `capitalization`, `gross_essential`, `gross_non_essential`, `created_at`, `updated_at`) VALUES
-(61, 55, 'Dolor necessitatibus', 'Dolorum voluptatibus', 0.00, 0.00, 0.00, '2025-05-31 18:48:33', '2025-05-31 18:48:33'),
-(62, 56, 'Est quasi sunt duis ', 'Iste debitis eos lab', 0.00, 0.00, 0.00, '2025-05-31 19:34:59', '2025-05-31 19:34:59'),
-(63, 57, 'Ut reprehenderit vo', 'Inventore deserunt N', 0.00, 0.00, 0.00, '2025-06-02 15:24:17', '2025-06-02 15:24:17');
+(72, 66, 'Ipsa numquam dolore', 'Ipsum impedit et si', 0.00, 0.00, 0.00, '2025-06-13 07:17:16', '2025-06-13 07:17:16'),
+(73, 67, 'A consequatur ullam', 'Ducimus ea ad volup', 0.00, 0.00, 0.00, '2025-06-13 15:11:58', '2025-06-13 15:11:58');
 
 -- --------------------------------------------------------
 
@@ -113,9 +112,8 @@ CREATE TABLE `business_permits` (
 --
 
 INSERT INTO `business_permits` (`BusinessP_id`, `application_type`, `payment_mode`, `application_date`, `tin_no`, `registration_no`, `registration_date`, `business_type`, `amendment_from`, `amendment_to`, `tax_incentive`, `tax_incentive_entity`, `last_name`, `first_name`, `middle_name`, `business_name`, `trade_name`, `business_address`, `business_postal_code`, `business_email`, `business_telephone`, `business_mobile`, `owner_address`, `owner_postal_code`, `owner_email`, `owner_telephone`, `owner_mobile`, `emergency_contact`, `emergency_phone`, `emergency_email`, `business_area`, `male_employees`, `female_employees`, `local_employees`, `lessor_name`, `lessor_address`, `lessor_phone`, `lessor_email`, `monthly_rental`, `status`, `created_at`, `updated_at`, `user_id`, `filled_up_forms`, `sec_dti_cda_certificate`, `local_sketch`, `sworn_statement_capital`, `tax_clearance`, `brgy_clearance_business`, `cedula`, `docu_type`) VALUES
-(55, 'renewal', 'quarterly', '1974-05-08', 'Dignissimos culpa i', 'Facilis odio perfere', '2005-09-12', 'corporation', 'corporation', 'single', 'no', '', 'Hendricks', 'Velma', 'Chadwick Aguirre', 'Noble Reynolds', 'Fritz Dunlap', 'Molestiae iure incid', 'Dolores la', 'pukycax@mailinator.com', '+1 (549) 513-2597', 'Ad odio qui neque ni', 'Autem officia quas s', 'Quis dolor', 'jovobehe@mailinator.com', '+1 (941) 299-3073', 'Excepteur quis ipsam', 'Eugenia Sutton', '+1 (658) 894-6185', 'ryweb@mailinator.com', 'Tempor porro anim ex', 15, 73, 60, 'Winifred Rocha', 'Ut corporis doloribu', '+1 (227) 263-2373', 'kyrabih@mailinator.com', 5.00, 'in-review', '2025-05-31 18:48:33', '2025-05-31 18:54:15', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit'),
-(56, 'new', 'quarterly', '2003-11-29', 'Proident architecto', 'At et velit autem p', '2016-01-21', 'corporation', 'single', 'partnership', 'no', '', 'Eaton', 'Donovan', 'Inga Gill', 'Quynn Cox', 'Kirby Shannon', 'Culpa sapiente irure', 'Autem ut s', 'rifiq@mailinator.com', '+1 (412) 178-5625', 'Sunt voluptate sed t', 'Quo laudantium arch', 'Quas exerc', 'sedaqomuf@mailinator.com', '+1 (367) 113-3186', 'Quis minim qui culpa', 'Brenna William', '+1 (632) 367-6608', 'kazosy@mailinator.com', 'Nostrud incidunt re', 72, 7, 97, 'Russell Anderson', 'Incididunt vel eum a', '+1 (427) 254-8133', 'hixewyri@mailinator.com', 2.00, 'in-review', '2025-05-31 19:34:59', '2025-05-31 20:07:17', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit'),
-(57, 'new', 'annually', '2001-02-08', 'Rerum officiis Nam c', 'Cupidatat doloremque', '1991-03-01', 'partnership', 'partnership', 'partnership', 'yes', '', 'Vega', 'Winter', 'Keefe Lambert', 'Xander Gutierrez', 'Sean Slater', 'Nemo sint enim nisi ', 'Ut vero au', 'nilyjakyb@mailinator.com', '+1 (901) 469-1187', 'Nulla culpa molesti', 'Asperiores esse qui', 'Reiciendis', 'tocoteg@mailinator.com', '+1 (938) 366-2375', 'Voluptatem numquam ', 'Tatiana William', '+1 (698) 594-3738', 'zijugyqin@mailinator.com', 'Aliquam laborum Min', 23, 3, 53, 'Hasad Doyle', 'Suscipit officia est', '+1 (591) 331-4116', 'hitawi@mailinator.com', 10.00, 'in-review', '2025-06-02 15:24:17', '2025-06-02 15:54:33', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit');
+(66, 'new', 'quarterly', '2015-03-16', '1231312312', 'dawdawdwadwadawdaw', '2016-02-29', 'partnership', 'partnership', 'single', 'no', '', 'Nealdwadawdawdadadadadwad', 'Ryleewadwadwad', 'Asher Beardadawdada', 'Ishmael Huff', 'Kitra Fry', 'Lorem maxime ut dolo', 'Est sed ne', 'lykadyjob@mailinator.com', '+1 (633) 475-9015', 'Ea culpa ea sit lab', 'Nihil ab molestiae s', 'Corrupti r', 'cedasesahi@mailinator.com', '+1 (867) 408-9425', 'Nesciunt quis volup', 'Ava Simmons', '+1 (363) 393-3359', 'tesebaroza@mailinator.com', 'Sit cupidatat commo', 19, 77, 58, 'Ifeoma Malone', 'Maiores velit esse ', '+1 (448) 439-6402', 'bary@mailinator.com', 12.00, 'in-review', '2025-06-13 07:17:16', '2025-06-13 15:13:03', 22, '/uploads/business_docs/1749799036427_wew31231.jpg', '/uploads/business_docs/1749799036428_h4.jpg', '/uploads/business_docs/1749799036428_h5.jpg', NULL, NULL, NULL, NULL, 'Business Permit'),
+(67, 'renewal', 'semi-annually', '2025-06-13', 'Fugiat minima in vel', 'In quos Nam velit e', '1970-10-02', 'corporation', 'partnership', 'partnership', 'yes', '', 'Sellers', 'Teegan', 'Garrett Murphy', 'Charlotte Patton', 'Gil Malone', 'Consectetur reprehe', 'Porro temp', 'qyje@mailinator.com', '+1 (935) 966-8621', 'Aut soluta ipsam adi', 'Error error earum ex', 'Ex asperio', 'bacyvid@mailinator.com', '+1 (664) 636-6767', 'Veniam Nam temporib', 'Russell Pratt', '+1 (244) 385-9879', 'viboj@mailinator.com', 'Reprehenderit in duc', 56, 99, 84, 'Tatiana Hensley', 'Molestias molestiae ', '+1 (246) 829-8111', 'keqypifi@mailinator.com', 12.00, 'pending', '2025-06-13 15:11:58', '2025-06-13 15:11:58', 22, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit');
 
 -- --------------------------------------------------------
 
@@ -137,16 +135,16 @@ CREATE TABLE `tbl_cedula` (
   `tin` varchar(50) NOT NULL,
   `user_id` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `application_status` enum('pending','in-review','approved','rejected') NOT NULL DEFAULT 'pending'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `tbl_cedula`
 --
 
-INSERT INTO `tbl_cedula` (`id`, `name`, `address`, `place_of_birth`, `date_of_birth`, `profession`, `yearly_income`, `purpose`, `sex`, `status`, `tin`, `user_id`, `created_at`, `updated_at`) VALUES
-(1, 'Lavinia Horn', 'Ullam adipisicing al', 'Omnis quam praesenti', '2016-07-10', 'Quia maxime ullamco ', 264.00, 'Optio culpa natus ', 'male', 'widowed', 'Consequuntur maxime ', 1, '2025-06-02 14:32:15', '2025-06-02 14:32:15'),
-(2, 'Drake Castillo', 'Irure ratione quo ab', 'Cupidatat atque cupi', '1992-11-22', 'Accusantium ad occae', 373.00, 'Qui hic fugit ut et', 'female', 'single', 'Earum quia qui ut ar', 1, '2025-06-02 15:02:58', '2025-06-02 16:19:06');
+INSERT INTO `tbl_cedula` (`id`, `name`, `address`, `place_of_birth`, `date_of_birth`, `profession`, `yearly_income`, `purpose`, `sex`, `status`, `tin`, `user_id`, `created_at`, `updated_at`, `application_status`) VALUES
+(12, 'Ariana Peck', 'Et aspernatur qui au', 'Et incididunt sunt ', '1981-07-12', 'Ipsam quod ipsum ver', 812.00, 'Dolores aliqua Quis', 'female', 'single', 'Iste sit officia co', 22, '2025-06-13 04:08:13', '2025-06-13 04:29:11', 'in-review');
 
 -- --------------------------------------------------------
 
@@ -181,7 +179,7 @@ CREATE TABLE `tbl_electrical_permits` (
   `location_barangay` varchar(100) DEFAULT NULL,
   `location_city` varchar(100) DEFAULT NULL,
   `scope_of_work` enum('newInstallation','annualInspection','temporary','reconnection','separationOfService','upgradingOfService','relocation','others') NOT NULL,
-  `status` enum('pending','approved','rejected','processing') DEFAULT 'pending',
+  `status` enum('pending','in-review','approved','rejected') DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -191,8 +189,11 @@ CREATE TABLE `tbl_electrical_permits` (
 --
 
 INSERT INTO `tbl_electrical_permits` (`id`, `application_no`, `ep_no`, `building_permit_no`, `user_id`, `last_name`, `first_name`, `middle_initial`, `tin`, `construction_owned`, `form_of_ownership`, `use_or_character`, `address_no`, `address_street`, `address_barangay`, `address_city`, `address_zip_code`, `telephone_no`, `location_street`, `location_lot_no`, `location_blk_no`, `location_tct_no`, `location_tax_dec_no`, `location_barangay`, `location_city`, `scope_of_work`, `status`, `created_at`, `updated_at`) VALUES
-(14, 'EP-APP-2025-000014', 'EP-2025-000014', 'BP-2025-000014', 1, 'French', 'Francesca', 'Ex cu', 'Do quo possimus ut ', 'Reiciendis dolorem o', 'Qui saepe dolorem an', 'Vero libero veniam ', 'Impedit natus illum', 'Molestiae est repudi', 'Et officiis rerum ad', 'Occaecat non laborio', '29856', '+1 (147) 796-4759', 'Consectetur quis ass', 'Eiusmod error cum do', 'Quis a Nam deleniti ', 'Tempora est deserunt', 'Omnis velit id sint', 'Beatae consequuntur ', 'Nihil eum pariatur ', 'newInstallation', 'approved', '2025-05-31 19:48:50', '2025-05-31 20:06:53'),
-(15, 'EP-APP-2025-000015', 'EP-2025-000015', 'BP-2025-000015', 1, 'Peters', 'Thomas', 'Et in', 'Aut maxime ea ab est', 'Autem sint illum vo', 'Unde dolores omnis n', 'Qui aut cumque molli', 'Optio proident ven', 'Rerum aut dicta nequ', 'Pariatur Sed velit ', 'Impedit voluptatem ', '28530', '+1 (163) 232-9543', 'Eiusmod magnam velit', 'Quia quo consequuntu', 'Aspernatur sed quasi', 'In atque sint tempor', 'Libero anim eum sit ', 'Optio cumque non ni', 'Asperiores mollitia ', 'newInstallation', 'approved', '2025-06-02 11:25:22', '2025-06-02 11:25:46');
+(19, 'EP-APP-2025-000019', 'EP-2025-000019', 'BP-2025-000019', 22, 'Dickerson', 'Vladimir', 'Et Na', 'Quia proident ipsam', 'Aspernatur irure fug', 'Id ullam repellendus', 'Cupidatat voluptatem', 'Earum dolores incidi', 'Ipsa amet qui maio', 'Dolorum et tempore ', 'Error optio itaque ', '95131', '+1 (479) 744-9353', 'Quia nobis delectus', 'Iure aut consectetur', 'Dolore amet quisqua', 'Optio similique fac', 'Qui reiciendis nemo ', 'Qui qui veritatis in', 'Delectus irure esse', 'reconnection', 'approved', '2025-06-12 16:34:50', '2025-06-12 16:37:11'),
+(20, 'EP-APP-2025-000020', 'EP-2025-000020', 'BP-2025-000020', 22, 'Snyder', 'Tashya', 'Quibu', 'Tempore eius molest', 'Aut amet quibusdam ', 'Quisquam quia sit vo', 'Dolor blanditiis ut ', 'Similique quaerat fa', 'Fugiat ut mollit di', 'Minim velit facilis', 'Qui aut consequat A', '88455', '+1 (328) 898-8228', 'Minim eum ut volupta', 'Alias saepe possimus', 'Quia beatae corrupti', 'Sint distinctio Imp', 'Dolore ipsam qui rep', 'Alias harum est lab', 'Velit et accusamus ', 'annualInspection', 'approved', '2025-06-12 19:36:12', '2025-06-12 19:36:42'),
+(21, 'EP-APP-2025-000021', 'EP-2025-000021', 'BP-2025-000021', 22, 'Weber', 'Skyler', 'Nihil', 'Sapiente ut minus ve', 'Eaque consequatur an', 'Ut veniam est repr', 'Voluptatem adipisci', 'Sed sit voluptatum e', 'Asperiores eum occae', 'Dicta incididunt qui', 'Provident dolores a', '12729', '+1 (525) 186-7619', 'Porro culpa nulla fu', 'Mollitia corporis fa', 'Eligendi dolore dolo', 'Voluptate magni labo', 'Occaecat dignissimos', 'Minima dolorum esse ', 'Nemo ut nostrud est ', 'upgradingOfService', 'in-review', '2025-06-13 02:54:27', '2025-06-13 03:34:59'),
+(22, 'EP-APP-2025-000022', 'EP-2025-000022', 'BP-2025-000022', 22, 'Fitzgerald', 'Joshua', 'Qui s', 'Est culpa elit qui', 'Rerum necessitatibus', 'Sed voluptatum sint', 'Enim nostrud autem n', 'Illo non qui hic bla', 'Non aperiam eiusmod ', 'Eveniet aspernatur ', 'Reprehenderit hic a', '27030', '+1 (105) 714-8791', 'Quis nobis esse aspe', 'In ipsum sint dese', 'Dolor et magni asper', 'Et dignissimos omnis', 'Aperiam exercitation', 'Aut recusandae Temp', 'Id fugiat tenetur n', 'separationOfService', 'in-review', '2025-06-13 04:33:23', '2025-06-13 07:12:44'),
+(23, 'EP-APP-2025-000023', 'EP-2025-000023', 'BP-2025-000023', 25, 'Goodman', 'Myles', 'Moles', 'Accusantium tempora ', 'Adipisci est tempori', 'In quis quas dolorem', 'Et in eum ut nesciun', 'Quo est ducimus arc', 'Nesciunt proident ', 'Illum dolor do nihi', 'At non provident al', '75330', '+1 (121) 901-2655', 'Est magnam eiusmod n', 'Provident ducimus ', 'Eum deserunt odit et', 'Ea in maxime veritat', 'In ut ducimus verit', 'Non ut similique min', 'In ullam asperiores ', 'annualInspection', 'in-review', '2025-06-13 07:15:45', '2025-06-13 15:13:03');
 
 -- --------------------------------------------------------
 
@@ -217,8 +218,8 @@ CREATE TABLE `tbl_employeeinformation` (
 --
 
 INSERT INTO `tbl_employeeinformation` (`employee_id`, `user_id`, `first_name`, `last_name`, `phone`, `position`, `department`, `start_date`, `created_at`) VALUES
-(8, 13, 'dave', 'chester', '+1 (621) 351-7828', 'HR Head', 'Finance', '2025-04-17', '2025-04-23 03:59:09'),
-(10, 16, 'jerryl', 'perez', '+1 (447) 314-3874', 'Senior Developer', 'IT', '2025-05-02', '2025-05-01 16:01:55');
+(11, 23, 'jerryl', 'perez', '+1 (447) 314-3874', 'HR Head', 'Operations', '2025-06-13', '2025-06-12 16:36:57'),
+(12, 24, 'Hillary', 'Wilcox', '+1 (679) 258-6703', 'Vitae nulla voluptat', 'Sales', '1997-03-28', '2025-06-12 17:13:25');
 
 -- --------------------------------------------------------
 
@@ -242,9 +243,9 @@ CREATE TABLE `tbl_employee_offices` (
 --
 
 INSERT INTO `tbl_employee_offices` (`assignment_id`, `employee_id`, `office_id`, `assignment_date`, `is_primary`, `status`, `created_at`, `updated_at`) VALUES
-(2, 8, 9, '2025-05-02', 1, 'active', '2025-05-02 03:14:23', '2025-05-02 03:14:23'),
-(3, 10, 10, '2025-05-02', 1, 'active', '2025-05-02 03:30:00', '2025-05-02 03:30:00'),
-(4, 8, 10, '2025-05-02', 0, 'active', '2025-05-02 03:30:00', '2025-05-02 03:30:00');
+(6, 11, 12, '2025-06-12', 0, 'active', '2025-06-12 17:13:12', '2025-06-12 17:25:01'),
+(8, 12, 11, '2025-06-12', 0, 'active', '2025-06-12 17:41:51', '2025-06-12 17:41:51'),
+(9, 11, 11, '2025-06-13', 0, 'active', '2025-06-12 17:41:51', '2025-06-13 07:13:48');
 
 -- --------------------------------------------------------
 
@@ -271,7 +272,31 @@ CREATE TABLE `tbl_offices` (
 
 INSERT INTO `tbl_offices` (`office_id`, `office_name`, `office_code`, `office_description`, `office_location`, `phone_number`, `email`, `status`, `created_at`, `updated_at`) VALUES
 (9, 'Quin Spears', 'Molestiae dolores qu', NULL, 'Consectetur unde dol', NULL, 'satirawu@mailinator.com', 'active', '2025-05-02 03:14:23', '2025-05-02 03:14:37'),
-(10, 'Business', 'BSD', NULL, '2nd Floor Municipal Bldg.', NULL, 'nyvag@mailinator.com', 'active', '2025-05-02 03:30:00', '2025-05-02 06:15:33');
+(10, 'Business', 'BSD', NULL, '2nd Floor Municipal Bldg.', NULL, 'nyvag@mailinator.com', 'active', '2025-05-02 03:30:00', '2025-05-02 06:15:33'),
+(11, '32eqe2q', 'eq2e2q', 'dwaa', '3rd floor', '+1 (512) 936-3437', 'newuser@gmail.com', 'active', '2025-06-12 16:51:54', '2025-06-12 16:51:54'),
+(12, 'Madison Gentry', 'Itaque facilis aliqu', 'Placeat repudiandae', 'Iusto ipsa consequu', '+1 (101) 733-7012', 'zynuhynid@mailinator.com', 'active', '2025-06-12 17:13:12', '2025-06-12 17:13:12');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_user_info`
+--
+
+CREATE TABLE `tbl_user_info` (
+  `info_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `full_name` varchar(255) NOT NULL,
+  `address` text NOT NULL,
+  `phone_number` varchar(20) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_user_info`
+--
+
+INSERT INTO `tbl_user_info` (`info_id`, `user_id`, `full_name`, `address`, `phone_number`) VALUES
+(1, 22, 'dave chester', 'hinigaran', '092313231'),
+(2, 25, 'amo ko', 'brgy 2 Hinigaran', '0923122523');
 
 -- --------------------------------------------------------
 
@@ -292,16 +317,11 @@ CREATE TABLE `tb_logins` (
 --
 
 INSERT INTO `tb_logins` (`user_id`, `email`, `password`, `role`, `created_at`) VALUES
-(1, 'user@gmail.com', '$2b$10$3PAUVL8MIECE9WJSTOxWKuHCjEzsQC8NaGOZMypqX226P5a2hTt7u', 'citizen', '2025-03-30 13:53:33'),
-(2, 'test@gmail.com', '$2b$10$h6/eMhF9Qv9E9Tt9KLO36.v8Gi6pve2SCsT1MkVjJhyUIPJHlitXG', 'citizen', '2025-03-30 13:57:38'),
-(3, 'newuser@gmail.com', '$2b$10$XbYTOIZgb0toFNmnOOHDbO6/y3Dki21Vw1ewCA3uSl.6RtzO1p86O', 'citizen', '2025-04-21 07:09:12'),
-(4, 'chongo@gmail.com', '$2b$10$d8PY3Ur.Y0tLuWWyvmOaKuMpP5vN3egNQ5dBAcODr9gCVT/i3lpwS', 'citizen', '2025-04-21 11:26:09'),
 (5, 'admin@gmail.com', '$2b$10$eUG1ueO5DiTrewcQjYqLF.0lfQXR9IczTSXVPoAbldwzn9OxOPrcm', 'admin', '2025-04-22 08:08:23'),
-(13, 'employee@gmail.com', '$2b$10$crg/YIEaYQ68Ydg.7fKo4.3qCvwPu7O0VczvwyObQp27akCBM3GJy', 'employee', '2025-04-23 03:59:09'),
-(14, 'user123@gmail.com', '$2b$10$8jQEG9ceaPvcSnXjYO994.KlqQMQMLr9JZgz57/V7mP9tnUW6xnz.', 'citizen', '2025-04-30 06:11:45'),
-(16, 'newempolyee@gmail.com', '$2b$10$t6XTP3Onf.NW8f/9O9TKtukMz0Ujb0T.ejeyfj4eBBFRHzavwElTm', 'employee', '2025-05-01 16:01:55'),
-(17, 'dave@gmail.com', '$2b$10$h6S60B2q48yZZvs1/G4cHeZVmlqDT8w3lWsKgNOgv5aXC60bWSVFi', 'citizen', '2025-05-02 10:13:18'),
-(18, 'testuser@gmail.com', '$2b$10$j60Ml/KTuqhun7UxDZmGwulBA6PNLRMdMVIg/XXROP/twd20e4LCa', 'citizen', '2025-05-07 03:25:33');
+(22, 'user@gmail.com', '$2b$10$rxzA2Ov.CstSAF4Szet7pedof7ZETRnsNHYcrfhtHjzlgx/TWY5Ea', 'citizen', '2025-06-12 15:41:07'),
+(23, 'employee@gmail.com', '$2b$10$5F.K4aOQWKaCi/hvenyibe/lPfcXjLk1YWMx4Mw.lpN7urzpkGe/q', 'employee', '2025-06-12 16:36:57'),
+(24, 'tevirafe@mailinator.com', '$2b$10$kEMgoCG/ZoVqKx9/jB2gc.TeyMMBctVT3VQj7LGOER5yqKq3ail5O', 'employee', '2025-06-12 17:13:25'),
+(25, 'chongo@gmail.com', '$2b$10$sNjApVgQZ0eGdiW/Jq8QH.beqr3.L8P2HRwLZ8vWKnK9UjK0ufmOW', 'citizen', '2025-06-13 07:14:57');
 
 --
 -- Indexes for dumped tables
@@ -364,6 +384,13 @@ ALTER TABLE `tbl_offices`
   ADD UNIQUE KEY `office_code` (`office_code`);
 
 --
+-- Indexes for table `tbl_user_info`
+--
+ALTER TABLE `tbl_user_info`
+  ADD PRIMARY KEY (`info_id`),
+  ADD KEY `user_id` (`user_id`);
+
+--
 -- Indexes for table `tb_logins`
 --
 ALTER TABLE `tb_logins`
@@ -378,49 +405,55 @@ ALTER TABLE `tb_logins`
 -- AUTO_INCREMENT for table `business_activities`
 --
 ALTER TABLE `business_activities`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=64;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
 
 --
 -- AUTO_INCREMENT for table `business_permits`
 --
 ALTER TABLE `business_permits`
-  MODIFY `BusinessP_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=58;
+  MODIFY `BusinessP_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
 
 --
 -- AUTO_INCREMENT for table `tbl_cedula`
 --
 ALTER TABLE `tbl_cedula`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `tbl_electrical_permits`
 --
 ALTER TABLE `tbl_electrical_permits`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `tbl_employeeinformation`
 --
 ALTER TABLE `tbl_employeeinformation`
-  MODIFY `employee_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `employee_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `tbl_employee_offices`
 --
 ALTER TABLE `tbl_employee_offices`
-  MODIFY `assignment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `assignment_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `tbl_offices`
 --
 ALTER TABLE `tbl_offices`
-  MODIFY `office_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `office_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+
+--
+-- AUTO_INCREMENT for table `tbl_user_info`
+--
+ALTER TABLE `tbl_user_info`
+  MODIFY `info_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tb_logins`
 --
 ALTER TABLE `tb_logins`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- Constraints for dumped tables
@@ -462,6 +495,12 @@ ALTER TABLE `tbl_employeeinformation`
 ALTER TABLE `tbl_employee_offices`
   ADD CONSTRAINT `tbl_employee_offices_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `tbl_offices` (`office_id`) ON DELETE CASCADE,
   ADD CONSTRAINT `tbl_employee_offices_ibfk_2` FOREIGN KEY (`employee_id`) REFERENCES `tbl_employeeinformation` (`employee_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_user_info`
+--
+ALTER TABLE `tbl_user_info`
+  ADD CONSTRAINT `tbl_user_info_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `tb_logins` (`user_id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -29,9 +29,127 @@ export default function ManageOffice() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState({ message: '', show: false });
   const [actionError, setActionError] = useState({ message: '', show: false });
-  
+  const [showAssignModal, setShowAssignModal] = useState(false);
+const [availableEmployees, setAvailableEmployees] = useState([]);
+const [selectedEmployees, setSelectedEmployees] = useState([]);
+const [assignmentData, setAssignmentData] = useState({
+  assignment_date: new Date().toISOString().split('T')[0],
+  is_primary: false,
+  status: 'active'
+});
   const navigate = useNavigate();
-  
+  const fetchAvailableEmployees = async () => {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/employees`,
+      { withCredentials: true }
+    );
+    
+    if (Array.isArray(response.data)) {
+      setAvailableEmployees(response.data);
+    } else {
+      console.warn("Unexpected employee data format:", response.data);
+      setAvailableEmployees([]);
+    }
+  } catch (error) {
+    console.error("Error fetching employees:", error);
+    setActionError({
+      message: "Failed to load employees. Please try again.",
+      show: true
+    });
+  }
+};
+
+// 3. ADD THIS FUNCTION to handle showing assign modal
+const handleShowAssignModal = async (office) => {
+  setSelectedOffice(office);
+  await fetchAvailableEmployees();
+  setSelectedEmployees([]);
+  setAssignmentData({
+    assignment_date: new Date().toISOString().split('T')[0],
+    is_primary: false,
+    status: 'active'
+  });
+  setShowAssignModal(true);
+};
+const handleRemoveEmployee = async (officeId, employeeId) => {
+  try {
+    await axios.delete(`${API_BASE_URL}/api/offices/${officeId}/employees/${employeeId}`, {
+      withCredentials: true
+    });
+
+    // Update state to reflect removal
+    setOfficeEmployees(prev =>
+      prev.filter(emp => emp.employee_id !== employeeId)
+    );
+
+    setActionSuccess({
+      message: 'Employee removed successfully.',
+      show: true
+    });
+
+    setTimeout(() => setActionSuccess({ message: '', show: false }), 3000);
+  } catch (error) {
+    console.error("Error removing employee:", error);
+    setActionError({
+      message: "Failed to remove employee. Please try again.",
+      show: true
+    });
+  }
+};
+
+// 4. ADD THIS FUNCTION to handle employee assignment
+const handleAssignEmployees = async () => {
+  if (selectedEmployees.length === 0) {
+    setActionError({
+      message: "Please select at least one employee to assign.",
+      show: true
+    });
+    return;
+  }
+
+  try {
+    setIsSubmitting(true);
+    
+    const employee_assignments = selectedEmployees.map(employeeId => ({
+      employee_id: employeeId,
+      assignment_date: assignmentData.assignment_date,
+      is_primary: assignmentData.is_primary,
+      status: assignmentData.status
+    }));
+
+    await axios.post(
+      `${API_BASE_URL}/api/offices/${selectedOffice.office_id}/assign-employees`,
+      { employee_assignments },
+      { withCredentials: true }
+    );
+
+    setShowAssignModal(false);
+    setActionSuccess({
+      message: `Employees assigned to ${selectedOffice.office_name} successfully.`,
+      show: true
+    });
+    
+    setTimeout(() => setActionSuccess({ message: '', show: false }), 3000);
+  } catch (error) {
+    console.error("Error assigning employees:", error);
+    setActionError({
+      message: error.response?.data?.message || "Failed to assign employees. Please try again.",
+      show: true
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+// 5. ADD THIS FUNCTION to handle employee selection
+const handleEmployeeSelection = (employeeId) => {
+  setSelectedEmployees(prev => 
+    prev.includes(employeeId) 
+      ? prev.filter(id => id !== employeeId)
+      : [...prev, employeeId]
+  );
+};
   // Fetch offices on component mount
   useEffect(() => {
     const fetchOffices = async () => {
@@ -365,12 +483,20 @@ export default function ManageOffice() {
                         <Trash2 size={18} />
                       </button>
                       <button
-                        onClick={() => handleShowEmployees(office)}
-                        className="text-green-500 hover:text-green-700"
-                        title="View Employees"
-                      >
-                        <User size={18} />
-                      </button>
+  onClick={() => handleShowEmployees(office)}
+  className="text-green-500 hover:text-green-700"
+  title="View Employees"
+>
+  <User size={18} />
+</button>
+<button
+  onClick={() => handleShowAssignModal(office)}
+  className="text-purple-500 hover:text-purple-700"
+  title="Assign Employees"
+>
+  <UserPlus size={18} />
+</button>
+
                     </td>
                   </tr>
                 ))}
@@ -528,12 +654,18 @@ export default function ManageOffice() {
               ) : (
                 <ul className="space-y-2">
                   {officeEmployees.map((employee) => (
-                    <li key={employee.employee_id} className="border p-3 rounded hover:bg-gray-50">
-                      <div className="font-semibold">{employee.full_name}</div>
-                      <div className="text-sm text-gray-600">{employee.position}</div>
-                      {employee.email && <div className="text-sm text-gray-500">{employee.email}</div>}
-                    </li>
-                  ))}
+  <li key={employee.employee_id} className="border p-3 rounded hover:bg-gray-50">
+    <div className="font-semibold">{employee.full_name}</div>
+    <div className="text-sm text-gray-600">{employee.position}</div>
+    {employee.email && <div className="text-sm text-gray-500">{employee.email}</div>}
+    <button
+      onClick={() => handleRemoveEmployee(selectedOffice.office_id, employee.employee_id)}
+      className="mt-2 text-sm text-red-600 hover:text-red-800"
+    >
+      Remove from Office
+    </button>
+  </li>
+))}
                 </ul>
               )}
               <div className="mt-4 flex justify-end">
@@ -547,6 +679,104 @@ export default function ManageOffice() {
             </div>
           </div>
         )}
+        {/* Assign Employees Modal */}
+{showAssignModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded shadow-md w-[700px] max-h-[80vh] overflow-y-auto">
+      <h2 className="text-xl font-semibold mb-4">
+        Assign Employees to {selectedOffice?.office_name}
+      </h2>
+      
+      {/* Assignment Settings */}
+      <div className="mb-4 p-4 border rounded bg-gray-50">
+        <h3 className="font-medium mb-3">Assignment Details</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Assignment Date</label>
+            <input
+              type="date"
+              value={assignmentData.assignment_date}
+              onChange={(e) => setAssignmentData({...assignmentData, assignment_date: e.target.value})}
+              className="w-full border px-3 py-2 rounded"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Status</label>
+            <select
+              value={assignmentData.status}
+              onChange={(e) => setAssignmentData({...assignmentData, status: e.target.value})}
+              className="w-full border px-3 py-2 rounded"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={assignmentData.is_primary}
+              onChange={(e) => setAssignmentData({...assignmentData, is_primary: e.target.checked})}
+            />
+            <span className="text-sm">Set as primary office for selected employees</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Employee Selection */}
+      <div className="mb-4">
+        <h3 className="font-medium mb-3">Select Employees ({selectedEmployees.length} selected)</h3>
+        <div className="max-h-60 overflow-y-auto border rounded">
+          {availableEmployees.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No employees available</p>
+          ) : (
+            <div className="space-y-1">
+              {availableEmployees.map((employee) => (
+                <label
+                  key={employee.employee_id}
+                  className="flex items-center p-3 hover:bg-gray-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedEmployees.includes(employee.employee_id)}
+                    onChange={() => handleEmployeeSelection(employee.employee_id)}
+                    className="mr-3"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium">
+                      {employee.first_name} {employee.last_name}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {employee.position} - {employee.department}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => setShowAssignModal(false)}
+          className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+          disabled={isSubmitting}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleAssignEmployees}
+          disabled={isSubmitting || selectedEmployees.length === 0}
+          className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+        >
+          {isSubmitting ? "Assigning..." : `Assign ${selectedEmployees.length} Employee(s)`}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

@@ -8,6 +8,9 @@ const SignUp = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [address, setAddress] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const videoRef = useRef(null);
@@ -27,8 +30,11 @@ const SignUp = () => {
     
     try {
       const response = await axios.post("http://localhost:8081/api/signup", {
-        email,
-        password,
+          email,
+          password,
+          fullName,
+          address,
+          phoneNumber,
       });
       setSuccess("Account created successfully!");
       setError("");
@@ -93,7 +99,43 @@ const SignUp = () => {
                 />
               </div>
             </div>
-            
+              <div>
+    <label className="text-sm font-medium text-gray-700">Full Name</label>
+    <input
+      type="text"
+      value={fullName}
+      onChange={(e) => setFullName(e.target.value)}
+      required
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+      placeholder="Enter your full name"
+    />
+  </div>
+
+  {/* Address */}
+  <div>
+    <label className="text-sm font-medium text-gray-700">Address</label>
+    <input
+      type="text"
+      value={address}
+      onChange={(e) => setAddress(e.target.value)}
+      required
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+      placeholder="Enter your address"
+    />
+  </div>
+
+  {/* Phone Number */}
+  <div>
+    <label className="text-sm font-medium text-gray-700">Phone Number</label>
+    <input
+      type="tel"
+      value={phoneNumber}
+      onChange={(e) => setPhoneNumber(e.target.value)}
+      required
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+      placeholder="+63XXXXXXXXXX"
+    />
+  </div>
             <div>
               <label htmlFor="password" className="text-sm font-medium text-gray-700">
                 Password
