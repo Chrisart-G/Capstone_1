@@ -3,6 +3,7 @@ import { Bell, Users, Building } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import AdminSidebar from '../Header/Adminsidebar';
+import AdminNotificationPage from '../Adminnotification/adminnotification';
 
 const API_BASE_URL = "http://localhost:8081";
 
