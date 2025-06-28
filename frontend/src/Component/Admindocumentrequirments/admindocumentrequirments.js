@@ -248,8 +248,11 @@ const DocumentRequirementsManager = () => {
   );
 
   return (
+    <div>
+      <AdminSidebar/>
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
+      
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Manage Document Requirements</h1>
         <p className="text-gray-600">View, edit, and organize document requirements for your system</p>
@@ -477,6 +480,7 @@ const DocumentRequirementsManager = () => {
       >
         <RequirementForm onSubmit={handleUpdate} submitLabel="Update Requirement" />
       </Modal>
+    </div>
     </div>
     
   );

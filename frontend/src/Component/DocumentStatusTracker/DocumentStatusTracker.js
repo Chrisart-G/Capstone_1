@@ -110,6 +110,8 @@ if (cedulaData.success && cedulaData.cedulas && cedulaData.cedulas.length > 0) {
 
   // Function to transform the status into a steps array
 function transformStatusToSteps(status) {
+  const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '').replace(/-/g, '');
+
   const steps = [
     {
       name: "Pending",
@@ -150,15 +152,15 @@ function transformStatusToSteps(status) {
 
   const statusOrder = {
     "pending": 0,
-    "in-review": 1,
+    "inreview": 1,
     "inprogress": 2,
-    "requirements-completed": 3,
+    "requirementscompleted": 3,
     "approved": 4,
-    "ready-for-pickup": 5,
+    "readyforpickup": 5,
     "rejected": 6
   };
 
-  const currentIndex = statusOrder[status?.toLowerCase().replace(/\s+/g, '-')] ?? 0;
+  const currentIndex = statusOrder[normalizedStatus] ?? 0;
 
   return steps.map((step, index) => ({
     ...step,
@@ -168,6 +170,7 @@ function transformStatusToSteps(status) {
     date: index <= currentIndex && currentIndex !== 6 ? new Date().toLocaleString() : ""
   }));
 }
+
 
 
 

@@ -23,6 +23,9 @@ export default function EmployeeDashboard() {
   const [selectedApplication, setSelectedApplication] = useState(null);
    const [modalVisible, setModalVisible] = useState(false);
 const [showAttachModal, setShowAttachModal] = useState(false);
+const [showPickupModal, setShowPickupModal] = useState(false);
+const [pickupTarget, setPickupTarget] = useState(null);
+const [pickupSchedule, setPickupSchedule] = useState("");
 
 const [applications, setApplications] = useState({
   pending: [],
@@ -424,6 +427,59 @@ const handleAcceptCedulaApplication = async (id) => {
     console.error("Accept cedula application error:", err);
   }
 };
+
+const handlePickupScheduleBusiness = async (applicationId, schedule) => {
+  try {
+    const response = await axios.put(`${API_BASE_URL}/api/applications/set-pickup`, {
+      applicationId,
+      schedule
+    }, { withCredentials: true });
+
+    if (response.data.success) {
+      await fetchApplications();
+      alert("Business Permit moved to Ready for Pickup.");
+    } else {
+      alert("Failed to schedule pickup.");
+    }
+  } catch (err) {
+    console.error("Business Pickup Error:", err);
+  }
+};
+const handlePickupScheduleElectrical = async (applicationId, schedule) => {
+  try {
+    const response = await axios.put(`${API_BASE_URL}/api/electrical-applications/set-pickup`, {
+      applicationId,
+      schedule
+    }, { withCredentials: true });
+
+    if (response.data.success) {
+      await fetchElectricalApplications();
+      alert("Electrical Permit moved to Ready for Pickup.");
+    } else {
+      alert("Failed to schedule pickup.");
+    }
+  } catch (err) {
+    console.error("Electrical Pickup Error:", err);
+  }
+};
+const handlePickupScheduleCedula = async (cedulaId, schedule) => {
+  try {
+    const response = await axios.put(`${API_BASE_URL}/api/cedula/set-pickup`, {
+      cedulaId,
+      schedule
+    }, { withCredentials: true });
+
+    if (response.data.success) {
+      await fetchCedulaApplications();
+      alert("Cedula moved to Ready for Pickup.");
+    } else {
+      alert("Failed to schedule pickup.");
+    }
+  } catch (err) {
+    console.error("Cedula Pickup Error:", err);
+  }
+};
+
 //---------------------
   return (
   <div className="flex h-screen bg-gray-100">
@@ -514,7 +570,7 @@ const handleAcceptCedulaApplication = async (id) => {
         <div className="space-x-2">
   <button
   onClick={() => {
-    const appId = application.id || application.cedula_id; // ensure ID fallback
+    const appId = application.id || application.cedula_id;
 
     if (application.type === 'Electrical Permit') {
       handleViewElectricalApplication(appId);
@@ -555,6 +611,137 @@ const handleAcceptCedulaApplication = async (id) => {
     Attach Requirements
   </button>
 )}
+
+{(application.status === "in-review" || application.application_status === "in-review") && (
+  <button
+    onClick={async () => {
+      const appId = application.id || application.cedula_id;
+
+      try {
+        let response;
+        if (application.type === 'Electrical Permit') {
+          response = await axios.put(`${API_BASE_URL}/api/electrical-applications/move-to-inprogress`, {
+            applicationId: appId
+          }, { withCredentials: true });
+        } else if (application.type === 'Cedula') {
+          response = await axios.put(`${API_BASE_URL}/api/cedula/move-to-inprogress`, {
+  id: appId
+}, { withCredentials: true });
+        } else {
+          response = await axios.put(`${API_BASE_URL}/api/applications/move-to-inprogress`, {
+            applicationId: appId
+          }, { withCredentials: true });
+        }
+
+        if (response.data.success) {
+          // Refetch all applications
+          await fetchApplications();
+          await fetchElectricalApplications();
+          await fetchCedulaApplications();
+          alert("Moved to in-progress successfully.");
+        } else {
+          alert("Failed to update status.");
+        }
+      } catch (err) {
+        console.error("Error:", err);
+        alert("Server error.");
+      }
+    }}
+    className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
+  >
+    Done Attached Requirements
+  </button>
+)}
+{(application.status === "in-progress" || application.application_status === "in-progress") && (
+  <button
+    onClick={async () => {
+      const appId = application.id || application.cedula_id;
+
+      try {
+        let response;
+        if (application.type === 'Electrical Permit') {
+          response = await axios.put(`${API_BASE_URL}/api/electrical-applications/move-to-requirements-completed`, {
+            applicationId: appId
+          }, { withCredentials: true });
+        } else if (application.type === 'Cedula') {
+          response = await axios.put(`${API_BASE_URL}/api/cedula/move-to-requirements-completed`, {
+            cedulaId: appId
+          }, { withCredentials: true });
+        } else {
+          response = await axios.put(`${API_BASE_URL}/api/applications/move-to-requirements-completed`, {
+            applicationId: appId
+          }, { withCredentials: true });
+        }
+
+        if (response.data.success) {
+          await fetchApplications();
+          await fetchElectricalApplications();
+          await fetchCedulaApplications();
+          alert("Moved to requirements-completed successfully.");
+        } else {
+          alert("Failed to update status.");
+        }
+      } catch (err) {
+        console.error("Error:", err);
+        alert("Server error.");
+      }
+    }}
+    className="text-sm px-3 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
+  >
+    Complete Requirements
+  </button>
+)}
+{(application.status === "requirements-completed" || application.application_status === "requirements-completed") && (
+  <button
+    onClick={async () => {
+      const appId = application.id || application.cedula_id;
+
+      try {
+        let response;
+        if (application.type === 'Electrical Permit') {
+          response = await axios.put(`${API_BASE_URL}/api/electrical-applications/move-to-approved`, {
+            applicationId: appId
+          }, { withCredentials: true });
+        } else if (application.type === 'Cedula') {
+          response = await axios.put(`${API_BASE_URL}/api/cedula/move-to-approved`, {
+            cedulaId: appId
+          }, { withCredentials: true });
+        } else {
+          response = await axios.put(`${API_BASE_URL}/api/applications/move-to-approved`, {
+            applicationId: appId
+          }, { withCredentials: true });
+        }
+
+        if (response.data.success) {
+          await fetchApplications();
+          await fetchElectricalApplications();
+          await fetchCedulaApplications();
+          alert("Application approved successfully.");
+        } else {
+          alert("Failed to approve application.");
+        }
+      } catch (err) {
+        console.error("Error approving application:", err);
+        alert("Server error.");
+      }
+    }}
+    className="text-sm px-3 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"
+  >
+    Approve
+  </button>
+)}
+{(application.status === "approved" || application.application_status === "approved") && (
+  <button
+    onClick={() => {
+      setPickupTarget(application);
+      setShowPickupModal(true);
+    }}
+    className="text-sm px-3 py-1 bg-pink-100 text-pink-600 rounded hover:bg-pink-200"
+  >
+    Set Pickup Schedule
+  </button>
+)}
+
 
 </div>
       </div>
@@ -626,6 +813,7 @@ const handleAcceptCedulaApplication = async (id) => {
   )}
 </div>
 
+
                 {/* Footer */}
                 <div className="bg-gray-50 px-6 py-4 flex justify-end">
                   <button
@@ -638,6 +826,45 @@ const handleAcceptCedulaApplication = async (id) => {
               </div>
             </div>
           )}
+          {showPickupModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+      <h2 className="text-lg font-semibold mb-4">Set Pickup Schedule</h2>
+      <input
+        type="datetime-local"
+        value={pickupSchedule}
+        onChange={(e) => setPickupSchedule(e.target.value)}
+        className="w-full border p-2 rounded mb-4"
+      />
+      <div className="flex justify-end space-x-2">
+        <button onClick={() => {
+          setShowPickupModal(false);
+          setPickupTarget(null);
+          setPickupSchedule("");
+        }} className="px-4 py-2 bg-gray-300 rounded">
+          Cancel
+        </button>
+        <button onClick={async () => {
+          if (!pickupSchedule) return alert("Please select a schedule");
+
+          if (pickupTarget.type === 'Electrical Permit') {
+            await handlePickupScheduleElectrical(pickupTarget.id, pickupSchedule);
+          } else if (pickupTarget.type === 'Cedula') {
+            await handlePickupScheduleCedula(pickupTarget.id, pickupSchedule);
+          } else {
+            await handlePickupScheduleBusiness(pickupTarget.id, pickupSchedule);
+          }
+
+          setShowPickupModal(false);
+          setPickupTarget(null);
+          setPickupSchedule("");
+        }} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 {showAttachModal && <AttachRequirementsModal onClose={() => setShowAttachModal(false)} />}
         </div>
       </main>

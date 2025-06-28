@@ -350,3 +350,133 @@ exports.UpdateApplicationStatus = (req, res) => {
         }
     );
 };
+
+// In buspermitController.js
+exports.moveBusinessToInProgress = (req, res) => {
+  const { applicationId } = req.body;
+
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+
+  const sql = `UPDATE business_permits SET status = 'in-progress', updated_at = NOW() WHERE BusinessP_id = ?`;
+  db.query(sql, [applicationId], (err, results) => {
+    if (err) {
+      console.error('Error updating application:', err);
+      return res.status(500).json({ success: false });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    return res.json({ success: true, message: 'Moved to in-progress' });
+  });
+};
+exports.moveBusinessToRequirementsCompleted = (req, res) => {
+  const { applicationId } = req.body;
+
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+
+  const sql = `UPDATE business_permits SET status = 'requirements-completed', updated_at = NOW() WHERE BusinessP_id = ?`;
+
+  db.query(sql, [applicationId], (err, results) => {
+    if (err) {
+      console.error('Error updating application:', err);
+      return res.status(500).json({ success: false });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    return res.json({ success: true, message: 'Moved to requirements-completed' });
+  });
+};
+
+exports.moveBusinessToApproved = (req, res) => {
+  const { applicationId } = req.body;
+
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+
+  const sql = `UPDATE business_permits SET status = 'approved', updated_at = NOW() WHERE BusinessP_id = ?`;
+
+  db.query(sql, [applicationId], (err, results) => {
+    if (err) {
+      console.error('Error approving application:', err);
+      return res.status(500).json({ success: false });
+    }
+
+    if (results.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    return res.json({ success: true, message: 'Application approved' });
+  });
+};
+exports.moveBusinessToReadyForPickup = (req, res) => {
+  const { applicationId, schedule } = req.body;
+
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+
+  const sql = `
+    UPDATE business_permits 
+    SET status = 'ready-for-pickup', pickup_schedule = ?, updated_at = NOW() 
+    WHERE BusinessP_id = ?
+  `;
+
+  db.query(sql, [schedule, applicationId], (err, result) => {
+    if (err) return res.status(500).json({ success: false, message: "Failed to update", error: err.message });
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Not found" });
+
+    res.json({ success: true, message: "Pickup scheduled" });
+  });
+};
+// Move to Approved
+exports.moveBusinessToApproved = (req, res) => {
+  const { applicationId } = req.body;
+
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const sql = `
+    UPDATE business_permits 
+    SET status = 'approved', updated_at = NOW()
+    WHERE BusinessP_id = ?
+  `;
+
+  db.query(sql, [applicationId], (err, result) => {
+    if (err) return res.status(500).json({ success: false, message: "Failed to approve" });
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Permit not found" });
+    return res.json({ success: true, message: "Business permit approved" });
+  });
+};
+
+// Set Pickup Schedule (Ready for Pickup)
+exports.moveBusinessToReadyForPickup = (req, res) => {
+  const { applicationId, schedule } = req.body;
+
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const sql = `
+    UPDATE business_permits 
+    SET status = 'ready-for-pickup', pickup_schedule = ?, updated_at = NOW()
+    WHERE BusinessP_id = ?
+  `;
+
+  db.query(sql, [schedule, applicationId], (err, result) => {
+    if (err) return res.status(500).json({ success: false, message: 'Failed to update status' });
+    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Permit not found' });
+    return res.json({ success: true, message: 'Business permit moved to ready-for-pickup' });
+  });
+};
+

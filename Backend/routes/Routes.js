@@ -79,6 +79,22 @@ router.put('/cedula-applications/:id/accept', CedulaController.updateCedulaStatu
 router.get('/user/profile',userprofileController.MunicipalUserProfile );
 //-----------
 router.post('/upload-requirement', isAuthenticated, applicationRequirementsController.uploadRequirement);
+//new added
+router.put('/applications/move-to-inprogress', BuspermitController.moveBusinessToInProgress);
+router.put('/electrical-applications/move-to-inprogress', electricalPermitController.moveElectricalToInProgress);
+router.put('/cedula/move-to-inprogress', CedulaController.moveCedulaToInProgress);
+router.put('/applications/move-to-requirements-completed', BuspermitController.moveBusinessToRequirementsCompleted);
+router.put('/electrical-applications/move-to-requirements-completed', electricalPermitController.moveElectricalToRequirementsCompleted);
+router.put('/cedula/move-to-requirements-completed', CedulaController.moveCedulaToRequirementsCompleted);
+router.put('/applications/move-to-approved', BuspermitController.moveBusinessToApproved);
+router.put('/electrical-applications/move-to-approved', electricalPermitController.moveElectricalToApproved);
+router.put('/cedula/move-to-approved', CedulaController.moveCedulaToApproved);
+
+
+// Pickup Scheduling
+router.put('/applications/set-pickup', BuspermitController.moveBusinessToReadyForPickup);
+router.put('/electrical-applications/set-pickup', electricalPermitController.moveElectricalToReadyForPickup);
+router.put('/cedula/set-pickup', CedulaController.moveCedulaToReadyForPickup);
 
 module.exports = router;
     
