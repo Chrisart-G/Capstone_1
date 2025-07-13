@@ -180,37 +180,7 @@ exports.getCedulaById = (req, res) => {
 
 
 
-// Accept Cedula
-exports.updateCedulaStatus = (req, res) => {
-  const cedulaId = req.params.id;
-  const { status } = req.body;
 
-  console.log("🔥 Body received from frontend:", req.body);
-
-  if (!req.session || !req.session.user) {
-    return res.status(401).json({ message: "Unauthorized. Please log in." });
-  }
-
-  if (!status) {
-    console.warn("⚠️ Missing status in request body.");
-    return res.status(400).json({ success: false, message: "Status is required." });
-  }
-
-  const sql = `UPDATE tbl_cedula SET application_status = ?, updated_at = NOW() WHERE id = ?`;
-
-  db.query(sql, [status, cedulaId], (err, result) => {
-    if (err) {
-      console.error("❌ SQL Error:", err);
-      return res.status(500).json({ success: false, message: "Error updating cedula status" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Cedula application not found" });
-    }
-
-    res.json({ success: true, message: "Cedula application status updated successfully" });
-  });
-};
 
 
 
@@ -410,86 +380,134 @@ exports.deleteCedula = async (req, res) => {
     }
     };
 // In cedulaController.js
-exports.moveCedulaToInProgress = (req, res) => {
-  const { id } = req.body;
 
-  // Session check
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ success: false, message: "Unauthorized" });
+
+// Accept Cedula
+exports.updateCedulaStatus = (req, res) => {
+  const cedulaId = req.params.id;
+  const { status } = req.body;
+
+  console.log("🔥 Body received from frontend:", req.body);
+
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ message: "Unauthorized. Please log in." });
   }
 
-  // Input validation
-  if (!id || isNaN(Number(id))) {
-    return res.status(400).json({ success: false, message: "Valid id is required" });
+  if (!status) {
+    console.warn("⚠️ Missing status in request body.");
+    return res.status(400).json({ success: false, message: "Status is required." });
   }
 
-  const sql = `
-    UPDATE tbl_cedula 
-    SET application_status = 'in-progress', updated_at = NOW()
-    WHERE id = ?
-  `;
+  const sql = `UPDATE tbl_cedula SET application_status = ?, updated_at = NOW() WHERE id = ?`;
 
-  db.query(sql, [id], (err, result) => {
+  db.query(sql, [status, cedulaId], (err, result) => {
     if (err) {
-      console.error("Database update error:", err);
-      return res.status(500).json({ success: false, message: "Database update failed" });
+      console.error("❌ SQL Error:", err);
+      return res.status(500).json({ success: false, message: "Error updating cedula status" });
     }
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: "Cedula application not found" });
     }
 
-    return res.json({ success: true, message: "Cedula moved to in-progress successfully" });
+    res.json({ success: true, message: "Cedula application status updated successfully" });
   });
 };
-
-
-
-
-
-
-exports.moveCedulaToRequirementsCompleted = (req, res) => {
-  const { cedulaId } = req.body;
+exports.moveCedulaToInProgress = (req, res) => {
+  console.log("📨 Received body:", req.body);
+  const { id } = req.body; // ✅ Use 'id', not 'cedulaId'
 
   if (!req.session?.user?.user_id) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const sql = `UPDATE tbl_cedula SET application_status = 'requirements-completed', updated_at = NOW() WHERE id = ?`;
-
-  db.query(sql, [cedulaId], (err, result) => {
-    if (err) {
-      console.error("Failed:", err);
-      return res.status(500).json({ success: false, message: "Failed to update" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Cedula not found" });
-    }
-
-    return res.json({ success: true, message: "Cedula moved to requirements-completed" });
-  });
-};
-// Move to Approved
-exports.moveCedulaToApproved = (req, res) => {
-  const { cedulaId } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Cedula ID is required." });
   }
 
   const sql = `
     UPDATE tbl_cedula 
-    SET application_status = 'approved', updated_at = NOW()
+    SET application_status = 'in-progress', updated_at = NOW() 
     WHERE id = ?
   `;
 
-  db.query(sql, [cedulaId], (err, result) => {
-    if (err) return res.status(500).json({ success: false, message: "Failed to approve" });
-    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Cedula not found" });
-    return res.json({ success: true, message: "Cedula approved" });
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Error updating to in-progress:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Cedula not found." });
+    }
+
+    res.json({ success: true, message: "Cedula moved to in-progress." });
   });
 };
+
+exports.moveCedulaToRequirementsCompleted = (req, res) => {
+  const { id } = req.body;
+
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Cedula ID is required." });
+  }
+
+  const sql = `
+    UPDATE tbl_cedula 
+    SET application_status = 'requirements-completed', updated_at = NOW() 
+    WHERE id = ?
+  `;
+
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Error updating to requirements-completed:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Cedula not found." });
+    }
+
+    res.json({ success: true, message: "Cedula moved to requirements-completed." });
+  });
+};
+
+// Move to Approved
+exports.moveCedulaToApproved = (req, res) => {
+  const { id } = req.body;
+
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Cedula ID is required." });
+  }
+
+  const sql = `
+    UPDATE tbl_cedula 
+    SET application_status = 'approved', updated_at = NOW() 
+    WHERE id = ?
+  `;
+
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Error updating to approved:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Cedula not found." });
+    }
+
+    res.json({ success: true, message: "Cedula approved successfully." });
+  });
+};
+
 
 // Set Pickup Schedule (Ready for Pickup)
 exports.moveCedulaToReadyForPickup = (req, res) => {
