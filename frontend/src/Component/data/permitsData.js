@@ -4,7 +4,7 @@ export const permits = {
     business: [
       { name: "Business Permit", description: "Required to legally operate a business within the municipality." },
       { name: "Cedula Permit", description: "A general permit issued by the mayor's office for businesses, events, or special activities." },
-      { name: "Market Stall Permit", description: "Allows vendors to operate in public markets." },
+      { name: "Renewal Business Permit", description: "Allows vendors to operate in public markets." },
       { name: "Special Sales Permit", description: "Required for promotional sales, discounts, or special selling activities." }
     ],
     construction: [
