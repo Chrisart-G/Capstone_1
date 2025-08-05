@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Logins from './Component/Logins/Login';
 import Singnup from './Component/Signup/Signup';
 import MunicipalLandingPage from './Component/Home/Home';
-import BusinessPermitForm from './Component/Form/businesspermit/businesspermit';
+import BusinessPermitForm from './Component/Form/Businesspermit/businesspermit';
 import PermitsHomepage from './Component/Home/Requesthome';
 import AdminDashboard from './Component/Adminhomepage/Adminhome';
 import ProtectedRoute from './Component/Auth/ProtectedRoute'; 
@@ -27,6 +27,7 @@ import ElectronicsPermitForm from './Component/Form/Electronicspermit/electronic
 import BuildingPermitForm from './Component/Form/Buildingpermit/buildingpermit';
 import AdminNotificationPage from './Component/Adminnotification/adminnotification';
 import DocumentRequirementsManager from './Component/Admindocumentrequirments/admindocumentrequirments';
+import RenewalBusinessPermitForm from './Component/Form/RenewalBusinessPermit/renewalbusinesspermit';
 function App() {
   return (
     <div className="App">
@@ -162,6 +163,11 @@ function App() {
               <ManageOffice />
             </ProtectedRoute>
           } />
+          <Route path="/RenewalBusinessPermit" element={
+            <ProtectedRoute>
+              <RenewalBusinessPermitForm />
+            </ProtectedRoute>
+             } />
           
           <Route path="*" element={<Navigate to="/Login" />} />
         </Routes>

@@ -23,6 +23,8 @@ const PermitsHomepage = () => {
     "Cedula Permit": "/CedulaPermitForm",
     "Fencing Permit": "/FencingPermitForm",
     "Electronics Permit": "/ElectronicsPermitForm",
+    "Renewal Business Permit": "/RenewalBusinessPermit",
+
   };
 
   const handleApplyNow = (permitName) => {

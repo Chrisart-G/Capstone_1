@@ -4,7 +4,7 @@ import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
 import axios from 'axios';
 
-export default function BusinessPermitForm() {
+export default function RenewalBusinessPermitForm() {
   const navigate = useNavigate();
 
   const fieldRefs = useRef({});
