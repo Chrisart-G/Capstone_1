@@ -11,6 +11,10 @@ const PermitsHomepage = () => {
   const [selectedPermit, setSelectedPermit] = useState(null);
   const [receiptImage, setReceiptImage] = useState(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+  const [qrZoomOpen, setQrZoomOpen] = useState(false);
+  const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false); // New state for payment options modal
 
   const navigate = useNavigate();
 
@@ -24,7 +28,6 @@ const PermitsHomepage = () => {
     "Fencing Permit": "/FencingPermitForm",
     "Electronics Permit": "/ElectronicsPermitForm",
     "Renewal Business Permit": "/RenewalBusinessPermit",
-
   };
 
   const handleApplyNow = (permitName) => {
@@ -36,6 +39,71 @@ const PermitsHomepage = () => {
     setIsModalOpen(false);
     setReceiptImage(null);
     setAcceptedTerms(false);
+    setQrModalOpen(false);
+    setPaymentOptionsOpen(false);
+    setSelectedPaymentMethod(null);
+    setQrZoomOpen(false);
+  };
+
+  const handlePaymentMethodClick = (method) => {
+    setSelectedPaymentMethod(method);
+    setPaymentOptionsOpen(true); // Open payment options modal instead of QR modal directly
+  };
+
+  const handleQRCodeOption = () => {
+    setPaymentOptionsOpen(false);
+    setQrModalOpen(true);
+  };
+
+  const handleGoToAppOption = () => {
+    const paymentLinks = {
+      'gcash': {
+        android: 'https://play.google.com/store/apps/details?id=com.globe.gcash.android',
+        ios: 'https://apps.apple.com/ph/app/gcash/id520948884',
+        web: 'https://www.gcash.com/'
+      },
+      'maya': {
+        android: 'https://play.google.com/store/apps/details?id=com.paymaya.wallet',
+        ios: 'https://apps.apple.com/ph/app/maya/id1076232290',
+        web: 'https://www.maya.ph/'
+      }
+    };
+
+    // Try to open the mobile app first, fallback to web
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isAndroid = /android/i.test(userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+    let linkToOpen;
+    if (isAndroid) {
+      linkToOpen = paymentLinks[selectedPaymentMethod].android;
+    } else if (isIOS) {
+      linkToOpen = paymentLinks[selectedPaymentMethod].ios;
+    } else {
+      linkToOpen = paymentLinks[selectedPaymentMethod].web;
+    }
+
+    window.open(linkToOpen, '_blank');
+    setPaymentOptionsOpen(false);
+  };
+
+  const handleClosePaymentOptions = () => {
+    setPaymentOptionsOpen(false);
+    setSelectedPaymentMethod(null);
+  };
+
+  const handleCloseQr = () => {
+    setQrModalOpen(false);
+    setSelectedPaymentMethod(null);
+    setQrZoomOpen(false);
+  };
+
+  const handleQrImageClick = () => {
+    setQrZoomOpen(true);
+  };
+
+  const handleCloseZoom = () => {
+    setQrZoomOpen(false);
   };
 
   const handleSubmitPayment = () => {
@@ -134,6 +202,26 @@ const PermitsHomepage = () => {
                 className="w-full border border-gray-300 rounded p-2 text-sm"
                 onChange={(e) => setReceiptImage(e.target.files[0])}
               />
+              
+              {/* Payment Method Options */}
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-700 mb-3 text-center">Choose Payment Method:</p>
+                <div className="flex justify-center gap-6">
+                  <button
+                    onClick={() => handlePaymentMethodClick('gcash')}
+                    className="px-6 py-3 border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer text-sm font-medium text-gray-700 hover:text-blue-600"
+                  >
+                    Pay with GCash
+                  </button>
+                  
+                  <button
+                    onClick={() => handlePaymentMethodClick('maya')}
+                    className="px-6 py-3 border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer text-sm font-medium text-gray-700 hover:text-blue-600"
+                  >
+                    Pay with Maya
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="mt-4 p-3 border border-gray-200 rounded bg-gray-50 text-sm text-gray-700">
@@ -163,6 +251,109 @@ const PermitsHomepage = () => {
                 Submit Payment
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Payment Options Modal */}
+      {paymentOptionsOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm text-center">
+            <h2 className="text-xl font-bold mb-4 text-blue-600">
+              {selectedPaymentMethod === 'gcash' ? 'GCash' : 'Maya'} Payment Options
+            </h2>
+            
+            <p className="text-sm text-gray-600 mb-6">
+              Choose how you would like to make your payment:
+            </p>
+            
+            <div className="space-y-3">
+              <button
+                onClick={handleQRCodeOption}
+                className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-3"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 16h4.01M12 8h4.01" />
+                </svg>
+                Scan QR Code
+              </button>
+              
+              <button
+                onClick={handleGoToAppOption}
+                className="w-full px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all flex items-center justify-center gap-3"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Go to {selectedPaymentMethod === 'gcash' ? 'GCash' : 'Maya'} App
+              </button>
+            </div>
+            
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={handleClosePaymentOptions}
+                className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {qrModalOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm text-center">
+            <h2 className="text-xl font-bold mb-4 text-blue-600">
+              {selectedPaymentMethod === 'gcash' ? 'GCash' : 'Maya'} QR Code
+            </h2>
+            
+            <div className="mb-4">
+              <img 
+                src="/img/QR.png"
+                alt={`${selectedPaymentMethod === 'gcash' ? 'GCash' : 'Maya'} QR Code`} 
+                className="w-48 h-48 object-contain mx-auto border border-gray-200 rounded-lg cursor-zoom-in hover:border-blue-300 transition-all"
+                onClick={handleQrImageClick}
+              />
+              <p className="text-xs text-gray-500 mt-2">Click to zoom</p>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              Scan this QR code with your {selectedPaymentMethod === 'gcash' ? 'GCash' : 'Maya'} app to make the payment
+            </p>
+            
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-yellow-800">
+                <strong>Important:</strong> After payment, take a screenshot of the receipt and upload it above.
+              </p>
+            </div>
+            
+            <button
+              onClick={handleCloseQr}
+              className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* QR Zoom Modal */}
+      {qrZoomOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-80">
+          <div className="relative">
+            <img 
+              src="/img/QR.png"
+              alt="QR Code Zoomed"
+              className="max-w-full max-h-full object-contain"
+            />
+            <button
+              onClick={handleCloseZoom}
+              className="absolute top-4 right-4 bg-white bg-opacity-90 hover:bg-opacity-100 text-black rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold"
+            >
+              ×
+            </button>
           </div>
         </div>
       )}
