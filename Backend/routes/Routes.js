@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const isAuthenticated = require('../middleware/sessionAuth');
-// controller import section
+
+// Controller imports
 const loginController = require('../Controller/loginController');
 const SignupControler = require('../Controller/signupController');
 const BuspermitController = require('../Controller/buspermitController');
@@ -11,90 +12,84 @@ const officeManagementController = require('../Controller/officeManagementContro
 const applicationController = require('../Controller/applicationController'); 
 const electricalPermitController = require('../Controller/electricalPermitController');
 const CedulaController = require('../Controller/cedulaController');
-const userprofileController = require('../Controller/userprofileController')
+const userprofileController = require('../Controller/userprofileController');
 const applicationRequirementsController = require('../Controller/applicationrequirementsController');
-//route path 
+
+// ======================= AUTHENTICATION ROUTES =======================
 router.post('/login', loginController.Login);
 router.post('/Signup', SignupControler.Signup);
-router.post('/BusinessPermit',isAuthenticated, BuspermitController.SubmitBusinessPermit);
-///
+
+// ======================= BUSINESS PERMIT ROUTES =======================
+router.post('/BusinessPermit', isAuthenticated, BuspermitController.SubmitBusinessPermit);
+router.get('/businesspermits', isAuthenticated, BuspermitController.getAllPermits);
+
 router.get('/applications', isAuthenticated, BuspermitController.GetAllApplications);
 router.get('/applications/:id', isAuthenticated, BuspermitController.GetApplicationById);
+router.put('/applications/:id/accept', applicationController.acceptApplication);
 
-// router.put('/applications/status', isAuthenticated, hasRole(['admin', 'approver']), BuspermitController.UpdateApplicationStatus);
-///
-//for manage employee routes
+router.put('/applications/move-to-inprogress', BuspermitController.moveBusinessToInProgress);
+router.put('/applications/move-to-requirements-completed', BuspermitController.moveBusinessToRequirementsCompleted);
+router.put('/applications/move-to-approved', BuspermitController.moveBusinessToApproved);
+router.put('/applications/set-pickup', BuspermitController.moveBusinessToReadyForPickup);
+
+// ======================= EMPLOYEE MANAGEMENT ROUTES =======================
 router.get('/employees', employeeController.getAllEmployees);
 router.get('/employees/:id', employeeController.getEmployeeById);
 router.post('/employees', employeeController.createEmployee);
 router.put('/employees/:id', employeeController.updateEmployee);
 router.delete('/employees/:id', employeeController.deleteEmployee);
-router.post('/addemployee', addemployeeController.addEmployee);
-//route for get path
-router.get('/businesspermits', isAuthenticated, BuspermitController.getAllPermits);
 
-// OFFICE MANAGEMENT ROUTES route path for manage office 
+router.post('/addemployee', addemployeeController.addEmployee);
+
+// ======================= OFFICE MANAGEMENT ROUTES =======================
 router.get('/offices', officeManagementController.getAllOffices);
 router.get('/offices/:id', officeManagementController.getOfficeById);
 router.post('/offices', officeManagementController.createOffice);
 router.put('/offices/:id', officeManagementController.updateOffice);
 router.delete('/offices/:id', officeManagementController.deleteOffice);
+
 router.delete('/offices/:officeId/employees/:employeeId', officeManagementController.removeEmployeeFromOffice);
-
-// EMPLOYEE ASSIGNMENT ROUTES
 router.post('/offices/:id/assign-employees', officeManagementController.assignEmployeesToOffice);
-
 router.get('/offices/:id/employees', officeManagementController.getOfficeEmployees);
 
-// EMPLOYEE ROUTES
-router.get('/employees', officeManagementController.getAllEmployees); // ADD THIS NEW ROUTE
+// (Extra employee route from office controller)
+router.get('/employees', officeManagementController.getAllEmployees);
 
-
-//--------------------------------------------------------------
-router.put('/applications/:id/accept', applicationController.acceptApplication);
-
-// this is for creating new electrical permits
+// ======================= ELECTRICAL PERMIT ROUTES =======================
 router.post('/electrical-permits', electricalPermitController.createElectricalPermit);
 router.get('/getelectrical-permits', electricalPermitController.getAllElectricalPermits);
-// Get all electrical permits for employee dashboard
 router.get('/electrical-applications', electricalPermitController.getAllElectricalPermitsForEmployee);
-// Get single electrical permit details
 router.get('/electrical-applications/:id', electricalPermitController.getElectricalPermitById);
-// Update electrical permit status
 router.put('/electrical-applications/:id/accept', electricalPermitController.updateElectricalPermitStatus);
 
-//<---------------------------------------------------------------->
+router.put('/electrical-applications/move-to-inprogress', electricalPermitController.moveElectricalToInProgress);
+router.put('/electrical-applications/move-to-requirements-completed', electricalPermitController.moveElectricalToRequirementsCompleted);
+router.put('/electrical-applications/move-to-approved', electricalPermitController.moveElectricalToApproved);
+router.put('/electrical-applications/set-pickup', electricalPermitController.moveElectricalToReadyForPickup);
+
+// ======================= CEDULA ROUTES =======================
+// Move status routes
+router.put('/cedula/move-to-requirements-completed', CedulaController.moveCedulaToRequirementsCompleted);
+router.put('/cedula/move-to-inprogress', CedulaController.moveCedulaToInProgress);
+router.put('/cedula/move-to-approved', CedulaController.moveCedulaToApproved);
+router.put('/cedula/set-pickup', CedulaController.moveCedulaToReadyForPickup);
+
+// User Cedula routes
 router.post('/cedula', isAuthenticated, CedulaController.submitCedula);
 router.get('/cedula', isAuthenticated, CedulaController.getUserCedulas);
-
 router.put('/cedula/:id', isAuthenticated, CedulaController.updateCedula);
 router.delete('/cedula/:id', isAuthenticated, CedulaController.deleteCedula);
 router.get('/cedulas-tracking', isAuthenticated, CedulaController.getCedulasForTracking);
-//----------------- 6/10/25
-// Cedula routes for employee dashboard
+
+// Cedula employee dashboard routes
 router.get('/cedula-applications', CedulaController.getAllCedulaForEmployee);
 router.get('/cedula-applications/:id', CedulaController.getCedulaById);
 router.put('/cedula-applications/:id/accept', CedulaController.updateCedulaStatus);
-//--------------------------------
-router.get('/user/profile',userprofileController.MunicipalUserProfile );
-//-----------
+
+// ======================= APPLICATION REQUIREMENTS ROUTES =======================
 router.post('/upload-requirement', isAuthenticated, applicationRequirementsController.uploadRequirement);
-//new added
-router.put('/applications/move-to-inprogress', BuspermitController.moveBusinessToInProgress);
-router.put('/electrical-applications/move-to-inprogress', electricalPermitController.moveElectricalToInProgress);
-router.put('/cedula/move-to-inprogress', CedulaController.moveCedulaToInProgress);
-router.put('/applications/move-to-requirements-completed', BuspermitController.moveBusinessToRequirementsCompleted);
-router.put('/electrical-applications/move-to-requirements-completed', electricalPermitController.moveElectricalToRequirementsCompleted);
-router.put('/cedula/move-to-requirements-completed', CedulaController.moveCedulaToRequirementsCompleted);
-router.put('/applications/move-to-approved', BuspermitController.moveBusinessToApproved);
-router.put('/electrical-applications/move-to-approved', electricalPermitController.moveElectricalToApproved);
-router.put('/cedula/move-to-approved', CedulaController.moveCedulaToApproved);
 
-
-// Pickup Scheduling
-router.put('/applications/set-pickup', BuspermitController.moveBusinessToReadyForPickup);
-router.put('/electrical-applications/set-pickup', electricalPermitController.moveElectricalToReadyForPickup);
-router.put('/cedula/set-pickup', CedulaController.moveCedulaToReadyForPickup);
+// ======================= USER PROFILE ROUTES =======================
+router.get('/user/profile', userprofileController.MunicipalUserProfile);
 
 module.exports = router;
-    
