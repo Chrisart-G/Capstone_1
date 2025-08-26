@@ -17,6 +17,7 @@ const PermitsHomepage = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
   const [qrZoomOpen, setQrZoomOpen] = useState(false);
+<<<<<<< HEAD
   const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userInfo, setUserInfo] = useState(null);
@@ -25,6 +26,9 @@ const PermitsHomepage = () => {
   // New state for error handling
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+=======
+  const [paymentOptionsOpen, setPaymentOptionsOpen] = useState(false); // New state for payment options modal
+>>>>>>> 6b4526162a998d0973d7af3cfe777829e9c9239e
 
   const navigate = useNavigate();
 
@@ -137,9 +141,73 @@ const PermitsHomepage = () => {
     setPaymentOptionsOpen(false);
     setSelectedPaymentMethod(null);
     setQrZoomOpen(false);
+<<<<<<< HEAD
     setIsSubmitting(false);
     setErrorMessage(''); // Clear error message
     setSuccessMessage(''); // Clear success message
+=======
+  };
+
+  const handlePaymentMethodClick = (method) => {
+    setSelectedPaymentMethod(method);
+    setPaymentOptionsOpen(true); // Open payment options modal instead of QR modal directly
+  };
+
+  const handleQRCodeOption = () => {
+    setPaymentOptionsOpen(false);
+    setQrModalOpen(true);
+  };
+
+  const handleGoToAppOption = () => {
+    const paymentLinks = {
+      'gcash': {
+        android: 'https://play.google.com/store/apps/details?id=com.globe.gcash.android',
+        ios: 'https://apps.apple.com/ph/app/gcash/id520948884',
+        web: 'https://www.gcash.com/'
+      },
+      'maya': {
+        android: 'https://play.google.com/store/apps/details?id=com.paymaya.wallet',
+        ios: 'https://apps.apple.com/ph/app/maya/id1076232290',
+        web: 'https://www.maya.ph/'
+      }
+    };
+
+    // Try to open the mobile app first, fallback to web
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isAndroid = /android/i.test(userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+    let linkToOpen;
+    if (isAndroid) {
+      linkToOpen = paymentLinks[selectedPaymentMethod].android;
+    } else if (isIOS) {
+      linkToOpen = paymentLinks[selectedPaymentMethod].ios;
+    } else {
+      linkToOpen = paymentLinks[selectedPaymentMethod].web;
+    }
+
+    window.open(linkToOpen, '_blank');
+    setPaymentOptionsOpen(false);
+  };
+
+  const handleClosePaymentOptions = () => {
+    setPaymentOptionsOpen(false);
+    setSelectedPaymentMethod(null);
+  };
+
+  const handleCloseQr = () => {
+    setQrModalOpen(false);
+    setSelectedPaymentMethod(null);
+    setQrZoomOpen(false);
+  };
+
+  const handleQrImageClick = () => {
+    setQrZoomOpen(true);
+  };
+
+  const handleCloseZoom = () => {
+    setQrZoomOpen(false);
+>>>>>>> 6b4526162a998d0973d7af3cfe777829e9c9239e
   };
 
   const handlePaymentMethodClick = (method) => {
