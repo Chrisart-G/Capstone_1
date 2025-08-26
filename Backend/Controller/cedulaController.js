@@ -529,4 +529,3 @@ exports.moveCedulaToReadyForPickup = (req, res) => {
     return res.json({ success: true, message: 'Cedula set to ready for pickup' });
   });
 };
-

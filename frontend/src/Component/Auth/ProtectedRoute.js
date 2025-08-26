@@ -25,7 +25,7 @@ const ProtectedRoute = ({ children }) => {
         setIsLoading(false);
       }
     };
-
+      
     checkAuth();
   }, []);
 

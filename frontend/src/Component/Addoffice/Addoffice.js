@@ -41,7 +41,6 @@ export default function AddOffice() {
         console.error("Error fetching employees:", error);
       }
     };
-    
     fetchEmployees();
     
     // Get current admin email from session if available

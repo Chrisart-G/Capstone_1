@@ -2,24 +2,26 @@ const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
 const db = require('./db/dbconnect');
-const Routes = require('./routes/Routes');
-const authRoutes = require('./routes/authRoutes');
 const fileUpload = require('express-fileupload');
 
 const app = express();
 
-
+// Serve uploads folder
 app.use('/uploads', express.static('uploads'));
 
+// File upload middleware
 app.use(fileUpload());
 
+// CORS
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true
 }));
 
+// Parse JSON
 app.use(express.json());
 
+// Session middleware
 app.use(session({
   secret: 'your-secret-key',
   resave: false,
@@ -58,10 +60,30 @@ app.post('/api/logout', (req, res) => {
   });
 });
 
-// Routes
+/* ===================== ROUTE IMPORTS ===================== */
+const authRoutes = require('./routes/authRoutes');
+const businessPermitRoutes = require('./routes/businessPermitRoutes');
+const employeeRoutes = require('./routes/employeeRoutes');
+const officeRoutes = require('./routes/officeRoutes');
+const electricalPermitRoutes = require('./routes/electricalPermitRoutes');
+const cedulaRoutes = require('./routes/cedulaRoutes');
+const applicationRequirementsRoutes = require('./routes/applicationRequirementsRoutes');
+const userProfileRoutes = require('./routes/userProfileRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
+const paymentverification = require('./routes/paymentverification');
+/* ===================== USE ROUTES ===================== */
 app.use('/api/auth', authRoutes);
-app.use('/api', Routes);
+app.use('/api', businessPermitRoutes, cedulaRoutes);
+app.use('/api', employeeRoutes);
+app.use('/api', officeRoutes);
+app.use('/api', electricalPermitRoutes);
 
+app.use('/api', applicationRequirementsRoutes);
+app.use('/api', userProfileRoutes);
+/* ===================== PAYMENT ROUTES ===================== */
+app.use('/api/payments', paymentRoutes);
+/* ===================== PAYMENT VERIFICATION ===================== */
+app.use('/api', paymentverification);
 // Start the server
 app.listen(8081, () => {
   console.log("Server running on port 8081");

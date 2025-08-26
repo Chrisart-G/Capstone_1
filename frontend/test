@@ -1,0 +1,75 @@
+// Add this helper function to your form components (BusinessPermitForm, ElectricalPermitForm, etc.)
+// Call this function AFTER successfully submitting the actual application form
+
+const markFormAsSubmitted = async (receiptId, applicationId, applicationType) => {
+  try {
+    const response = await fetch('http://localhost:8081/api/payments/mark-form-submitted', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        receiptId: receiptId,
+        applicationId: applicationId,
+        applicationType: applicationType
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      console.log('Form marked as submitted successfully');
+      return true;
+    } else {
+      console.error('Failed to mark form as submitted:', data.message);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error marking form as submitted:', error);
+    return false;
+  }
+};
+
+// Example usage in your form submission handlers:
+const handleFormSubmit = async (formData) => {
+  try {
+    // 1. Submit your actual application form first
+    const submitResponse = await fetch('http://localhost:8081/api/submit-business-permit', {
+      method: 'POST',
+      body: formData, // your form data
+      credentials: 'include'
+    });
+
+    const submitResult = await submitResponse.json();
+
+    if (submitResult.success) {
+      // 2. If form submission was successful, mark the payment receipt form as submitted
+      const location = window.location;
+      const state = location.state;
+      
+      if (state && state.receiptId && state.fromPayment) {
+        await markFormAsSubmitted(
+          state.receiptId, 
+          submitResult.applicationId, // the ID of the newly created application
+          state.applicationType
+        );
+      }
+
+      // 3. Show success message and redirect
+      alert('Application submitted successfully!');
+      navigate('/dashboard'); // or wherever you want to redirect
+    } else {
+      alert('Failed to submit application: ' + submitResult.message);
+    }
+  } catch (error) {
+    console.error('Error submitting form:', error);
+    alert('An error occurred while submitting the form');
+  }
+};
+
+// Alternative: If you're using React Router and passed state
+const location = useLocation();
+const { receiptId, applicationType, fromPayment } = location.state || {};
+
+// Use these values in your form submission

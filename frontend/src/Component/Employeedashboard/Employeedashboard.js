@@ -652,6 +652,8 @@ const handlePickupScheduleCedula = async (cedulaId, schedule) => {
     Done Attached Requirements
   </button>
 )}
+
+
 {(application.status === "in-progress" || application.application_status === "in-progress") && (
   <button
     onClick={async () => {
@@ -665,7 +667,7 @@ const handlePickupScheduleCedula = async (cedulaId, schedule) => {
           }, { withCredentials: true });
         } else if (application.type === 'Cedula') {
           response = await axios.put(`${API_BASE_URL}/api/cedula/move-to-requirements-completed`, {
-            cedulaId: appId
+            id: appId
           }, { withCredentials: true });
         } else {
           response = await axios.put(`${API_BASE_URL}/api/applications/move-to-requirements-completed`, {
@@ -704,7 +706,7 @@ const handlePickupScheduleCedula = async (cedulaId, schedule) => {
           }, { withCredentials: true });
         } else if (application.type === 'Cedula') {
           response = await axios.put(`${API_BASE_URL}/api/cedula/move-to-approved`, {
-            cedulaId: appId
+            id: appId
           }, { withCredentials: true });
         } else {
           response = await axios.put(`${API_BASE_URL}/api/applications/move-to-approved`, {

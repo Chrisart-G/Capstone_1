@@ -23,10 +23,12 @@ const Sidebar = ({ userData, onLogout, isLoading, onNavigate }) => {
             <span className="font-medium">Applications</span>
           </div>
           </a>
+          <a href="/employeepayment" className="block">
           <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
             <CheckSquare size={20} className="mr-3" />
-            <span>Verifications</span>
+            <span>Payment Verifications</span>
           </div>
+          </a>
           <a href="/Employeehistory" className="block">
           <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
           <Clock size={20} className="mr-3" />

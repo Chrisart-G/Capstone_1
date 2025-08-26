@@ -52,6 +52,8 @@ export function AttachRequirementsModal({ onClose }) {
     onClose();
   };
 
+  
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 shadow-xl w-full max-w-md">
