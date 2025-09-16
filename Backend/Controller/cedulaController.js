@@ -2,45 +2,55 @@ const db = require('../db/dbconnect');
 
 // Create/Submit Cedula
 exports.submitCedula = async (req, res) => {
-    try {
-      // Check if user is authenticated
-      if (!req.session?.user?.user_id) {
-        return res.status(401).json({ message: "Unauthorized. Please log in." });
-      }
+  try {
+    // Check if user is authenticated
+    if (!req.session?.user?.user_id) {
+      return res.status(401).json({ message: "Unauthorized. Please log in." });
+    }
 
-      const userId = req.session.user.user_id;
-      const {
-        name,
-        address,
-        placeOfBirth,
-        dateOfBirth,
-        profession,
-        yearlyIncome,
-        purpose,
-        sex,
-        status,
-        tin
-      } = req.body;
+    const userId = req.session.user.user_id;
+    const {
+      name,
+      address,
+      placeOfBirth,
+      dateOfBirth,
+      profession,
+      yearlyIncome,
+      purpose,
+      sex,
+      status,
+      tin
+    } = req.body;
 
-      // Validate required fields
-      if (!name || !address || !placeOfBirth || !dateOfBirth || !profession || 
-          !yearlyIncome || !purpose || !sex || !status || !tin) {
-        return res.status(400).json({ message: "All fields are required" });
-      }
+    // Validate required fields
+    if (!name || !address || !placeOfBirth || !dateOfBirth || !profession || 
+        !yearlyIncome || !purpose || !sex || !status || !tin) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
-      // Validate sex enum
-      if (!['male', 'female'].includes(sex)) {
-        return res.status(400).json({ message: "Invalid sex value" });
-      }
+    // Validate sex enum
+    if (!['male', 'female'].includes(sex)) {
+      return res.status(400).json({ message: "Invalid sex value" });
+    }
 
-      // Validate status enum
-      if (!['single', 'married', 'widowed'].includes(status)) {
-        return res.status(400).json({ message: "Invalid status value" });
-      }
+    // Validate status enum
+    if (!['single', 'married', 'widowed'].includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
 
-      // Validate yearly income is a number
-      if (isNaN(yearlyIncome) || parseFloat(yearlyIncome) < 0) {
-        return res.status(400).json({ message: "Invalid yearly income" });
+    // Validate yearly income is a number
+    if (isNaN(yearlyIncome) || parseFloat(yearlyIncome) < 0) {
+      return res.status(400).json({ message: "Invalid yearly income" });
+    }
+
+    // Use transaction to ensure both operations succeed
+    db.beginTransaction((err) => {
+      if (err) {
+        console.error("Transaction start error:", err);
+        return res.status(500).json({ 
+          message: "Database transaction error", 
+          error: err.message 
+        });
       }
 
       const sql = `INSERT INTO tbl_cedula (
@@ -65,26 +75,68 @@ exports.submitCedula = async (req, res) => {
       db.query(sql, values, (err, result) => {
         if (err) {
           console.error("Cedula insert failed:", err);
-          return res.status(500).json({ 
-            message: "Failed to submit cedula application", 
-            error: err.message 
+          return db.rollback(() => {
+            res.status(500).json({ 
+              message: "Failed to submit cedula application", 
+              error: err.message 
+            });
           });
         }
 
-        res.status(201).json({
-          success: true,
-          message: "Cedula application submitted successfully",
-          cedulaId: result.insertId
+        const cedulaId = result.insertId;
+
+        // After successful cedula submission, update the payment receipt form access
+        const updateFormAccessSql = `UPDATE tbl_payment_receipts 
+          SET form_access_used = 1, 
+              form_access_used_at = CURRENT_TIMESTAMP,
+              form_submitted = 1,
+              form_submitted_at = CURRENT_TIMESTAMP,
+              related_application_id = ?
+          WHERE user_id = ? 
+          AND application_type = 'cedula' 
+          AND payment_status = 'approved' 
+          AND form_access_granted = 1 
+          AND form_access_used = 0
+          ORDER BY created_at DESC 
+          LIMIT 1`;
+
+        db.query(updateFormAccessSql, [cedulaId, userId], (formAccessErr) => {
+          if (formAccessErr) {
+            console.error("Form access update failed:", formAccessErr);
+            // Don't rollback the entire transaction for this, just log the error
+            console.warn("Cedula submitted successfully but form access update failed");
+          }
+
+          // Commit the transaction
+          db.commit((commitErr) => {
+            if (commitErr) {
+              console.error("Commit failed:", commitErr);
+              return db.rollback(() => {
+                res.status(500).json({ 
+                  message: "Commit failed", 
+                  error: commitErr.message 
+                });
+              });
+            }
+
+            res.status(201).json({
+              success: true,
+              message: "Cedula application submitted successfully",
+              cedulaId: cedulaId,
+              formAccessUpdated: !formAccessErr // Let frontend know if form access was updated
+            });
+          });
         });
       });
+    });
 
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      res.status(500).json({ 
-        message: "Unexpected server error", 
-        error: err.message 
-      });
-    }
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    res.status(500).json({ 
+      message: "Unexpected server error", 
+      error: err.message 
+    });
+  }
 };
     // this function to fetch the cedula app in employee end 
 //use in employee dashboard 

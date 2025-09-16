@@ -15,107 +15,135 @@ const saveFile = (file) => {
     return `/uploads/business_docs/${filename}`;
   };
   
-  exports.SubmitBusinessPermit = async (req, res) => {
-      try {
-        if (!req.session?.user?.user_id) {
-          return res.status(401).json({ message: "Unauthorized. Please log in." });
+exports.SubmitBusinessPermit = async (req, res) => {
+  try {
+    if (!req.session?.user?.user_id) {
+      return res.status(401).json({ message: "Unauthorized. Please log in." });
+    }
+
+    const userId = req.session.user.user_id;
+
+    if (!req.body.data) {
+      return res.status(400).json({ message: "Missing form data" });
+    }
+
+    let data;
+    try {
+      data = JSON.parse(req.body.data);
+    } catch (jsonErr) {
+      return res.status(400).json({ message: "Invalid JSON format", error: jsonErr.message });
+    }
+
+    const files = req.files || {};
+    const filled_up_form = saveFile(files.filled_up_form);
+    const sec_dti_cda_cert = saveFile(files.sec_dti_cda_cert);
+    const local_sketch = saveFile(files.local_sketch);
+    const sworn_capital = saveFile(files.sworn_capital);
+    const tax_clearance = saveFile(files.tax_clearance);
+    const brgy_clearance = saveFile(files.brgy_clearance);
+    const cedula = saveFile(files.cedula);
+
+    db.beginTransaction((err) => {
+      if (err) return res.status(500).json({ message: "DB error", error: err });
+
+      // First, insert the business permit
+      const sql = `INSERT INTO business_permits (
+          application_type, payment_mode, application_date, tin_no, registration_no, registration_date,
+          business_type, amendment_from, amendment_to, tax_incentive, tax_incentive_entity,
+          last_name, first_name, middle_name, business_name, trade_name,
+          business_address, business_postal_code, business_email, business_telephone, business_mobile,
+          owner_address, owner_postal_code, owner_email, owner_telephone, owner_mobile,
+          emergency_contact, emergency_phone, emergency_email,
+          business_area, male_employees, female_employees, local_employees,
+          lessor_name, lessor_address, lessor_phone, lessor_email, monthly_rental,
+          filled_up_forms, sec_dti_cda_certificate, local_sketch, sworn_statement_capital, tax_clearance, 
+          brgy_clearance_business, cedula,
+          user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        
+      const values = [
+        data.applicationType, data.paymentMode, data.applicationDate, data.tinNo, data.registrationNo, data.registrationDate,
+        data.businessType, data.amendmentFrom, data.amendmentTo, data.taxIncentive, data.taxIncentiveEntity,
+        data.lastName, data.firstName, data.middleName, data.businessName, data.tradeName,
+        data.businessAddress, data.businessPostalCode, data.businessEmail, data.businessTelephone, data.businessMobile,
+        data.ownerAddress, data.ownerPostalCode, data.ownerEmail, data.ownerTelephone, data.ownerMobile,
+        data.emergencyContact, data.emergencyPhone, data.emergencyEmail,
+        data.businessArea, data.maleEmployees, data.femaleEmployees, data.localEmployees,
+        data.lessorName, data.lessorAddress, data.lessorPhone, data.lessorEmail, data.monthlyRental,
+        filled_up_form, sec_dti_cda_cert, local_sketch, sworn_capital, tax_clearance, brgy_clearance, cedula,
+        userId
+      ];
+
+      db.query(sql, values, (err, result) => {
+        if (err) {
+          console.error("Permit insert failed:", err);
+          return db.rollback(() => res.status(500).json({ message: "Insert failed", error: err.message }));
         }
-    
-        const userId = req.session.user.user_id;
-    
-        if (!req.body.data) {
-          return res.status(400).json({ message: "Missing form data" });
-        }
-    
-        let data;
-        try {
-          data = JSON.parse(req.body.data);
-        } catch (jsonErr) {
-          return res.status(400).json({ message: "Invalid JSON format", error: jsonErr.message });
-        }
-    
-        const files = req.files || {};
-        const filled_up_form = saveFile(files.filled_up_form);
-        const sec_dti_cda_cert = saveFile(files.sec_dti_cda_cert);
-        const local_sketch = saveFile(files.local_sketch);
-        const sworn_capital = saveFile(files.sworn_capital);
-        const tax_clearance = saveFile(files.tax_clearance);
-        const brgy_clearance = saveFile(files.brgy_clearance);
-        const cedula = saveFile(files.cedula);
-    
-        db.beginTransaction((err) => {
-          if (err) return res.status(500).json({ message: "DB error", error: err });
-    
-          
-          const sql = `INSERT INTO business_permits (
-              application_type, payment_mode, application_date, tin_no, registration_no, registration_date,
-              business_type, amendment_from, amendment_to, tax_incentive, tax_incentive_entity,
-              last_name, first_name, middle_name, business_name, trade_name,
-              business_address, business_postal_code, business_email, business_telephone, business_mobile,
-              owner_address, owner_postal_code, owner_email, owner_telephone, owner_mobile,
-              emergency_contact, emergency_phone, emergency_email,
-              business_area, male_employees, female_employees, local_employees,
-              lessor_name, lessor_address, lessor_phone, lessor_email, monthly_rental,
-              filled_up_forms, sec_dti_cda_certificate, local_sketch, sworn_statement_capital, tax_clearance, 
-              brgy_clearance_business, cedula,
-              user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-            
-          const values = [
-            data.applicationType, data.paymentMode, data.applicationDate, data.tinNo, data.registrationNo, data.registrationDate,
-            data.businessType, data.amendmentFrom, data.amendmentTo, data.taxIncentive, data.taxIncentiveEntity,
-            data.lastName, data.firstName, data.middleName, data.businessName, data.tradeName,
-            data.businessAddress, data.businessPostalCode, data.businessEmail, data.businessTelephone, data.businessMobile,
-            data.ownerAddress, data.ownerPostalCode, data.ownerEmail, data.ownerTelephone, data.ownerMobile,
-            data.emergencyContact, data.emergencyPhone, data.emergencyEmail,
-            data.businessArea, data.maleEmployees, data.femaleEmployees, data.localEmployees,
-            data.lessorName, data.lessorAddress, data.lessorPhone, data.lessorEmail, data.monthlyRental,
-            filled_up_form, sec_dti_cda_cert, local_sketch, sworn_capital, tax_clearance, brgy_clearance, cedula,
-            userId
-          ];
-    
-          db.query(sql, values, (err, result) => {
-            if (err) {
-              console.error(" Permit insert failed:", err);
-              return db.rollback(() => res.status(500).json({ message: "Insert failed", error: err.message }));
+
+        const permitId = result.insertId;
+        const activityValues = data.businessActivities.map((act) => [
+          permitId,
+          act.line,
+          act.units,
+          act.capitalization,
+          act.grossEssential,
+          act.grossNonEssential,
+        ]);
+
+        const actSql = `INSERT INTO business_activities (
+          permit_id, line_of_business, units, capitalization, gross_essential, gross_non_essential
+        ) VALUES ?`;
+
+        db.query(actSql, [activityValues], (err2) => {
+          if (err2) {
+            console.error("Activity insert failed:", err2);
+            return db.rollback(() => res.status(500).json({ message: "Activity insert failed", error: err2.message }));
+          }
+
+          // After successful business permit submission, update the payment receipt form access
+          const updateFormAccessSql = `UPDATE tbl_payment_receipts 
+            SET form_access_used = 1, 
+                form_access_used_at = CURRENT_TIMESTAMP,
+                form_submitted = 1,
+                form_submitted_at = CURRENT_TIMESTAMP,
+                related_application_id = ?
+            WHERE user_id = ? 
+            AND application_type = 'business' 
+            AND payment_status = 'approved' 
+            AND form_access_granted = 1 
+            AND form_access_used = 0
+            ORDER BY created_at DESC 
+            LIMIT 1`;
+
+          db.query(updateFormAccessSql, [permitId, userId], (err3) => {
+            if (err3) {
+              console.error("Form access update failed:", err3);
+              // Don't rollback the entire transaction for this, just log the error
+              console.warn("Business permit submitted successfully but form access update failed");
             }
-    
-            const permitId = result.insertId;
-            const activityValues = data.businessActivities.map((act) => [
-              permitId,
-              act.line,
-              act.units,
-              act.capitalization,
-              act.grossEssential,
-              act.grossNonEssential,
-            ]);
-    
-            const actSql = `INSERT INTO business_activities (
-              permit_id, line_of_business, units, capitalization, gross_essential, gross_non_essential
-            ) VALUES ?`;
-    
-            db.query(actSql, [activityValues], (err2) => {
-              if (err2) {
-                console.error(" Activity insert failed:", err2);
-                return db.rollback(() => res.status(500).json({ message: "Activity insert failed", error: err2.message }));
+
+            db.commit((err4) => {
+              if (err4) {
+                console.error("Commit failed:", err4);
+                return db.rollback(() => res.status(500).json({ message: "Commit failed", error: err4.message }));
               }
-    
-              db.commit((err3) => {
-                if (err3) {
-                  console.error(" Commit failed:", err3);
-                  return db.rollback(() => res.status(500).json({ message: "Commit failed", error: err3.message }));
-                }
-    
-                res.status(201).json({ success: true, message: "Business permit submitted successfully", permitId });
+
+              res.status(201).json({ 
+                success: true, 
+                message: "Business permit submitted successfully", 
+                permitId,
+                formAccessUpdated: !err3 // Let frontend know if form access was updated
               });
             });
           });
         });
-      } catch (err) {
-        console.error("Unexpected error:", err);
-        res.status(500).json({ message: "Unexpected server error", error: err.message });
-      }
-  };
+      });
+    });
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    res.status(500).json({ message: "Unexpected server error", error: err.message });
+  }
+};
   
 // this coode to get the data from tbl_business_permits and get the email from tb_logins display
 exports.getAllPermits = (req, res) => {

@@ -192,39 +192,20 @@ function DocumentStatusTracker() {
   };
 
   // Function to handle accessing form
-  const handleAccessForm = async (application) => {
-    try {
-      // Call the API to mark form access as used
-      const response = await fetch(`http://localhost:8081/api/payments/use-form-access/${application.receiptId}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        // Refresh the data
-        await fetchAllPermitData();
-        
-        // Navigate to the appropriate form
-        const formRoute = getFormRoute(application.applicationType);
-        if (formRoute) {
-          navigate(formRoute);
-        } else {
-          alert('Form route not found for this application type');
-        }
-      } else {
-        alert(data.message || 'Failed to access form');
-      }
-    } catch (error) {
-      console.error('Error accessing form:', error);
-      alert('Failed to access form. Please try again.');
+ const handleAccessForm = async (application) => {
+  try {
+    // Simply navigate to the appropriate form without updating form_access_used
+    const formRoute = getFormRoute(application.applicationType);
+    if (formRoute) {
+      navigate(formRoute);
+    } else {
+      alert('Form route not found for this application type');
     }
-  };
-
+  } catch (error) {
+    console.error('Error accessing form:', error);
+    alert('Failed to access form. Please try again.');
+  }
+};
   // Function to transform the status into a steps array
   function transformStatusToSteps(status) {
     const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '').replace(/-/g, '');

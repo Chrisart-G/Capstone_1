@@ -125,30 +125,54 @@ exports.createElectricalPermit = async (req, res) => {
             });
           }
 
-          // Commit the transaction
-          db.commit((commitErr) => {
-            if (commitErr) {
-              console.error("❌ Commit failed:", commitErr);
-              return db.rollback(() => {
-                res.status(500).json({ 
-                  success: false,
-                  message: "Commit failed", 
-                  error: commitErr.message 
-                });
-              });
+          // After successful electrical permit submission, update the payment receipt form access
+          const updateFormAccessSql = `UPDATE tbl_payment_receipts 
+            SET form_access_used = 1, 
+                form_access_used_at = CURRENT_TIMESTAMP,
+                form_submitted = 1,
+                form_submitted_at = CURRENT_TIMESTAMP,
+                related_application_id = ?
+            WHERE user_id = ? 
+            AND application_type = 'electrical' 
+            AND payment_status = 'approved' 
+            AND form_access_granted = 1 
+            AND form_access_used = 0
+            ORDER BY created_at DESC 
+            LIMIT 1`;
+
+          db.query(updateFormAccessSql, [permitId, userId], (formAccessErr) => {
+            if (formAccessErr) {
+              console.error("Form access update failed:", formAccessErr);
+              // Don't rollback the entire transaction for this, just log the error
+              console.warn("Electrical permit submitted successfully but form access update failed");
             }
 
-            // Success response
-            res.status(201).json({
-              success: true,
-              message: 'Electrical permit application submitted successfully',
-              data: {
-                id: permitId,
-                applicationNo: applicationNo,
-                epNo: epNo,
-                buildingPermitNo: buildingPermitNo,
-                status: 'pending'
+            // Commit the transaction
+            db.commit((commitErr) => {
+              if (commitErr) {
+                console.error("❌ Commit failed:", commitErr);
+                return db.rollback(() => {
+                  res.status(500).json({ 
+                    success: false,
+                    message: "Commit failed", 
+                    error: commitErr.message 
+                  });
+                });
               }
+
+              // Success response
+              res.status(201).json({
+                success: true,
+                message: 'Electrical permit application submitted successfully',
+                data: {
+                  id: permitId,
+                  applicationNo: applicationNo,
+                  epNo: epNo,
+                  buildingPermitNo: buildingPermitNo,
+                  status: 'pending'
+                },
+                formAccessUpdated: !formAccessErr // Let frontend know if form access was updated
+              });
             });
           });
         });

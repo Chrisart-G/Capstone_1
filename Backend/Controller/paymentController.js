@@ -511,50 +511,7 @@ exports.checkFormAccess = (req, res) => {
   }
 };
 
-// Mark form access as used
-exports.useFormAccess = (req, res) => {
-  try {
-    const { user_id, application_type } = req.body;
 
-    const query = `UPDATE tbl_payment_receipts 
-     SET form_access_used = 1, form_access_used_at = CURRENT_TIMESTAMP
-     WHERE user_id = ? AND application_type = ? 
-     AND payment_status = 'approved' AND form_access_granted = 1 
-     AND form_access_used = 0
-     ORDER BY created_at DESC LIMIT 1`;
-
-    db.query(query, [user_id, application_type], (err, result) => {
-      if (err) {
-        console.error('Use form access error:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Internal server error',
-          error: err.message
-        });
-      }
-
-      if (result.affectedRows === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No valid form access found or already used'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Form access marked as used'
-      });
-    });
-
-  } catch (error) {
-    console.error('Use form access error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
-  }
-};
 
 // Get payment statistics
 exports.getPaymentStats = (req, res) => {
@@ -929,5 +886,3 @@ exports.getFormAccessStatus = async (req, res) => {
     });
   }
 };
-//aadaidowkdoadoawjdaw
-//this test

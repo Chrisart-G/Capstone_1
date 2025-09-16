@@ -11,7 +11,7 @@ router.post('/use-access', auth, paymentController.useFormAccess);
 
 //this routes for tracking in user end 
 router.get('/tracking', auth, paymentController.getPaymentReceiptsForTracking);
-router.post('/use-form-access/:receiptId', auth, paymentController.useFormAccess);
+// router.post('/use-form-access/:receiptId', auth, paymentController.useFormAccess);
 router.get('/form-access-status/:receiptId', auth, paymentController.getFormAccessStatus);
 
 // Admin/Employee routes
