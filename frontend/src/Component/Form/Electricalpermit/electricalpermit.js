@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
 
@@ -31,6 +31,59 @@ export default function ElectricalPermitForm() {
   const [submitMessage, setSubmitMessage] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Auto-fill states
+  const [userInfo, setUserInfo] = useState({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    fullAddress: '',
+    phoneNumber: '',
+    email: '',
+    addressStreet: '',
+    addressBarangay: '',
+    addressCity: ''
+  });
+  const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
+
+  // Fetch user info for auto-fill
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      setIsLoadingUserInfo(true);
+      try {
+        const response = await fetch('http://localhost:8081/api/user-info-electrical', {
+          method: 'GET',
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            const userData = data.userInfo;
+            setUserInfo(userData);
+            
+            // Auto-fill the form with user data
+            setFormData(prevData => ({
+              ...prevData,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              middleInitial: userData.middleName ? userData.middleName.charAt(0).toUpperCase() : '',
+              addressStreet: userData.addressStreet,
+              addressBarangay: userData.addressBarangay,
+              addressCity: userData.addressCity,
+              telephoneNo: userData.phoneNumber
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+      } finally {
+        setIsLoadingUserInfo(false);
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -96,21 +149,21 @@ export default function ElectricalPermitForm() {
         setIsModalOpen(true);
         setSubmitMessage(`Application submitted successfully! Application No: ${result.data.applicationNo}, EP No: ${result.data.epNo}, Building Permit No: ${result.data.buildingPermitNo}`);
         
-        // Reset form
+        // Reset form but keep auto-filled data
         setFormData({
-          lastName: '',
-          firstName: '',
-          middleInitial: '',
+          lastName: userInfo.lastName,
+          firstName: userInfo.firstName,
+          middleInitial: userInfo.middleName ? userInfo.middleName.charAt(0).toUpperCase() : '',
           tin: '',
           constructionOwned: '',
           formOfOwnership: '',
           useOrCharacter: '',
           addressNo: '',
-          addressStreet: '',
-          addressBarangay: '',
-          addressCity: '',
+          addressStreet: userInfo.addressStreet,
+          addressBarangay: userInfo.addressBarangay,
+          addressCity: userInfo.addressCity,
           addressZipCode: '',
-          telephoneNo: '',
+          telephoneNo: userInfo.phoneNumber,
           locationStreet: '',
           locationLotNo: '',
           locationBlkNo: '',
@@ -176,6 +229,14 @@ export default function ElectricalPermitForm() {
             <h1 className="text-xl font-bold mt-4">ELECTRICAL PERMIT</h1>
           </div>
 
+          {/* Loading indicator */}
+          {isLoadingUserInfo && (
+            <div className="flex justify-center items-center py-4 mb-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-2 text-gray-600">Loading user information...</span>
+            </div>
+          )}
+
           {/* FIXED: Removed Building Permit Number Field - Now Auto-Generated */}
           <div className="border border-gray-500 p-2">
             <div className="text-center mb-4">
@@ -187,42 +248,46 @@ export default function ElectricalPermitForm() {
           <div className="border border-gray-500 p-2">
             <p className="text-sm font-bold mb-2">BOX 1 (TO BE ACCOMPLISHED IN PRINT BY THE OWNER/APPLICANT)</p>
             
-            {/* Name Fields */}
+            {/* Name Fields - Auto-filled and Read-only */}
             <div className="grid grid-cols-4 gap-2 mb-2">
-              <div className="col-span-2 border border-gray-300 p-1">
+              <div className="col-span-2 border border-gray-300 p-1 bg-gray-50">
                 <p className="text-xs mb-1">LAST NAME *</p>
                 <input
                   type="text"
                   name="lastName"
                   value={formData.lastName}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                  required
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="This field is auto-filled from your account information and cannot be edited"
                 />
+                <p className="text-xs text-gray-500 mt-1">* Auto-filled</p>
               </div>
-              <div className="col-span-1 border border-gray-300 p-1">
+              <div className="col-span-1 border border-gray-300 p-1 bg-gray-50">
                 <p className="text-xs mb-1">FIRST NAME *</p>
                 <input
                   type="text"
                   name="firstName"
                   value={formData.firstName}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                  required
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="This field is auto-filled from your account information and cannot be edited"
                 />
+                <p className="text-xs text-gray-500 mt-1">* Auto-filled</p>
               </div>
               <div className="col-span-1 border border-gray-300 p-1">
                 <div className="grid grid-cols-2">
-                  <div>
+                  <div className="bg-gray-50">
                     <p className="text-xs">M.I.</p>
                     <input
                       type="text"
                       name="middleInitial"
                       value={formData.middleInitial}
-                      onChange={handleChange}
-                      className="w-full focus:outline-none text-sm"
+                      readOnly
+                      className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
                       maxLength="5"
+                      title="This field is auto-filled from your account information and cannot be edited"
                     />
+                    <p className="text-xs text-gray-500">* Auto-filled</p>
                   </div>
                   <div>
                     <p className="text-xs">TIN</p>
@@ -272,7 +337,7 @@ export default function ElectricalPermitForm() {
               </div>
             </div>
 
-            {/* Address Fields */}
+            {/* Address Fields - Some auto-filled */}
             <div className="grid grid-cols-6 gap-2 mb-2">
               <div className="border border-gray-300 p-1">
                 <p className="text-xs">NO.</p>
@@ -284,35 +349,41 @@ export default function ElectricalPermitForm() {
                   className="w-full focus:outline-none text-sm"
                 />
               </div>
-              <div className="col-span-2 border border-gray-300 p-1">
+              <div className="col-span-2 border border-gray-300 p-1 bg-gray-50">
                 <p className="text-xs">STREET</p>
                 <input
                   type="text"
                   name="addressStreet"
                   value={formData.addressStreet}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="This field is auto-filled from your account information and cannot be edited"
                 />
+                <p className="text-xs text-gray-500">* Auto-filled</p>
               </div>
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-1 bg-gray-50">
                 <p className="text-xs">BARANGAY</p>
                 <input
                   type="text"
                   name="addressBarangay"
                   value={formData.addressBarangay}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="This field is auto-filled from your account information and cannot be edited"
                 />
+                <p className="text-xs text-gray-500">* Auto-filled</p>
               </div>
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-1 bg-gray-50">
                 <p className="text-xs">CITY/MUNICIPALITY</p>
                 <input
                   type="text"
                   name="addressCity"
                   value={formData.addressCity}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="This field is auto-filled from your account information and cannot be edited"
                 />
+                <p className="text-xs text-gray-500">* Auto-filled</p>
               </div>
               <div className="border border-gray-300 p-1">
                 <p className="text-xs">ZIP CODE</p>
@@ -326,18 +397,19 @@ export default function ElectricalPermitForm() {
               </div>
             </div>
 
-            {/* Phone Number */}
+            {/* Phone Number - Auto-filled */}
             <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-6 border border-gray-300 p-1">
+              <div className="col-span-6 border border-gray-300 p-1 bg-gray-50">
                 <p className="text-xs text-center">TELEPHONE NO.</p>
                 <input
                   type="text"
                   name="telephoneNo"
                   value={formData.telephoneNo}
-                  onChange={handleChange}
-                  className="w-1/2 mx-auto block text-center border-b border-gray-300 focus:outline-none text-sm"
-                  placeholder="Enter phone number"
+                  readOnly
+                  className="w-1/2 mx-auto block text-center border-b border-gray-300 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="This field is auto-filled from your account information and cannot be edited"
                 />
+                <p className="text-xs text-gray-500 text-center mt-1">* Auto-filled from account</p>
               </div>
             </div>
 
@@ -459,8 +531,12 @@ export default function ElectricalPermitForm() {
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded"
+              disabled={isSubmitting || isLoadingUserInfo}
+              className={`px-6 py-2 rounded text-white ${
+                isSubmitting || isLoadingUserInfo
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Application'}
             </button>

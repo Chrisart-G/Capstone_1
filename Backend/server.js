@@ -71,6 +71,7 @@ const applicationRequirementsRoutes = require('./routes/applicationRequirementsR
 const userProfileRoutes = require('./routes/userProfileRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const paymentverification = require('./routes/paymentverification');
+const formsfillController = require('./routes/formsfillRoutes')
 /* ===================== USE ROUTES ===================== */
 app.use('/api/auth', authRoutes);
 app.use('/api', businessPermitRoutes, cedulaRoutes);
@@ -84,6 +85,8 @@ app.use('/api', userProfileRoutes);
 app.use('/api/payments', paymentRoutes);
 /* ===================== PAYMENT VERIFICATION ===================== */
 app.use('/api', paymentverification);
+/* ===================== FORMS AUTOFILLSROUTES ===================== */
+app.use('/api', formsfillController);
 // Start the server
 app.listen(8081, () => {
   console.log("Server running on port 8081");

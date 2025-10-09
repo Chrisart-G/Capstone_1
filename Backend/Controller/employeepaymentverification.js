@@ -21,7 +21,7 @@ exports.getAllPaymentReceipts = async (req, res) => {
       params.push(status);
     }
 
-    // Fixed SQL query - using correct table joins and column names
+    // FIXED: Updated SQL query with new column structure
     const sql = `
       SELECT 
         pr.receipt_id,
@@ -43,11 +43,17 @@ exports.getAllPaymentReceipts = async (req, res) => {
         pr.created_at,
         pr.updated_at,
         u.email as user_email,
-        ui.full_name as user_full_name,
+        CONCAT_WS(' ', ui.firstname, ui.middlename, ui.lastname) as user_full_name,
+        ui.firstname,
+        ui.middlename,
+        ui.lastname,
         ui.phone_number as user_phone,
         ui.address as user_address,
         approver.email as approved_by_email,
-        approver_info.full_name as approved_by_full_name
+        CONCAT_WS(' ', approver_info.firstname, approver_info.middlename, approver_info.lastname) as approved_by_full_name,
+        approver_info.firstname as approved_by_firstname,
+        approver_info.middlename as approved_by_middlename,
+        approver_info.lastname as approved_by_lastname
       FROM tbl_payment_receipts pr
       LEFT JOIN tb_logins u ON pr.user_id = u.user_id
       LEFT JOIN tbl_user_info ui ON pr.user_id = ui.user_id
@@ -62,7 +68,7 @@ exports.getAllPaymentReceipts = async (req, res) => {
 
     db.query(sql, params, (err, results) => {
       if (err) {
-        console.error("❌ Error fetching payment receipts:", err);
+        console.error("Error fetching payment receipts:", err);
         return res.status(500).json({ 
           success: false,
           message: "Failed to fetch payment receipts", 
@@ -72,14 +78,12 @@ exports.getAllPaymentReceipts = async (req, res) => {
 
       // Transform results to match expected format
       const transformedResults = results.map(receipt => {
-        // Split full_name into first and last name for compatibility
-        const nameParts = receipt.user_full_name ? receipt.user_full_name.split(' ') : ['', ''];
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
+        // Use the individual name fields directly instead of splitting concatenated names
+        const firstName = receipt.firstname || '';
+        const lastName = receipt.lastname || '';
         
-        const approverNameParts = receipt.approved_by_full_name ? receipt.approved_by_full_name.split(' ') : ['', ''];
-        const approverFirstName = approverNameParts[0] || '';
-        const approverLastName = approverNameParts.slice(1).join(' ') || '';
+        const approverFirstName = receipt.approved_by_firstname || '';
+        const approverLastName = receipt.approved_by_lastname || '';
 
         return {
           ...receipt,
@@ -103,7 +107,7 @@ exports.getAllPaymentReceipts = async (req, res) => {
 
       db.query(countSql, countParams, (countErr, countResults) => {
         if (countErr) {
-          console.error("❌ Error counting payment receipts:", countErr);
+          console.error("Error counting payment receipts:", countErr);
           return res.status(500).json({ 
             success: false,
             message: "Failed to count payment receipts", 
@@ -153,16 +157,22 @@ exports.getPaymentReceiptById = async (req, res) => {
 
     const { id } = req.params;
 
-    // Fixed SQL query with correct joins
+    // FIXED: Updated SQL query with new column structure
     const sql = `
       SELECT 
         pr.*,
         u.email as user_email,
-        ui.full_name as user_full_name,
+        CONCAT_WS(' ', ui.firstname, ui.middlename, ui.lastname) as user_full_name,
+        ui.firstname,
+        ui.middlename,
+        ui.lastname,
         ui.phone_number as user_phone,
         ui.address as user_address,
         approver.email as approved_by_email,
-        approver_info.full_name as approved_by_full_name
+        CONCAT_WS(' ', approver_info.firstname, approver_info.middlename, approver_info.lastname) as approved_by_full_name,
+        approver_info.firstname as approved_by_firstname,
+        approver_info.middlename as approved_by_middlename,
+        approver_info.lastname as approved_by_lastname
       FROM tbl_payment_receipts pr
       LEFT JOIN tb_logins u ON pr.user_id = u.user_id
       LEFT JOIN tbl_user_info ui ON pr.user_id = ui.user_id
@@ -173,7 +183,7 @@ exports.getPaymentReceiptById = async (req, res) => {
 
     db.query(sql, [id], (err, results) => {
       if (err) {
-        console.error("❌ Error fetching payment receipt:", err);
+        console.error("Error fetching payment receipt:", err);
         return res.status(500).json({ 
           success: false,
           message: "Failed to fetch payment receipt", 
@@ -188,15 +198,13 @@ exports.getPaymentReceiptById = async (req, res) => {
         });
       }
 
-      // Transform result to match expected format
+      // Transform result using individual name fields instead of splitting
       const receipt = results[0];
-      const nameParts = receipt.user_full_name ? receipt.user_full_name.split(' ') : ['', ''];
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      const firstName = receipt.firstname || '';
+      const lastName = receipt.lastname || '';
       
-      const approverNameParts = receipt.approved_by_full_name ? receipt.approved_by_full_name.split(' ') : ['', ''];
-      const approverFirstName = approverNameParts[0] || '';
-      const approverLastName = approverNameParts.slice(1).join(' ') || '';
+      const approverFirstName = receipt.approved_by_firstname || '';
+      const approverLastName = receipt.approved_by_lastname || '';
 
       const transformedReceipt = {
         ...receipt,

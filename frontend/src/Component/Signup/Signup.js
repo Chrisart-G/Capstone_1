@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Eye, EyeOff, UserPlus, Lock, Mail } from "lucide-react";
-import axios from "axios";
+import { Eye, EyeOff, UserPlus, Lock, Mail, User } from "lucide-react";
 
 const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -8,7 +7,9 @@ const SignUp = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [firstname, setFirstname] = useState("");
+  const [middlename, setMiddlename] = useState("");
+  const [lastname, setLastname] = useState("");
   const [address, setAddress] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [error, setError] = useState("");
@@ -29,17 +30,43 @@ const SignUp = () => {
     }
     
     try {
-      const response = await axios.post("http://localhost:8081/api/auth/signup", {
+      const response = await fetch("http://localhost:8081/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           email,
           password,
-          fullName,
+          firstname,
+          middlename,
+          lastname,
           address,
           phoneNumber,
+        }),
       });
-      setSuccess("Account created successfully!");
-      setError("");
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess("Account created successfully!");
+        setError("");
+        
+        // Clear form after successful signup
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+        setFirstname("");
+        setMiddlename("");
+        setLastname("");
+        setAddress("");
+        setPhoneNumber("");
+      } else {
+        setError(data.message || "Signup failed");
+        setSuccess("");
+      }
     } catch (error) {
-      setError(error.response?.data?.message || "Signup failed");
+      setError("Network error. Please try again.");
       setSuccess("");
     }
   };
@@ -69,7 +96,7 @@ const SignUp = () => {
           <div className="absolute inset-0 bg-black bg-opacity-20 z-20"></div>
         </div>
 
-        <div className="w-full md:w-1/2 bg-white p-6 flex flex-col justify-center">
+        <div className="w-full md:w-1/2 bg-white p-6 flex flex-col justify-center max-h-screen overflow-y-auto">
           <div className="flex justify-center mb-4">
             <img src="/img/logo.png" alt="Official Seal" className="h-20" />
           </div>
@@ -78,10 +105,11 @@ const SignUp = () => {
             Create Account
           </h2>
           
-          {error && <p className="text-red-500 text-center">{error}</p>}
-          {success && <p className="text-green-500 text-center">{success}</p>}
+          {error && <p className="text-red-500 text-center mb-3">{error}</p>}
+          {success && <p className="text-green-500 text-center mb-3">{success}</p>}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {/* Email */}
             <div>
               <label htmlFor="email" className="text-sm font-medium text-gray-700">
                 Email Address
@@ -99,43 +127,82 @@ const SignUp = () => {
                 />
               </div>
             </div>
+
+            {/* Name Fields */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-    <label className="text-sm font-medium text-gray-700">Full Name</label>
-    <input
-      type="text"
-      value={fullName}
-      onChange={(e) => setFullName(e.target.value)}
-      required
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-      placeholder="Enter your full name"
-    />
-  </div>
+                <label className="text-sm font-medium text-gray-700">First Name *</label>
+                <div className="relative mt-1">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={firstname}
+                    onChange={(e) => setFirstname(e.target.value)}
+                    required
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="First name"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700">Last Name *</label>
+                <div className="relative mt-1">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={lastname}
+                    onChange={(e) => setLastname(e.target.value)}
+                    required
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Last name"
+                  />
+                </div>
+              </div>
+            </div>
 
-  {/* Address */}
-  <div>
-    <label className="text-sm font-medium text-gray-700">Address</label>
-    <input
-      type="text"
-      value={address}
-      onChange={(e) => setAddress(e.target.value)}
-      required
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-      placeholder="Enter your address"
-    />
-  </div>
+            {/* Middle Name */}
+            <div>
+              <label className="text-sm font-medium text-gray-700">Middle Name (Optional)</label>
+              <div className="relative mt-1">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={middlename}
+                  onChange={(e) => setMiddlename(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Middle name (optional)"
+                />
+              </div>
+            </div>
 
-  {/* Phone Number */}
-  <div>
-    <label className="text-sm font-medium text-gray-700">Phone Number</label>
-    <input
-      type="tel"
-      value={phoneNumber}
-      onChange={(e) => setPhoneNumber(e.target.value)}
-      required
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-      placeholder="+63XXXXXXXXXX"
-    />
-  </div>
+            {/* Address */}
+            <div>
+              <label className="text-sm font-medium text-gray-700">Address</label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                required
+                className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter your address"
+              />
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label className="text-sm font-medium text-gray-700">Phone Number</label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                required
+                className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                placeholder="+63XXXXXXXXXX"
+              />
+            </div>
+
+            {/* Password */}
             <div>
               <label htmlFor="password" className="text-sm font-medium text-gray-700">
                 Password
@@ -161,6 +228,7 @@ const SignUp = () => {
               </div>
             </div>
             
+            {/* Confirm Password */}
             <div>
               <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
                 Confirm Password
@@ -186,6 +254,7 @@ const SignUp = () => {
               </div>
             </div>
             
+            {/* Submit Button */}
             <div className="pt-2">
               <button
                 type="submit"
@@ -196,6 +265,7 @@ const SignUp = () => {
               </button>
             </div>
           </form>
+          
           <p className="mt-4 text-center text-sm text-gray-600">
             Already have an account?{" "}
             <a href="/Login" className="font-medium text-blue-600 hover:text-blue-500">
