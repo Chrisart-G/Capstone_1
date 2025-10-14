@@ -3,8 +3,9 @@ import {
   User, Mail, Phone, MapPin, Calendar, Settings, Bell, Shield, FileText,
   Clock, CheckCircle, AlertCircle, Building, Download, Eye
 } from 'lucide-react';
-import Uheader from'../Header/User_header'
-import UFooter from '../Footer/User_Footer'
+import Uheader from '../Header/User_header';
+import UFooter from '../Footer/User_Footer';
+
 export default function MunicipalUserProfileDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -25,8 +26,6 @@ export default function MunicipalUserProfileDashboard() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [permitHistory, setPermitHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Calculate stats based on permit data
   const [stats, setStats] = useState([
     { label: 'Total Applications', value: '0', icon: FileText, color: 'text-blue-600' },
     { label: 'Approved Permits', value: '0', icon: CheckCircle, color: 'text-green-600' },
@@ -38,12 +37,18 @@ export default function MunicipalUserProfileDashboard() {
     const fetchProfileData = async () => {
       try {
         setLoading(true);
-        // Replace with your actual axios API call
-        const response = await fetch("http://localhost:8081/api/user/profile", { 
+        const response = await fetch("http://localhost:8081/api/profile", { 
           credentials: 'include'
         });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch profile data');
+        }
+        
         const data = await response.json();
-        const { userInfo: fetchedUserInfo, permits, recentActivity: fetchedActivity } = data;
+        console.log('Profile data received:', data);
+        
+        const { userInfo: fetchedUserInfo, permits, recentActivity: fetchedActivity, statistics } = data;
 
         // Set user info
         const userData = {
@@ -66,35 +71,38 @@ export default function MunicipalUserProfileDashboard() {
           applicationDate: p.application_date,
           status: p.status,
           expiryDate: p.expiry_date || '2025-12-31',
-          referenceNo: `BP-${String(p.referenceNo).padStart(6, '0')}`
+          referenceNo: `${p.permit_category.toUpperCase()}-${String(p.referenceNo).padStart(6, '0')}`,
+          businessName: p.business_name
         }));
         setPermitHistory(processedPermits);
 
         // Process recent activity
         const processedActivity = fetchedActivity.map(a => ({
           action: a.action,
-          time: new Date(a.time).toLocaleDateString(),
+          time: new Date(a.time).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
           type: a.type,
           status: a.status,
-          referenceNo: a.referenceNo ? `REF-${String(a.referenceNo).padStart(6, '0')}` : null
+          referenceNo: a.referenceNo ? `REC-${String(a.referenceNo).padStart(6, '0')}` : null
         }));
         setRecentActivity(processedActivity);
 
-        // Calculate statistics
-        const totalApplications = permits.length;
-        const approvedPermits = permits.filter(p => p.status === 'Approved' || p.status === 'Active').length;
-        const pendingPermits = permits.filter(p => p.status === 'Pending' || p.status === 'Under Review').length;
-        const activePermits = permits.filter(p => p.status === 'Active').length;
-
+        // Set statistics from backend
         setStats([
-          { label: 'Total Applications', value: totalApplications.toString(), icon: FileText, color: 'text-blue-600' },
-          { label: 'Approved Permits', value: approvedPermits.toString(), icon: CheckCircle, color: 'text-green-600' },
-          { label: 'Pending Review', value: pendingPermits.toString(), icon: Clock, color: 'text-yellow-600' },
-          { label: 'Active Permits', value: activePermits.toString(), icon: Building, color: 'text-purple-600' }
+          { label: 'Total Applications', value: statistics.totalApplications.toString(), icon: FileText, color: 'text-blue-600' },
+          { label: 'Approved Permits', value: statistics.approvedPermits.toString(), icon: CheckCircle, color: 'text-green-600' },
+          { label: 'Pending Review', value: statistics.pendingPermits.toString(), icon: Clock, color: 'text-yellow-600' },
+          { label: 'Active Permits', value: statistics.activePermits.toString(), icon: Building, color: 'text-purple-600' }
         ]);
 
       } catch (err) {
         console.error("Failed to load user profile", err);
+        alert("Failed to load profile data. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -110,12 +118,20 @@ export default function MunicipalUserProfileDashboard() {
 
   const handleSave = async () => {
     try {
-      // You can add API call here to save the updated user info
-      // await axios.put("http://localhost:8081/api/user/profile", tempUserInfo, { withCredentials: true });
+      // You can add API call here to update user info
+      // const response = await fetch("http://localhost:8081/api/user/profile", {
+      //   method: 'PUT',
+      //   credentials: 'include',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(tempUserInfo)
+      // });
+      
       setUserInfo(tempUserInfo);
       setIsEditing(false);
+      alert('Profile updated successfully!');
     } catch (err) {
       console.error("Failed to save user profile", err);
+      alert('Failed to save profile. Please try again.');
     }
   };
 
@@ -126,6 +142,30 @@ export default function MunicipalUserProfileDashboard() {
 
   const handleInputChange = (field, value) => {
     setTempUserInfo(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getStatusColor = (status) => {
+    const statusLower = status?.toLowerCase() || '';
+    if (['approved', 'active', 'completed', 'ready-for-pickup'].includes(statusLower)) {
+      return 'bg-green-100 text-green-800';
+    } else if (['pending', 'in-review', 'in-progress', 'requirements-completed'].includes(statusLower)) {
+      return 'bg-yellow-100 text-yellow-800';
+    } else if (statusLower === 'rejected') {
+      return 'bg-red-100 text-red-800';
+    }
+    return 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusIcon = (status) => {
+    const statusLower = status?.toLowerCase() || '';
+    if (['approved', 'active', 'completed', 'ready-for-pickup'].includes(statusLower)) {
+      return 'bg-green-500';
+    } else if (['pending', 'in-review', 'in-progress', 'requirements-completed'].includes(statusLower)) {
+      return 'bg-yellow-500';
+    } else if (statusLower === 'rejected') {
+      return 'bg-red-500';
+    }
+    return 'bg-blue-500';
   };
 
   const ProfileHeader = () => (
@@ -168,7 +208,7 @@ export default function MunicipalUserProfileDashboard() {
         
         <div className="flex-1">
           <h2 className="text-xl font-bold mb-1">{userInfo.name || 'Loading...'}</h2>
-          {userInfo.memberSince && (
+          {userInfo.memberSince && userInfo.memberSince !== 'N/A' && (
             <p className="text-blue-100">Member since {userInfo.memberSince}</p>
           )}
         </div>
@@ -179,7 +219,7 @@ export default function MunicipalUserProfileDashboard() {
   const StatsGrid = () => (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       {stats.map((stat, index) => (
-        <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+        <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
@@ -224,27 +264,30 @@ export default function MunicipalUserProfileDashboard() {
           <Clock className="text-blue-600" size={20} />
           Recent Activity
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-96 overflow-y-auto">
           {loading ? (
-            <div className="text-center py-4">Loading...</div>
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-500">Loading...</p>
+            </div>
           ) : recentActivity.length > 0 ? (
             recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                <div className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${
-                  activity.status === 'approved' || activity.status === 'completed' ? 'bg-green-500' :
-                  activity.status === 'pending' ? 'bg-yellow-500' : 'bg-blue-500'
-                }`} />
+              <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${getStatusIcon(activity.status)}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-900 font-medium">{activity.action}</p>
                   {activity.referenceNo && (
-                    <p className="text-xs text-blue-600 font-mono">{activity.referenceNo}</p>
+                    <p className="text-xs text-blue-600 font-mono mt-1">{activity.referenceNo}</p>
                   )}
-                  <p className="text-xs text-gray-500">{activity.time}</p>
+                  <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
                 </div>
               </div>
             ))
           ) : (
-            <p className="text-gray-500 text-center py-4">No recent activity</p>
+            <div className="text-center py-8">
+              <AlertCircle className="mx-auto text-gray-400 mb-2" size={40} />
+              <p className="text-gray-500">No recent activity</p>
+            </div>
           )}
         </div>
       </div>
@@ -255,12 +298,30 @@ export default function MunicipalUserProfileDashboard() {
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 gap-3">
-          <a href="/Permits" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg transition-colors duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1">
+          <a 
+            href="/Permits" 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg transition-all duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1 flex items-center justify-center gap-2"
+          >
+            <FileText size={20} />
             Apply for New Permit
           </a>
-          <a href="/Docutracker" className="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg transition-colors duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1">
+          <a 
+            href="/Docutracker" 
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg transition-all duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1 flex items-center justify-center gap-2"
+          >
+            <Clock size={20} />
             Track Application Status
           </a>
+        </div>
+        
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <h4 className="font-semibold text-blue-900 mb-2">Need Help?</h4>
+          <p className="text-sm text-blue-700 mb-3">
+            Contact our support team for assistance with your applications.
+          </p>
+          <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            Contact Support →
+          </button>
         </div>
       </div>
     </div>
@@ -269,28 +330,29 @@ export default function MunicipalUserProfileDashboard() {
   const PersonalInfoTab = () => (
     <div className="bg-white rounded-lg p-6 shadow-sm border">
       <h3 className="text-lg font-semibold mb-6">Personal Information</h3>
-      <div className="max-w-md mx-auto">
+      <div className="max-w-3xl mx-auto">
         <div className="space-y-6">
           <h4 className="font-medium text-gray-900 border-b pb-2">Personal Details</h4>
           
-          <div className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
             {[
-              { field: 'name', label: 'Full Name', type: 'text' },
-              { field: 'email', label: 'Email Address', type: 'email' },
-              { field: 'phone', label: 'Phone Number', type: 'tel' },
-              { field: 'address', label: 'Address', type: 'textarea' },
-              { field: 'businessName', label: 'Business Name', type: 'text' },
-              { field: 'businessType', label: 'Business Type', type: 'text' },
-              { field: 'tinNumber', label: 'TIN Number', type: 'text' }
-            ].map(({ field, label, type }) => (
-              <div key={field}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+              { field: 'name', label: 'Full Name', type: 'text', icon: User },
+              { field: 'email', label: 'Email Address', type: 'email', icon: Mail },
+              { field: 'phone', label: 'Phone Number', type: 'tel', icon: Phone },
+              { field: 'address', label: 'Address', type: 'textarea', icon: MapPin, fullWidth: true }
+            ].map(({ field, label, type, icon: Icon, fullWidth }) => (
+              <div key={field} className={fullWidth ? 'md:col-span-2' : ''}>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Icon size={16} className="text-gray-500" />
+                  {label}
+                </label>
                 {isEditing ? (
                   type === 'textarea' ? (
                     <textarea
                       value={tempUserInfo[field] || ''}
                       onChange={(e) => handleInputChange(field, e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 h-20 resize-none"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
+                      placeholder={`Enter your ${label.toLowerCase()}`}
                     />
                   ) : (
                     <input
@@ -298,16 +360,50 @@ export default function MunicipalUserProfileDashboard() {
                       value={tempUserInfo[field] || ''}
                       onChange={(e) => handleInputChange(field, e.target.value)}
                       className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder={`Enter your ${label.toLowerCase()}`}
                     />
                   )
                 ) : (
-                  <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md">
-                    {userInfo[field] || 'Not provided'}
+                  <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md min-h-[42px] flex items-center">
+                    {userInfo[field] || <span className="text-gray-400">Not provided</span>}
                   </p>
                 )}
               </div>
             ))}
           </div>
+
+          {(userInfo.businessName || isEditing) && (
+            <>
+              <h4 className="font-medium text-gray-900 border-b pb-2 mt-6">Business Information</h4>
+              <div className="grid md:grid-cols-2 gap-4">
+                {[
+                  { field: 'businessName', label: 'Business Name', type: 'text', icon: Building },
+                  { field: 'businessType', label: 'Business Type', type: 'text', icon: FileText },
+                  { field: 'tinNumber', label: 'TIN Number', type: 'text', icon: FileText }
+                ].map(({ field, label, type, icon: Icon }) => (
+                  <div key={field}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                      <Icon size={16} className="text-gray-500" />
+                      {label}
+                    </label>
+                    {isEditing ? (
+                      <input
+                        type={type}
+                        value={tempUserInfo[field] || ''}
+                        onChange={(e) => handleInputChange(field, e.target.value)}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder={`Enter ${label.toLowerCase()}`}
+                      />
+                    ) : (
+                      <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md min-h-[42px] flex items-center">
+                        {userInfo[field] || <span className="text-gray-400">Not provided</span>}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -321,49 +417,54 @@ export default function MunicipalUserProfileDashboard() {
       </h3>
       <div className="overflow-x-auto">
         {loading ? (
-          <div className="text-center py-8">Loading permits...</div>
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-500">Loading permits...</p>
+          </div>
         ) : permitHistory.length > 0 ? (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Permit Type</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Reference No.</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Expiry Date</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Actions</th>
+              <tr className="border-b-2 border-gray-200 bg-gray-50">
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Permit Type</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Reference No.</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Applied Date</th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
               {permitHistory.map((permit, index) => (
-                <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4">
+                <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="py-4 px-4">
                     <div className="font-medium text-gray-900">{permit.permitType}</div>
-                    <div className="text-sm text-gray-500">Applied: {permit.applicationDate}</div>
+                    {permit.businessName && (
+                      <div className="text-xs text-gray-500 mt-1">{permit.businessName}</div>
+                    )}
                   </td>
-                  <td className="py-3 px-4">
-                    <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                  <td className="py-4 px-4">
+                    <span className="font-mono text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
                       {permit.referenceNo}
                     </span>
                   </td>
-                  <td className="py-3 px-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      permit.status === 'Active' || permit.status === 'Approved'
-                        ? 'bg-green-100 text-green-800' 
-                        : permit.status === 'Pending' || permit.status === 'Under Review'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
+                  <td className="py-4 px-4">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(permit.status)}`}>
                       {permit.status}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-sm text-gray-900">{permit.expiryDate}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex gap-2">
-                      <button className="text-blue-600 hover:text-blue-800 text-sm">
-                        <Eye size={16} />
+                  <td className="py-4 px-4 text-sm text-gray-700">{permit.applicationDate}</td>
+                  <td className="py-4 px-4">
+                    <div className="flex gap-2 justify-center">
+                      <button 
+                        className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition-colors" 
+                        title="View Details"
+                      >
+                        <Eye size={18} />
                       </button>
-                      <button className="text-green-600 hover:text-green-800 text-sm">
-                        <Download size={16} />
+                      <button 
+                        className="text-green-600 hover:text-green-800 p-2 hover:bg-green-50 rounded transition-colors" 
+                        title="Download"
+                      >
+                        <Download size={18} />
                       </button>
                     </div>
                   </td>
@@ -372,7 +473,17 @@ export default function MunicipalUserProfileDashboard() {
             </tbody>
           </table>
         ) : (
-          <div className="text-center py-8 text-gray-500">No permits found</div>
+          <div className="text-center py-12">
+            <FileText className="mx-auto text-gray-300 mb-3" size={64} />
+            <p className="text-gray-500 text-lg font-medium">No permits found</p>
+            <p className="text-gray-400 text-sm mt-2">Apply for your first permit to get started</p>
+            <a 
+              href="/Permits" 
+              className="inline-block mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+            >
+              Apply Now
+            </a>
+          </div>
         )}
       </div>
     </div>
@@ -386,7 +497,7 @@ export default function MunicipalUserProfileDashboard() {
           Notification Preferences
         </h3>
         <div className="space-y-4">
-          <label className="flex items-center justify-between">
+          <label className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
             <div>
               <span className="text-gray-700 font-medium">Application Status Updates</span>
               <p className="text-sm text-gray-500">Receive notifications when your application status changes</p>
@@ -395,11 +506,11 @@ export default function MunicipalUserProfileDashboard() {
               type="checkbox"
               checked={notifications}
               onChange={(e) => setNotifications(e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
           </label>
           
-          <label className="flex items-center justify-between">
+          <label className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
             <div>
               <span className="text-gray-700 font-medium">Permit Renewal Reminders</span>
               <p className="text-sm text-gray-500">Get reminded before your permits expire</p>
@@ -407,7 +518,19 @@ export default function MunicipalUserProfileDashboard() {
             <input
               type="checkbox"
               defaultChecked
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+          </label>
+
+          <label className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
+            <div>
+              <span className="text-gray-700 font-medium">Email Notifications</span>
+              <p className="text-sm text-gray-500">Receive updates via email</p>
+            </div>
+            <input
+              type="checkbox"
+              defaultChecked
+              className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
           </label>
         </div>
@@ -431,8 +554,12 @@ export default function MunicipalUserProfileDashboard() {
             </select>
           </div>
           
-          <button className="w-full bg-red-50 hover:bg-red-100 text-red-700 p-3 rounded-lg text-left transition-colors">
-            Change Password
+          <button className="w-full bg-red-50 hover:bg-red-100 text-red-700 p-3 rounded-lg text-left transition-colors font-medium">
+            🔒 Change Password
+          </button>
+          
+          <button className="w-full bg-yellow-50 hover:bg-yellow-100 text-yellow-700 p-3 rounded-lg text-left transition-colors font-medium">
+            🔐 Enable Two-Factor Authentication
           </button>
         </div>
       </div>
@@ -440,11 +567,14 @@ export default function MunicipalUserProfileDashboard() {
       <div className="bg-white rounded-lg p-6 shadow-sm border">
         <h3 className="text-lg font-semibold mb-4">Account Management</h3>
         <div className="space-y-3">
-          <button className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 p-3 rounded-lg text-left transition-colors">
-            Download My Data
+          <button className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 p-3 rounded-lg text-left transition-colors font-medium">
+            📥 Download My Data
           </button>
-          <button className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 p-3 rounded-lg text-left transition-colors">
-            Request Account Deletion
+          <button className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 p-3 rounded-lg text-left transition-colors font-medium">
+            📧 Export Application History
+          </button>
+          <button className="w-full bg-red-50 hover:bg-red-100 text-red-700 p-3 rounded-lg text-left transition-colors font-medium">
+            🗑️ Request Account Deletion
           </button>
         </div>
       </div>
@@ -455,15 +585,17 @@ export default function MunicipalUserProfileDashboard() {
     <div>
       <Uheader />
       <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <ProfileHeader />
           <StatsGrid />
           <TabNavigation />
           
-          {activeTab === 'overview' && <OverviewTab />}
-          {activeTab === 'personal' && <PersonalInfoTab />}
-          {activeTab === 'permits' && <PermitsTab />}
-          {activeTab === 'settings' && <SettingsTab />}
+          <div className="transition-all duration-300">
+            {activeTab === 'overview' && <OverviewTab />}
+            {activeTab === 'personal' && <PersonalInfoTab />}
+            {activeTab === 'permits' && <PermitsTab />}
+            {activeTab === 'settings' && <SettingsTab />}
+          </div>
         </div>
       </div>
       <UFooter />

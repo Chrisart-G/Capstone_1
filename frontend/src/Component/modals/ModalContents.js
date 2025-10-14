@@ -52,8 +52,6 @@ export function AttachRequirementsModal({ onClose }) {
     onClose();
   };
 
-  
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 shadow-xl w-full max-w-md">
@@ -99,7 +97,6 @@ export function AttachRequirementsModal({ onClose }) {
   );
 }
 
-
 export function CedulaModalContent({ selectedApplication }) {
   return (
     <div className="bg-indigo-50 rounded-lg p-6 space-y-8">
@@ -117,7 +114,6 @@ export function CedulaModalContent({ selectedApplication }) {
           <p><strong>Purpose:</strong> {selectedApplication.purpose || 'N/A'}</p>
           <p><strong>Sex:</strong> {selectedApplication.sex || 'N/A'}</p>
           <p><strong>Civil Status:</strong> {selectedApplication.civil_status || 'N/A'}</p>
-
           <p><strong>TIN:</strong> {selectedApplication.tin || 'N/A'}</p>
         </div>
       </div>
@@ -139,6 +135,7 @@ export function CedulaModalContent({ selectedApplication }) {
     </div>
   );
 }
+
 //ElectricalPermitModalContent
 export function ElectricalPermitModalContent({ selectedApplication }) {
   const [showUpload, setShowUpload] = useState(false);
@@ -181,8 +178,6 @@ export function ElectricalPermitModalContent({ selectedApplication }) {
         </div>
       </div>
 
-     
-
       {/* Applicant Info */}
       <div className="bg-green-100 p-4 rounded-md">
         <h4 className="text-md font-semibold mb-2 text-gray-700">Applicant Information</h4>
@@ -197,7 +192,8 @@ export function ElectricalPermitModalContent({ selectedApplication }) {
         <p><strong>Address:</strong> {`${selectedApplication.address_no} ${selectedApplication.address_street}, Brgy. ${selectedApplication.address_barangay}, ${selectedApplication.address_city}, ${selectedApplication.address_zip_code}`}</p>
         <p><strong>Location:</strong> {`${selectedApplication.location_street}, Lot ${selectedApplication.location_lot_no}, Blk ${selectedApplication.location_blk_no}, TCT: ${selectedApplication.location_tct_no}, Tax Dec: ${selectedApplication.location_tax_dec_no}`}</p>
       </div>
-       {/* ✅ Upload Section Toggle Button */}
+
+      {/* Upload Toggle */}
       {!showUpload && (
         <button
           onClick={() => setShowUpload(true)}
@@ -207,7 +203,7 @@ export function ElectricalPermitModalContent({ selectedApplication }) {
         </button>
       )}
 
-      {/* ✅ Upload Area */}
+      {/* Upload Area */}
       {showUpload && (
         <div className="bg-blue-50 p-4 rounded-md mt-2 space-y-3">
           <input
@@ -241,7 +237,6 @@ export function ElectricalPermitModalContent({ selectedApplication }) {
     </div>
   );
 }
-
 
 export function BusinessPermitModalContent({ selectedApplication }) {
   const [showUpload, setShowUpload] = useState(false);
@@ -285,8 +280,6 @@ export function BusinessPermitModalContent({ selectedApplication }) {
         </div>
       </div>
 
-     
-
       {/* Owner Information */}
       <div className="bg-green-100 p-4 rounded-md">
         <h4 className="text-md font-semibold mb-2 text-gray-700">Owner Information</h4>
@@ -324,84 +317,241 @@ export function BusinessPermitModalContent({ selectedApplication }) {
         ) : (
           <p className="text-gray-600">No business activities recorded.</p>
         )}
-         {/* ✅ Upload Section Toggle Button */}
-      {!showUpload && (
-        <button
-          onClick={() => setShowUpload(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded"
-        >
-          Attach Requirements (PDF)
-        </button>
-      )}
 
-      {/* ✅ Upload UI Section */}
-      {showUpload && (
-        <div className="bg-blue-50 p-4 rounded-md mt-2 space-y-3">
-          <input
-            type="file"
-            id="requirementUpload"
-            accept="application/pdf"
-            onChange={handleFileChange}
-            hidden
-          />
-          <label
-            htmlFor="requirementUpload"
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded cursor-pointer"
-          >
-            Upload PDF
-          </label>
-
-          {requirementPDF && (
-            <p className="text-sm text-gray-700">
-              ✅ Attached: <span className="font-semibold">{requirementPDF.name}</span>
-            </p>
-          )}
-
+        {/* Upload */}
+        {!showUpload && (
           <button
-            onClick={handleCancel}
-            className="bg-red-500 hover:bg-red-600 text-white text-sm font-medium py-2 px-4 rounded"
+            onClick={() => setShowUpload(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded"
           >
-            Cancel
+            Attach Requirements (PDF)
           </button>
-        </div>
-      )}
-      </div>
-      {/* 📂 Display Uploaded Requirements */}
-<div>
-  <h4 className="text-md font-semibold text-gray-700 mb-3">Uploaded Requirements</h4>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-    {[
-      { label: "Filled-up Form", path: selectedApplication.filled_up_forms },
-      { label: "SEC/DTI/CDA Certificate", path: selectedApplication.sec_dti_cda_certificate },
-      { label: "Local Sketch", path: selectedApplication.local_sketch },
-      { label: "Sworn Capital Statement", path: selectedApplication.sworn_statement_capital },
-      { label: "Tax Clearance", path: selectedApplication.tax_clearance },
-      { label: "Brgy. Clearance", path: selectedApplication.brgy_clearance_business },
-      { label: "Cedula", path: selectedApplication.cedula },
-    ].map((doc, index) => (
-      doc.path ? (
-        <div key={index} className="bg-white border p-3 rounded shadow-sm">
-          <p className="font-medium">{doc.label}:</p>
-          <a
-            href={`http://localhost:8081${doc.path}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline text-sm"
-          >
-            View / Download
-          </a>
-        </div>
-      ) : (
-        <div key={index} className="text-sm text-gray-500 italic">
-          {doc.label}: Not uploaded
-        </div>
-      )
-    ))}
-  </div>
-</div>
+        )}
 
+        {showUpload && (
+          <div className="bg-blue-50 p-4 rounded-md mt-2 space-y-3">
+            <input
+              type="file"
+              id="requirementUpload"
+              accept="application/pdf"
+              onChange={handleFileChange}
+              hidden
+            />
+            <label
+              htmlFor="requirementUpload"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded cursor-pointer"
+            >
+              Upload PDF
+            </label>
+
+            {requirementPDF && (
+              <p className="text-sm text-gray-700">
+                ✅ Attached: <span className="font-semibold">{requirementPDF.name}</span>
+              </p>
+            )}
+
+            <button
+              onClick={handleCancel}
+              className="bg-red-500 hover:bg-red-600 text-white text-sm font-medium py-2 px-4 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 📂 Display Uploaded Requirements */}
+      <div>
+        <h4 className="text-md font-semibold text-gray-700 mb-3">Uploaded Requirements</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { label: "Filled-up Form", path: selectedApplication.filled_up_forms },
+            { label: "SEC/DTI/CDA Certificate", path: selectedApplication.sec_dti_cda_certificate },
+            { label: "Local Sketch", path: selectedApplication.local_sketch },
+            { label: "Sworn Capital Statement", path: selectedApplication.sworn_statement_capital },
+            { label: "Tax Clearance", path: selectedApplication.tax_clearance },
+            { label: "Brgy. Clearance", path: selectedApplication.brgy_clearance_business },
+            { label: "Cedula", path: selectedApplication.cedula },
+          ].map((doc, index) => (
+            doc.path ? (
+              <div key={index} className="bg-white border p-3 rounded shadow-sm">
+                <p className="font-medium">{doc.label}:</p>
+                <a
+                  href={`http://localhost:8081${doc.path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline text-sm"
+                >
+                  View / Download
+                </a>
+              </div>
+            ) : (
+              <div key={index} className="text-sm text-gray-500 italic">
+                {doc.label}: Not uploaded
+              </div>
+            )
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
+/* ---------------- NEW MODAL CONTENTS (no style/function changes to your existing ones) ---------------- */
 
+export function PlumbingPermitModalContent({ selectedApplication }) {
+  return (
+    <div className="bg-yellow-50 rounded-lg p-6 space-y-8">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Plumbing Permit Information</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <p><strong>Application No:</strong> {selectedApplication.application_no}</p>
+          <p><strong>PP No:</strong> {selectedApplication.pp_no}</p>
+          <p><strong>Building Permit No:</strong> {selectedApplication.building_permit_no}</p>
+          <p><strong>Scope of Work:</strong> {selectedApplication.scope_of_work}</p>
+          {selectedApplication.other_scope_specify && (
+            <p><strong>Other Scope:</strong> {selectedApplication.other_scope_specify}</p>
+          )}
+          <p><strong>Form of Ownership:</strong> {selectedApplication.form_of_ownership}</p>
+          <p><strong>Use/Character:</strong> {selectedApplication.use_or_character}</p>
+        </div>
+        <div className="space-y-2">
+          <p><strong>Status:</strong> {selectedApplication.status}</p>
+          <p><strong>Email:</strong> {selectedApplication.email}</p>
+          <p><strong>Telephone:</strong> {selectedApplication.telephone_no}</p>
+          <p><strong>Application Date:</strong> {new Date(selectedApplication.created_at).toLocaleDateString()}</p>
+          <p><strong>Last Updated:</strong> {new Date(selectedApplication.updated_at).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div className="bg-green-100 p-4 rounded-md">
+        <h4 className="text-md font-semibold mb-2 text-gray-700">Applicant Information</h4>
+        <p><strong>Name:</strong> {`${selectedApplication.first_name || ''} ${selectedApplication.middle_initial || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'}</p>
+        <p><strong>Email:</strong> {selectedApplication.email || 'N/A'}</p>
+        <p><strong>Telephone:</strong> {selectedApplication.telephone_no || 'N/A'}</p>
+      </div>
+
+      <div className="bg-blue-100 p-4 rounded-md">
+        <h4 className="text-md font-semibold mb-2 text-gray-700">Address/Location</h4>
+        <p><strong>Address:</strong> {`${selectedApplication.address_no || ''} ${selectedApplication.address_street || ''}, Brgy. ${selectedApplication.address_barangay || ''}, ${selectedApplication.address_city || ''} ${selectedApplication.address_zip_code || ''}`}</p>
+        <p><strong>Location:</strong> {`${selectedApplication.location_street || ''}, Lot ${selectedApplication.location_lot_no || ''}, Blk ${selectedApplication.location_blk_no || ''}, TCT ${selectedApplication.location_tct_no || ''}, Tax Dec ${selectedApplication.location_tax_dec_no || ''}`}</p>
+      </div>
+    </div>
+  );
+}
+
+export function ElectronicsPermitModalContent({ selectedApplication }) {
+  return (
+    <div className="bg-yellow-50 rounded-lg p-6 space-y-8">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Electronics Permit Information</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <p><strong>Application No:</strong> {selectedApplication.application_no}</p>
+          <p><strong>EP No:</strong> {selectedApplication.ep_no}</p>
+          <p><strong>Building Permit No:</strong> {selectedApplication.building_permit_no}</p>
+          <p><strong>Scope of Work:</strong> {selectedApplication.scope_of_work}</p>
+          <p><strong>Form of Ownership:</strong> {selectedApplication.form_of_ownership}</p>
+          <p><strong>Use/Character:</strong> {selectedApplication.use_or_character}</p>
+        </div>
+        <div className="space-y-2">
+          <p><strong>Status:</strong> {selectedApplication.status}</p>
+          <p><strong>Email:</strong> {selectedApplication.email}</p>
+          <p><strong>Telephone:</strong> {selectedApplication.telephone_no}</p>
+          <p><strong>Application Date:</strong> {new Date(selectedApplication.created_at).toLocaleDateString()}</p>
+          <p><strong>Last Updated:</strong> {new Date(selectedApplication.updated_at).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div className="bg-green-100 p-4 rounded-md">
+        <h4 className="text-md font-semibold mb-2 text-gray-700">Applicant Information</h4>
+        <p><strong>Name:</strong> {`${selectedApplication.first_name || ''} ${selectedApplication.middle_initial || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'}</p>
+        <p><strong>Email:</strong> {selectedApplication.email || 'N/A'}</p>
+        <p><strong>Telephone:</strong> {selectedApplication.telephone_no || 'N/A'}</p>
+      </div>
+
+      <div className="bg-blue-100 p-4 rounded-md">
+        <h4 className="text-md font-semibold mb-2 text-gray-700">Address/Location</h4>
+        <p><strong>Address:</strong> {`${selectedApplication.address_no || ''} ${selectedApplication.address_street || ''}, Brgy. ${selectedApplication.address_barangay || ''}, ${selectedApplication.address_city || ''} ${selectedApplication.address_zip_code || ''}`}</p>
+        <p><strong>Location:</strong> {`${selectedApplication.location_street || ''} ${selectedApplication.location_lot_no ? ' • Lot ' + selectedApplication.location_lot_no : ''}${selectedApplication.location_blk_no ? ' • Blk ' + selectedApplication.location_blk_no : ''}${selectedApplication.location_tct_no ? ' • TCT ' + selectedApplication.location_tct_no : ''}${selectedApplication.location_tax_dec_no ? ' • Tax Dec ' + selectedApplication.location_tax_dec_no : ''}`}</p>
+      </div>
+    </div>
+  );
+}
+
+export function BuildingPermitModalContent({ selectedApplication }) {
+  return (
+    <div className="bg-yellow-50 rounded-lg p-6 space-y-8">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Building Permit Information</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <p><strong>Application No:</strong> {selectedApplication.application_no}</p>
+          <p><strong>Building Permit No:</strong> {selectedApplication.building_permit_no}</p>
+          <p><strong>Use/Character:</strong> {selectedApplication.use_or_character}</p>
+          <p><strong>Form of Ownership:</strong> {selectedApplication.form_of_ownership}</p>
+        </div>
+        <div className="space-y-2">
+          <p><strong>Status:</strong> {selectedApplication.status}</p>
+          <p><strong>Email:</strong> {selectedApplication.email}</p>
+          <p><strong>Telephone:</strong> {selectedApplication.telephone_no}</p>
+          <p><strong>Application Date:</strong> {new Date(selectedApplication.created_at).toLocaleDateString()}</p>
+          <p><strong>Last Updated:</strong> {new Date(selectedApplication.updated_at).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div className="bg-green-100 p-4 rounded-md">
+        <h4 className="text-md font-semibold mb-2 text-gray-700">Applicant Information</h4>
+        <p><strong>Name:</strong> {`${selectedApplication.first_name || ''} ${selectedApplication.middle_initial || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'}</p>
+        <p><strong>Email:</strong> {selectedApplication.email || 'N/A'}</p>
+        <p><strong>Telephone:</strong> {selectedApplication.telephone_no || 'N/A'}</p>
+      </div>
+
+      <div className="bg-blue-100 p-4 rounded-md">
+        <h4 className="text-md font-semibold mb-2 text-gray-700">Address/Location</h4>
+        <p><strong>Address:</strong> {`${selectedApplication.address_no || ''} ${selectedApplication.address_street || ''}, Brgy. ${selectedApplication.address_barangay || ''}, ${selectedApplication.address_city || ''} ${selectedApplication.address_zip_code || ''}`}</p>
+        <p><strong>Location:</strong> {`${selectedApplication.location_street || ''}${selectedApplication.location_lot_no ? ', Lot ' + selectedApplication.location_lot_no : ''}${selectedApplication.location_blk_no ? ', Blk ' + selectedApplication.location_blk_no : ''}`}</p>
+      </div>
+    </div>
+  );
+}
+
+export function FencingPermitModalContent({ selectedApplication }) {
+  return (
+    <div className="bg-yellow-50 rounded-lg p-6 space-y-8">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">Fencing Permit Information</h3>
+
+      <div className="grid grid-cols-1 md-grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <p><strong>Application No:</strong> {selectedApplication.application_no}</p>
+          <p><strong>FP No:</strong> {selectedApplication.fp_no}</p>
+          <p><strong>Building Permit No:</strong> {selectedApplication.building_permit_no}</p>
+          <p><strong>Scope of Work:</strong> {selectedApplication.scope_of_work}</p>
+          <p><strong>Ownership Form:</strong> {selectedApplication.ownership_form || selectedApplication.form_of_ownership}</p>
+          <p><strong>Use/Character:</strong> {selectedApplication.use_or_character}</p>
+        </div>
+        <div className="space-y-2">
+          <p><strong>Status:</strong> {selectedApplication.status}</p>
+          <p><strong>Email:</strong> {selectedApplication.email}</p>
+          <p><strong>Telephone:</strong> {selectedApplication.telephone_no}</p>
+          <p><strong>Application Date:</strong> {new Date(selectedApplication.created_at).toLocaleDateString()}</p>
+          <p><strong>Last Updated:</strong> {new Date(selectedApplication.updated_at).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div className="bg-green-100 p-4 rounded-md">
+        <h4 className="text-md font-semibold mb-2 text-gray-700">Applicant Information</h4>
+        <p><strong>Name:</strong> {`${selectedApplication.first_name || ''} ${selectedApplication.middle_initial || ''} ${selectedApplication.last_name || ''}`.trim() || 'N/A'}</p>
+        <p><strong>Email:</strong> {selectedApplication.email || 'N/A'}</p>
+        <p><strong>Telephone:</strong> {selectedApplication.telephone_no || 'N/A'}</p>
+      </div>
+
+      <div className="bg-blue-100 p-4 rounded-md">
+        <h4 className="text-md font-semibold mb-2 text-gray-700">Address/Location</h4>
+        <p><strong>Address:</strong> {`${selectedApplication.address_no || ''} ${selectedApplication.street || selectedApplication.address_street || ''}, Brgy. ${selectedApplication.barangay || selectedApplication.address_barangay || ''}, ${selectedApplication.city_municipality || selectedApplication.address_city || ''} ${selectedApplication.zip_code || selectedApplication.address_zip_code || ''}`}</p>
+        <p><strong>Location:</strong> {`${selectedApplication.location_street || ''}${selectedApplication.lot_no ? ', Lot ' + selectedApplication.lot_no : ''}${selectedApplication.block_no1 ? ', Blk ' + selectedApplication.block_no1 : ''}${selectedApplication.block_no2 ? '–' + selectedApplication.block_no2 : ''}${selectedApplication.tax_dec_no ? ', Tax Dec ' + selectedApplication.tax_dec_no : ''}`}</p>
+      </div>
+    </div>
+  );
+}

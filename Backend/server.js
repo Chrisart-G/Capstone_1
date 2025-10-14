@@ -68,10 +68,16 @@ const officeRoutes = require('./routes/officeRoutes');
 const electricalPermitRoutes = require('./routes/electricalPermitRoutes');
 const cedulaRoutes = require('./routes/cedulaRoutes');
 const applicationRequirementsRoutes = require('./routes/applicationRequirementsRoutes');
-const userProfileRoutes = require('./routes/userProfileRoutes');
+const userProfileRoutes = require('./routes/userprofileRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const paymentverification = require('./routes/paymentverification');
 const formsfillController = require('./routes/formsfillRoutes')
+const buildingpermit = require('./routes/buildingPermitRoutes')
+const plumbingpermit = require('./routes/plumbingRoutes')
+const fencingpermit = require('./routes/fencingPermitRoutes')
+const electronicpermit = require('./routes/electronicpermitRoutes')
+const fourpermits = require('./routes/permitstrackingRoutes')
+const employeedash = require('./routes/employeedashRoutes')
 /* ===================== USE ROUTES ===================== */
 app.use('/api/auth', authRoutes);
 app.use('/api', businessPermitRoutes, cedulaRoutes);
@@ -87,6 +93,18 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api', paymentverification);
 /* ===================== FORMS AUTOFILLSROUTES ===================== */
 app.use('/api', formsfillController);
+/* ===================== FORMS BUILDING ROUTES ===================== */
+app.use('/api', buildingpermit);
+/* ===================== FORMS PLUMBINGPERMIT ROUTES ===================== */
+app.use('/api', plumbingpermit);
+/* ===================== FORMS FENCINGPERMIT ROUTES ===================== */
+app.use('/api', fencingpermit);
+/* ===================== FORMS ELECTRONIC ROUTES ===================== */
+app.use('/api', electronicpermit);
+/* ===================== New 4 document tracking routes ROUTES ===================== */
+app.use('/api', fourpermits);
+/* ===================== New 4 document employeedashboard routes ROUTES ===================== */
+app.use('/api', employeedash);
 // Start the server
 app.listen(8081, () => {
   console.log("Server running on port 8081");

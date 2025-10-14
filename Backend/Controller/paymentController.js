@@ -74,8 +74,16 @@ exports.submitPaymentReceipt = async (req, res) => {
       });
     }
 
-    // Get user info first
-    const userInfoQuery = 'SELECT ui.*, l.email FROM tbl_user_info ui JOIN tb_logins l ON ui.user_id = l.user_id WHERE ui.user_id = ?';
+    // FIXED: Get user info with separate name fields
+    const userInfoQuery = `
+      SELECT 
+        ui.*, 
+        l.email,
+        CONCAT(ui.firstname, ' ', COALESCE(ui.middlename, ''), ' ', ui.lastname) as full_name
+      FROM tbl_user_info ui 
+      JOIN tb_logins l ON ui.user_id = l.user_id 
+      WHERE ui.user_id = ?
+    `;
     
     db.query(userInfoQuery, [user_id], async (err, userInfo) => {
       if (err) {
@@ -94,7 +102,7 @@ exports.submitPaymentReceipt = async (req, res) => {
         });
       }
 
-      // FIXED: Check existing payments with proper logic
+      // Check existing payments with proper logic
       const existingPaymentQuery = `
         SELECT * FROM tbl_payment_receipts 
         WHERE user_id = ? AND application_type = ?
@@ -165,9 +173,9 @@ exports.submitPaymentReceipt = async (req, res) => {
             });
           }
 
-          // Get document price (prepare for future database integration)
-          const totalAmount = await getDocumentPrice(application_type);
-          const paymentAmount = calculatePaymentAmount(totalAmount);
+          // Get document price
+          const totalAmount = getDocumentPrice(application_type);
+          const paymentAmount = calculatePaymentAmount(application_type);
 
           // Insert new payment receipt record
           const insertQuery = `INSERT INTO tbl_payment_receipts (
@@ -238,17 +246,18 @@ exports.getPaymentReceipts = (req, res) => {
     const { status, application_type, page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
+    // FIXED: Use separate name fields and CONCAT them
     let query = `
       SELECT 
         pr.*,
-        ui.full_name,
+        CONCAT(ui.firstname, ' ', COALESCE(ui.middlename, ''), ' ', ui.lastname) as full_name,
         ui.address,
         ui.phone_number,
         l.email,
         approver.email as approved_by_email
       FROM tbl_payment_receipts pr
-      JOIN tbl_user_info ui ON pr.user_id = ui.user_id
-      JOIN tb_logins l ON pr.user_id = l.user_id
+      LEFT JOIN tbl_user_info ui ON pr.user_id = ui.user_id
+      LEFT JOIN tb_logins l ON pr.user_id = l.user_id
       LEFT JOIN tb_logins approver ON pr.approved_by = approver.user_id
       WHERE 1=1
     `;
@@ -332,17 +341,20 @@ exports.getUserPaymentReceipts = (req, res) => {
   try {
     const { user_id } = req.params;
 
-    const query = `SELECT 
-      pr.*,
-      ui.full_name,
-      ui.address,
-      ui.phone_number,
-      l.email
-    FROM tbl_payment_receipts pr
-    JOIN tbl_user_info ui ON pr.user_id = ui.user_id
-    JOIN tb_logins l ON pr.user_id = l.user_id
-    WHERE pr.user_id = ?
-    ORDER BY pr.created_at DESC`;
+    // FIXED: Use separate name fields and CONCAT them
+    const query = `
+      SELECT 
+        pr.*,
+        CONCAT(ui.firstname, ' ', COALESCE(ui.middlename, ''), ' ', ui.lastname) as full_name,
+        ui.address,
+        ui.phone_number,
+        l.email
+      FROM tbl_payment_receipts pr
+      LEFT JOIN tbl_user_info ui ON pr.user_id = ui.user_id
+      LEFT JOIN tb_logins l ON pr.user_id = l.user_id
+      WHERE pr.user_id = ?
+      ORDER BY pr.created_at DESC
+    `;
 
     db.query(query, [user_id], (err, receipts) => {
       if (err) {
@@ -417,16 +429,18 @@ exports.updatePaymentStatus = (req, res) => {
         });
       }
 
-      // Get updated receipt info
-      const getUpdatedQuery = `SELECT 
-        pr.*,
-        ui.full_name,
-        ui.phone_number,
-        l.email
-      FROM tbl_payment_receipts pr
-      JOIN tbl_user_info ui ON pr.user_id = ui.user_id
-      JOIN tb_logins l ON pr.user_id = l.user_id
-      WHERE pr.receipt_id = ?`;
+      // FIXED: Get updated receipt info with CONCAT for full name
+      const getUpdatedQuery = `
+        SELECT 
+          pr.*,
+          CONCAT(ui.firstname, ' ', COALESCE(ui.middlename, ''), ' ', ui.lastname) as full_name,
+          ui.phone_number,
+          l.email
+        FROM tbl_payment_receipts pr
+        LEFT JOIN tbl_user_info ui ON pr.user_id = ui.user_id
+        LEFT JOIN tb_logins l ON pr.user_id = l.user_id
+        WHERE pr.receipt_id = ?
+      `;
 
       db.query(getUpdatedQuery, [receipt_id], (err2, updatedReceipt) => {
         if (err2) {
@@ -461,10 +475,12 @@ exports.checkFormAccess = (req, res) => {
   try {
     const { user_id, application_type } = req.params;
 
-    const query = `SELECT * FROM tbl_payment_receipts 
-     WHERE user_id = ? AND application_type = ? 
-     AND payment_status = 'approved' AND form_access_granted = 1 
-     ORDER BY created_at DESC LIMIT 1`;
+    const query = `
+      SELECT * FROM tbl_payment_receipts 
+      WHERE user_id = ? AND application_type = ? 
+      AND payment_status = 'approved' AND form_access_granted = 1 
+      ORDER BY created_at DESC LIMIT 1
+    `;
 
     db.query(query, [user_id, application_type], (err, result) => {
       if (err) {
@@ -510,8 +526,6 @@ exports.checkFormAccess = (req, res) => {
     });
   }
 };
-
-
 
 // Get payment statistics
 exports.getPaymentStats = (req, res) => {
@@ -625,10 +639,11 @@ exports.getDocumentPrices = (req, res) => {
     });
   }
 };
-//--------------this line for tracking in user---------------
+
+// FIXED: Get payment receipts for tracking in user
 exports.getPaymentReceiptsForTracking = async (req, res) => {
   try {
-    // Use session-based authentication like the cedula controller
+    // Use session-based authentication
     if (!req.session?.user?.user_id) {
       return res.status(401).json({ 
         success: false,
@@ -640,39 +655,42 @@ exports.getPaymentReceiptsForTracking = async (req, res) => {
     const userId = req.session.user.user_id;
     console.log('Getting payment receipts for user:', userId);
 
-    const query = `SELECT 
-      pr.receipt_id,
-      pr.user_id,
-      pr.application_type,
-      pr.permit_name,
-      pr.receipt_image,
-      pr.payment_method,
-      pr.payment_amount,
-      pr.payment_percentage,
-      pr.total_document_price,
-      pr.payment_status,
-      pr.admin_notes,
-      pr.approved_by,
-      pr.approved_at,
-      pr.form_access_granted,
-      pr.form_access_used,
-      pr.form_access_used_at,
-      pr.created_at,
-      pr.updated_at,
-      ui.full_name,
-      ui.address,
-      ui.phone_number,
-      l.email,
-      approver.email as approved_by_email,
-      DATE_FORMAT(pr.created_at, '%Y-%m-%d %H:%i:%s') as formatted_created_at,
-      DATE_FORMAT(pr.approved_at, '%Y-%m-%d %H:%i:%s') as formatted_approved_at,
-      (pr.total_document_price - pr.payment_amount) as remaining_amount
-    FROM tbl_payment_receipts pr
-    LEFT JOIN tbl_user_info ui ON pr.user_id = ui.user_id
-    LEFT JOIN tb_logins l ON pr.user_id = l.user_id
-    LEFT JOIN tb_logins approver ON pr.approved_by = approver.user_id
-    WHERE pr.user_id = ?
-    ORDER BY pr.created_at DESC`;
+    // FIXED: Use CONCAT for full_name from separate fields and removed duplicate lines
+    const query = `
+      SELECT 
+        pr.receipt_id,
+        pr.user_id,
+        pr.application_type,
+        pr.permit_name,
+        pr.receipt_image,
+        pr.payment_method,
+        pr.payment_amount,
+        pr.payment_percentage,
+        pr.total_document_price,
+        pr.payment_status,
+        pr.admin_notes,
+        pr.approved_by,
+        pr.approved_at,
+        pr.form_access_granted,
+        pr.form_access_used,
+        pr.form_access_used_at,
+        pr.created_at,
+        pr.updated_at,
+        CONCAT(ui.firstname, ' ', COALESCE(ui.middlename, ''), ' ', ui.lastname) as full_name,
+        ui.address,
+        ui.phone_number,
+        l.email,
+        approver.email as approved_by_email,
+        DATE_FORMAT(pr.created_at, '%Y-%m-%d %H:%i:%s') as formatted_created_at,
+        DATE_FORMAT(pr.approved_at, '%Y-%m-%d %H:%i:%s') as formatted_approved_at,
+        (pr.total_document_price - pr.payment_amount) as remaining_amount
+      FROM tbl_payment_receipts pr
+      LEFT JOIN tbl_user_info ui ON pr.user_id = ui.user_id
+      LEFT JOIN tb_logins l ON pr.user_id = l.user_id
+      LEFT JOIN tb_logins approver ON pr.approved_by = approver.user_id
+      WHERE pr.user_id = ?
+      ORDER BY pr.created_at DESC
+    `;
 
     db.query(query, [userId], (err, receipts) => {
       if (err) {
@@ -686,9 +704,7 @@ exports.getPaymentReceiptsForTracking = async (req, res) => {
       }
 
       console.log('Found payment receipts:', receipts ? receipts.length : 0);
-      console.log('Payment receipts data:', receipts);
 
-      // Return consistent response structure like cedula controller
       res.status(200).json({
         success: true,
         data: receipts || [],
@@ -706,8 +722,8 @@ exports.getPaymentReceiptsForTracking = async (req, res) => {
     });
   }
 };
-// Add this function to your paymentController.js
 
+// Use form access
 exports.useFormAccess = async (req, res) => {
   try {
     // Check if user is authenticated
@@ -831,7 +847,7 @@ exports.useFormAccess = async (req, res) => {
   }
 };
 
-// Also add this function to get form access status (optional, for additional checks)
+// Get form access status
 exports.getFormAccessStatus = async (req, res) => {
   try {
     if (!req.session?.user?.user_id) {

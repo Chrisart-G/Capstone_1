@@ -15,32 +15,51 @@ function DocumentStatusTracker() {
     try {
       console.log('Fetching all permit data...');
       
-      // Fetch all data types
-      const [businessResponse, electricalResponse, cedulaResponse, paymentResponse] = await Promise.all([
-        fetch('http://localhost:8081/api/businesspermits', {
-          credentials: 'include'
-        }),
-        fetch('http://localhost:8081/api/getelectrical-permits', {
-          credentials: 'include'
-        }),
-        fetch('http://localhost:8081/api/cedulas-tracking', {
-          credentials: 'include'
-        }),
-        fetch('http://localhost:8081/api/payments/tracking', {
-          credentials: 'include'
-        })
+      // Fetch all data types (added 4 new permit endpoints)
+      const [
+        businessResponse,
+        electricalResponse,
+        cedulaResponse,
+        paymentResponse,
+
+        // NEW:
+        plumbingResponse,
+        electronicsResponse,
+        buildingResponse,
+        fencingResponse,
+      ] = await Promise.all([
+        fetch('http://localhost:8081/api/businesspermits', { credentials: 'include' }),
+        fetch('http://localhost:8081/api/getelectrical-permits', { credentials: 'include' }),
+        fetch('http://localhost:8081/api/cedulas-tracking', { credentials: 'include' }),
+        fetch('http://localhost:8081/api/payments/tracking', { credentials: 'include' }),
+
+        // NEW endpoints:
+        fetch('http://localhost:8081/api/plumbing-permits-tracking',   { credentials: 'include' }),
+        fetch('http://localhost:8081/api/electronics-permits-tracking',{ credentials: 'include' }),
+        fetch('http://localhost:8081/api/building-permits-tracking',   { credentials: 'include' }),
+        fetch('http://localhost:8081/api/fencing-permits-tracking',    { credentials: 'include' }),
       ]);
       
       // Parse responses
-      const businessData = await businessResponse.json();
-      const electricalData = await electricalResponse.json();
-      const cedulaData = await cedulaResponse.json();
-      const paymentData = await paymentResponse.json();
+      const businessData    = await businessResponse.json();
+      const electricalData  = await electricalResponse.json();
+      const cedulaData      = await cedulaResponse.json();
+      const paymentData     = await paymentResponse.json();
+
+      // NEW parsed data
+      const plumbingData    = await plumbingResponse.json();
+      const electronicsData = await electronicsResponse.json();
+      const buildingData    = await buildingResponse.json();
+      const fencingData     = await fencingResponse.json();
       
       console.log('Business Response:', businessData);
       console.log('Electrical Response:', electricalData);
       console.log('Cedula Response:', cedulaData);
       console.log('Payment Response:', paymentData);
+      console.log('Plumbing Response:', plumbingData);
+      console.log('Electronics Response:', electronicsData);
+      console.log('Building Response:', buildingData);
+      console.log('Fencing Response:', fencingData);
       
       let allApplications = [];
       
@@ -140,10 +159,94 @@ function DocumentStatusTracker() {
         console.log('Transformed payments:', transformedPayments);
       } else {
         console.log('No payment data found or invalid structure:', paymentData);
-        // Check if there's an error in the response
         if (paymentData && !paymentData.success) {
           console.log('Payment API error:', paymentData.message);
         }
+      }
+
+      // ---------------------------
+      // NEW: Transform plumbing permits
+      // ---------------------------
+      if (plumbingData && plumbingData.success && Array.isArray(plumbingData.permits) && plumbingData.permits.length > 0) {
+        const transformedPlumbing = plumbingData.permits.map(p => ({
+          id: `plumbing_${p.id}`,
+          title: `Plumbing Permit - ${p.first_name} ${p.last_name}`,
+          type: 'Plumbing Permit',
+          status: p.status,
+          email: '',
+          applicationDate: new Date(p.created_at).toLocaleString(),
+          createdAt: new Date(p.created_at).toLocaleString(),
+          applicationNo: p.application_no,
+          ppNo: p.pp_no,
+          scopeOfWork: p.scope_of_work,
+          applicationType: 'plumbing',
+          steps: transformStatusToSteps(p.status)
+        }));
+        allApplications = [...allApplications, ...transformedPlumbing];
+      }
+
+      // ---------------------------
+      // NEW: Transform electronics permits
+      // ---------------------------
+      if (electronicsData && electronicsData.success && Array.isArray(electronicsData.permits) && electronicsData.permits.length > 0) {
+        const transformedElectronics = electronicsData.permits.map(p => ({
+          id: `electronics_${p.id}`,
+          title: `Electronics Permit - ${p.first_name} ${p.last_name}`,
+          type: 'Electronics Permit',
+          status: p.status,
+          email: '',
+          applicationDate: new Date(p.created_at).toLocaleString(),
+          createdAt: new Date(p.created_at).toLocaleString(),
+          applicationNo: p.application_no,
+          epNo: p.ep_no,
+          scopeOfWork: p.scope_of_work,
+          applicationType: 'electronics',
+          steps: transformStatusToSteps(p.status)
+        }));
+        allApplications = [...allApplications, ...transformedElectronics];
+      }
+
+      // ---------------------------
+      // NEW: Transform building permits
+      // ---------------------------
+      if (buildingData && buildingData.success && Array.isArray(buildingData.permits) && buildingData.permits.length > 0) {
+        const transformedBuilding = buildingData.permits.map(p => ({
+          id: `building_${p.id}`,
+          title: `Building Permit - ${p.first_name} ${p.last_name}`,
+          type: 'Building Permit',
+          status: p.status,
+          email: '',
+          applicationDate: new Date(p.created_at).toLocaleString(),
+          createdAt: new Date(p.created_at).toLocaleString(),
+          applicationNo: p.application_no,
+          bpNo: p.bp_no,
+          buildingPermitNo: p.building_permit_no,
+          scopeOfWork: p.scope_of_work,
+          applicationType: 'building',
+          steps: transformStatusToSteps(p.status)
+        }));
+        allApplications = [...allApplications, ...transformedBuilding];
+      }
+
+      // ---------------------------
+      // NEW: Transform fencing permits
+      // ---------------------------
+      if (fencingData && fencingData.success && Array.isArray(fencingData.permits) && fencingData.permits.length > 0) {
+        const transformedFencing = fencingData.permits.map(p => ({
+          id: `fencing_${p.id}`,
+          title: `Fencing Permit - ${p.first_name} ${p.last_name}`,
+          type: 'Fencing Permit',
+          status: p.status,
+          email: '',
+          applicationDate: new Date(p.created_at).toLocaleString(),
+          createdAt: new Date(p.created_at).toLocaleString(),
+          applicationNo: p.application_no,
+          fpNo: p.fp_no,
+          scopeOfWork: p.scope_of_work,
+          applicationType: 'fencing',
+          steps: transformStatusToSteps(p.status)
+        }));
+        allApplications = [...allApplications, ...transformedFencing];
       }
       
       // Sort all applications by creation date (most recent first)
@@ -192,20 +295,21 @@ function DocumentStatusTracker() {
   };
 
   // Function to handle accessing form
- const handleAccessForm = async (application) => {
-  try {
-    // Simply navigate to the appropriate form without updating form_access_used
-    const formRoute = getFormRoute(application.applicationType);
-    if (formRoute) {
-      navigate(formRoute);
-    } else {
-      alert('Form route not found for this application type');
+  const handleAccessForm = async (application) => {
+    try {
+      // Simply navigate to the appropriate form without updating form_access_used
+      const formRoute = getFormRoute(application.applicationType);
+      if (formRoute) {
+        navigate(formRoute);
+      } else {
+        alert('Form route not found for this application type');
+      }
+    } catch (error) {
+      console.error('Error accessing form:', error);
+      alert('Failed to access form. Please try again.');
     }
-  } catch (error) {
-    console.error('Error accessing form:', error);
-    alert('Failed to access form. Please try again.');
-  }
-};
+  };
+
   // Function to transform the status into a steps array
   function transformStatusToSteps(status) {
     const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '').replace(/-/g, '');
@@ -359,12 +463,21 @@ function DocumentStatusTracker() {
     }
   }
 
+  // Extended with new permit types (kept existing styles)
   function getPermitTypeBadgeColor(type) {
     switch(type) {
       case 'Business Permit':
         return "bg-blue-100 text-blue-800";
       case 'Electrical Permit':
         return "bg-orange-100 text-orange-800";
+      case 'Electronics Permit':
+        return "bg-teal-100 text-teal-800";
+      case 'Building Permit':
+        return "bg-amber-100 text-amber-800";
+      case 'Plumbing Permit':
+        return "bg-cyan-100 text-cyan-800";
+      case 'Fencing Permit':
+        return "bg-lime-100 text-lime-800";
       case 'Cedula':
         return "bg-green-100 text-green-800";
       case 'Payment Receipt':
@@ -461,9 +574,13 @@ function DocumentStatusTracker() {
                       </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
-                      <span>ID: {application.id.replace(/^(business_|electrical_|cedula_|payment_)/, '')}</span>
+                      <span>ID: {application.id.replace(/^(business_|electrical_|cedula_|payment_|plumbing_|electronics_|building_|fencing_)/, '')}</span>
                       {application.applicationNo && <span>App No: {application.applicationNo}</span>}
                       {application.epNo && <span>EP No: {application.epNo}</span>}
+                      {application.bpNo && <span>BP No: {application.bpNo}</span>}
+                      {application.ppNo && <span>PP No: {application.ppNo}</span>}
+                      {application.fpNo && <span>FP No: {application.fpNo}</span>}
+                      {application.buildingPermitNo && <span>Building Permit No: {application.buildingPermitNo}</span>}
                       {application.applicationType && <span>Type: {application.applicationType}</span>}
                       {application.receiptId && <span>Receipt ID: {application.receiptId}</span>}
                       <span>Applied: {application.applicationDate}</span>
