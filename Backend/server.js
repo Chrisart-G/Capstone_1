@@ -79,6 +79,8 @@ const electronicpermit = require('./routes/electronicpermitRoutes')
 const fourpermits = require('./routes/permitstrackingRoutes')
 const employeedash = require('./routes/employeedashRoutes')
 const documentstorage = require('./routes/documentstorageRoutes')
+const employeesidebarRoutes = require("./routes/employeesidebarRoutes");
+const usernavRoutes = require('./routes/usernavRoutes');
 /* ===================== USE ROUTES ===================== */
 app.use('/api/auth', authRoutes);
 app.use('/api', businessPermitRoutes, cedulaRoutes);
@@ -108,6 +110,10 @@ app.use('/api', fourpermits);
 app.use('/api', employeedash);
 /* ===================== Admin Requirements storage  routes ROUTES ===================== */
 app.use('/api/document-storage', documentstorage);
+/* =====================employee sidebar routes ROUTES ===================== */
+app.use("/api", employeesidebarRoutes);
+
+app.use('/api', usernavRoutes);
 // Start the server
 app.listen(8081, () => {
   console.log("Server running on port 8081");
