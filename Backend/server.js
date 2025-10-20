@@ -6,8 +6,8 @@ const fileUpload = require('express-fileupload');
 
 const app = express();
 
-// Serve uploads folder
-app.use('/uploads', express.static('uploads'));
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // File upload middleware
 app.use(fileUpload());
@@ -78,6 +78,7 @@ const fencingpermit = require('./routes/fencingPermitRoutes')
 const electronicpermit = require('./routes/electronicpermitRoutes')
 const fourpermits = require('./routes/permitstrackingRoutes')
 const employeedash = require('./routes/employeedashRoutes')
+const documentstorage = require('./routes/documentstorageRoutes')
 /* ===================== USE ROUTES ===================== */
 app.use('/api/auth', authRoutes);
 app.use('/api', businessPermitRoutes, cedulaRoutes);
@@ -105,6 +106,8 @@ app.use('/api', electronicpermit);
 app.use('/api', fourpermits);
 /* ===================== New 4 document employeedashboard routes ROUTES ===================== */
 app.use('/api', employeedash);
+/* ===================== Admin Requirements storage  routes ROUTES ===================== */
+app.use('/api/document-storage', documentstorage);
 // Start the server
 app.listen(8081, () => {
   console.log("Server running on port 8081");

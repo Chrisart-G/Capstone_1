@@ -9,13 +9,13 @@ import {
   CedulaModalContent,
   ElectricalPermitModalContent,
   BusinessPermitModalContent,
-  AttachRequirementsModal,
   // NEW:
   PlumbingPermitModalContent,
   ElectronicsPermitModalContent,
   BuildingPermitModalContent,
   FencingPermitModalContent
 } from '../modals/ModalContents';
+import AttachRequirementFromLibraryModal from '../modals/AttachRequirementFromLibraryModal';
 
 const API_BASE_URL = "http://localhost:8081";
 
@@ -27,11 +27,12 @@ export default function EmployeeDashboard() {
   const [userData, setUserData] = useState(null);
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [showAttachModal, setShowAttachModal] = useState(false);
+
   const [showPickupModal, setShowPickupModal] = useState(false);
   const [pickupTarget, setPickupTarget] = useState(null);
   const [pickupSchedule, setPickupSchedule] = useState("");
-
+  const [attachOpen, setAttachOpen] = useState(false);
+const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicationId: null });
   const [applications, setApplications] = useState({
     pending: [],
     inReview: [],
@@ -795,13 +796,21 @@ export default function EmployeeDashboard() {
 
                     {/* Attach Requirements - only for in-review */}
                     {(application.status === "in-review" || application.application_status === "in-review") && (
-                      <button
-                        onClick={() => setShowAttachModal(true)}
-                        className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
-                      >
-                        Attach Requirements
-                      </button>
-                    )}
+  <button
+    onClick={() => {
+      const appId = application.id || application.cedula_id;
+      setAttachTarget({
+        applicationType: application.type || 'Electrical Permit',
+        applicationId: appId
+      });
+      setAttachOpen(true);
+    }}
+    className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+  >
+    Attach Requirements
+  </button>
+)}
+
 
                     {(application.status === "in-review" || application.application_status === "in-review") && (
                       <button
@@ -1139,7 +1148,23 @@ export default function EmployeeDashboard() {
             </div>
           )}
 
-          {showAttachModal && <AttachRequirementsModal onClose={() => setShowAttachModal(false)} />}
+          <AttachRequirementFromLibraryModal
+  open={attachOpen}
+  onClose={() => setAttachOpen(false)}
+  applicationType={attachTarget.applicationType}
+  applicationId={attachTarget.applicationId}
+  onAttached={() => {
+    // after attach, refresh lists if you want
+    fetchApplications();
+    fetchElectricalApplications();
+    fetchCedulaApplications();
+    fetchPlumbingApplications();
+    fetchElectronicsApplications();
+    fetchBuildingApplications();
+    fetchFencingApplications();
+  }}
+/>
+
         </div>
       </main>
     </div>

@@ -11,6 +11,78 @@ function DocumentStatusTracker() {
   const [expandedCards, setExpandedCards] = useState({});
   const navigate = useNavigate();
 
+  // ---------- NEW: requirements state + helpers ----------
+  const [requirementsByApp, setRequirementsByApp] = useState({}); // { [application.id]: { loading, items } }
+
+  const TYPE_TO_APP = {
+    'Business Permit': 'business',
+    'Electrical Permit': 'electrical',
+    'Plumbing Permit': 'plumbing',
+    'Electronics Permit': 'electronics',
+    'Building Permit': 'building',
+    'Fencing Permit': 'fencing',
+    'Cedula': 'cedula'
+  };
+
+  function parseAppId(str) {
+    const parts = String(str || '').split('_');
+    const n = parts.length > 1 ? Number(parts[1]) : NaN;
+    return Number.isFinite(n) ? n : null;
+  }
+
+  async function loadRequirementsForApplication(application) {
+    const appType = TYPE_TO_APP[application.type] || application.applicationType || '';
+    const appId = parseAppId(application.id);
+    if (!appType || !appId) return;
+
+    setRequirementsByApp(prev => ({ ...prev, [application.id]: { loading: true, items: prev[application.id]?.items || [] }}));
+
+    try {
+      const q = new URLSearchParams({ application_type: appType, application_id: String(appId) });
+      const r = await fetch(`http://localhost:8081/api/user/requirements?${q.toString()}`, { credentials: 'include' });
+      const j = await r.json();
+      if (j.success) {
+        setRequirementsByApp(prev => ({ ...prev, [application.id]: { loading: false, items: j.items }}));
+      } else {
+        setRequirementsByApp(prev => ({ ...prev, [application.id]: { loading: false, items: [] }}));
+      }
+    } catch (e) {
+      console.error(e);
+      setRequirementsByApp(prev => ({ ...prev, [application.id]: { loading: false, items: [] }}));
+    }
+  }
+
+  async function uploadUserRequirement(application, requirement_id, file) {
+    const appType = TYPE_TO_APP[application.type] || application.applicationType || '';
+    const appId = parseAppId(application.id);
+    if (!appType || !appId || !file) return;
+
+    const fd = new FormData();
+    fd.append('application_type', appType);
+    fd.append('application_id', String(appId));
+    fd.append('requirement_id', String(requirement_id));
+    fd.append('file', file);
+
+    try {
+      const r = await fetch('http://localhost:8081/api/user/requirements/upload', {
+        method: 'POST',
+        body: fd,
+        credentials: 'include'
+      });
+      const j = await r.json();
+      if (j.success) {
+        await loadRequirementsForApplication(application);
+        alert('File uploaded.');
+      } else {
+        alert(j.message || 'Upload failed.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Server error.');
+    }
+  }
+  // ---------- END NEW ----------
+
   const fetchAllPermitData = async () => {
     try {
       console.log('Fetching all permit data...');
@@ -488,10 +560,18 @@ function DocumentStatusTracker() {
   }
 
   const toggleCard = (applicationId) => {
-    setExpandedCards(prev => ({
-      ...prev,
-      [applicationId]: !prev[applicationId]
-    }));
+    setExpandedCards(prev => {
+      const opening = !prev[applicationId];
+      const next = { ...prev, [applicationId]: opening };
+      // when opening, lazy-load requirements if not loaded
+      if (opening) {
+        const app = applications.find(a => a.id === applicationId);
+        if (app && !requirementsByApp[applicationId]) {
+          loadRequirementsForApplication(app);
+        }
+      }
+      return next;
+    });
   };
 
   if (loading) {
@@ -837,6 +917,76 @@ function DocumentStatusTracker() {
                       </div>
                     ))}
                   </div>
+
+                  {/* ---------- NEW: Requirements block ---------- */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h3 className="font-medium text-gray-800 mb-3 flex items-center">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Requirements
+                    </h3>
+                    {(() => {
+                      const reqState = requirementsByApp[application.id];
+                      if (!reqState || reqState.loading) {
+                        return <div className="text-sm text-gray-500">Loading requirements…</div>;
+                      }
+                      if (!reqState.items || reqState.items.length === 0) {
+                        return <div className="text-sm text-gray-500">No requirements have been attached yet.</div>;
+                      }
+                      return (
+                        <div className="bg-white border rounded">
+                          <div className="grid grid-cols-12 bg-gray-100 text-xs text-gray-600 font-semibold px-3 py-2">
+                            <div className="col-span-5">Name</div>
+                            <div className="col-span-3">Template</div>
+                            <div className="col-span-4">Your Upload</div>
+                          </div>
+                          <div className="max-h-72 overflow-y-auto">
+                            {reqState.items.map(item => (
+                              <div key={item.requirement_id} className="grid grid-cols-12 items-center px-3 py-2 border-t text-sm">
+                                <div className="col-span-5">
+                                  <div className="font-medium">{item.name}</div>
+                                  <div className="text-xs text-gray-500">Attached: {item.uploaded_at ? new Date(item.uploaded_at).toLocaleString() : ''}</div>
+                                </div>
+                                <div className="col-span-3">
+                                  {item.template_url ? (
+                                    <a href={item.template_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                                      Download template
+                                    </a>
+                                  ) : (
+                                    <span className="text-gray-400">—</span>
+                                  )}
+                                </div>
+                                <div className="col-span-4">
+                                  {item.user_file_url ? (
+                                    <div className="flex items-center gap-2">
+                                      <a href={item.user_file_url} target="_blank" rel="noreferrer" className="text-green-600 hover:underline">
+                                        View your file
+                                      </a>
+                                      <span className="text-xs text-gray-500">
+                                        ({item.user_uploaded_at ? new Date(item.user_uploaded_at).toLocaleString() : ''})
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="file"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) uploadUserRequirement(application, item.requirement_id, file);
+                                          e.target.value = "";
+                                        }}
+                                      />
+                                      <span className="text-xs text-gray-500">PDF/JPG/PNG</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  {/* ---------- END NEW ---------- */}
 
                   {/* Additional Information Section */}
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">

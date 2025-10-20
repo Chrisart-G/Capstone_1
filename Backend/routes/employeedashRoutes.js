@@ -46,4 +46,13 @@ router.put('/electronics-applications/set-pickup', isAuthenticated, C.electronic
 router.put('/building-applications/set-pickup', isAuthenticated, C.buildingSetPickup);
 router.put('/fencing-applications/set-pickup', isAuthenticated, C.fencingSetPickup);
 
+
+// Requirements library + attach (from system, not local upload)
+router.get('/requirements-library', isAuthenticated, C.listRequirementLibrary);
+router.post('/attach-requirement', isAuthenticated, C.attachRequirementFromLibrary);
+router.get('/attached-requirements', isAuthenticated, C.getAttachedRequirements);
+// Comments on application
+router.get('/application-comments', isAuthenticated, C.getApplicationComments);
+router.post('/application-comments', isAuthenticated, C.addApplicationComment);
+
 module.exports = router;
