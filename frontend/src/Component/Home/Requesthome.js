@@ -65,6 +65,7 @@ const PermitsHomepage = () => {
     "Fencing Permit": "/FencingPermitForm",
     "Electronics Permit": "/ElectronicsPermitForm",
     "Renewal Business Permit": "/RenewalBusinessPermit",
+    "Zoning Permit": "/ZoningApplicationForm",
   };
 
   // Map permit names to application types
@@ -78,6 +79,7 @@ const PermitsHomepage = () => {
     "Fencing Permit": "fencing",
     "Electronics Permit": "electronics",
     "Renewal Business Permit": "renewal_business",
+    "Zoning Permit": "zoning",
   };
 
   // Check if user has form access before opening modal

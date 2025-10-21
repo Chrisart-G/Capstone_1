@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import Logins from './Component/Logins/Login';
 import Singnup from './Component/Signup/Signup';
 import MunicipalLandingPage from './Component/Home/Home';
-import BusinessPermitForm from './Component/Form/businesspermit/businesspermit';
+import BusinessPermitForm from './Component/Form/Businesspermit/businesspermit';
 import PermitsHomepage from './Component/Home/Requesthome';
 import AdminDashboard from './Component/Adminhomepage/Adminhome';
 import ProtectedRoute from './Component/Auth/ProtectedRoute'; 
@@ -29,6 +29,7 @@ import AdminNotificationPage from './Component/Adminnotification/adminnotificati
 import DocumentRequirementsManager from './Component/Admindocumentrequirments/admindocumentrequirments';
 import RenewalBusinessPermitForm from './Component/Form/RenewalBusinessPermit/renewalbusinesspermit';
 import Paymentverification from './Component/Employeedashboard/employeepaymentverification'
+import ZoningApplicationForm from './Component/Form/Zoningpermit/zoningpermit';
 function App() {
   return (
     <div className="App">
@@ -78,6 +79,11 @@ function App() {
           <Route path="/BuildingPermitForm" element={
             <ProtectedRoute>
               <BuildingPermitForm/>
+            </ProtectedRoute>
+          } />
+          <Route path="/ZoningApplicationForm" element={
+            <ProtectedRoute>
+              <ZoningApplicationForm/>
             </ProtectedRoute>
           } />
           <Route path="/Permits" element={
