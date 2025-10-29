@@ -1,5 +1,7 @@
 // Controller/employeedashController.js
 const db = require('../db/dbconnect');
+const axios = require("axios");
+const { IPROG_API_TOKEN, SMS_ENABLED = "true" } = process.env;
 
 /**
  * Helper: check auth
@@ -12,11 +14,193 @@ function requireAuth(req, res) {
   return true;
 }
 
-/**
- * ---- GET LISTS (Employee View) ----
- * Each query LEFT JOINs tb_logins to expose email to the dashboard.
- * Uses consistent shape: { id, type, name, status, submitted, email, user_id, ...raw }
- */
+// ====================== SMS CORE (embedded) ======================
+
+
+// quick db->promise helper (keeps rest of your controller untouched)
+function q(sql, params = []) {
+  return new Promise((resolve, reject) =>
+    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+  );
+}
+
+// feature flag from DB (fallback to .env)
+async function getSmsEnabledFlag() {
+  try {
+    const rows = await q('SELECT v FROM system_settings WHERE k="sms_enabled" LIMIT 1');
+    if (rows && rows[0]) return rows[0].v === "true";
+  } catch (_) {}
+  return String(SMS_ENABLED).toLowerCase() === "true";
+}
+
+// normalize to 639xxxxxxxxx
+function normPhone(raw) {
+  if (!raw) return null;
+  let s = String(raw).replace(/\D/g, "");
+  if (s.startsWith("09")) s = "63" + s.slice(1);
+  else if (s.startsWith("9") && s.length === 10) s = "63" + s;
+  else if (s.startsWith("0") && s.length === 11) s = "63" + s.slice(1);
+  else if (s.startsWith("+63")) s = s.replace("+", "");
+  return s;
+}
+
+// send via IPROG (docs: POST with query params)
+async function iprogSend({ phone, message }) {
+  const url = "https://sms.iprogtech.com/api/v1/sms_messages";
+  const params = {
+    api_token: IPROG_API_TOKEN,
+    phone_number: normPhone(phone),
+    message: String(message || "").slice(0, 306),
+  };
+
+  console.log("[SMS] SEND →", { url, params });
+  const res = await axios.post(url, null, {
+    params,
+    timeout: 15000,
+    validateStatus: () => true,
+  });
+  console.log("[SMS] SEND ←", res.status, res.data);
+
+  if (res.status >= 200 && res.status < 300) return res.data;
+  const err = new Error("IPROG send failed");
+  err.response = res;
+  throw err;
+}
+
+// optional: credits check for quick debugging
+async function iprogCredits() {
+  const url = "https://sms.iprogtech.com/api/v1/account/sms_credits";
+  const res = await axios.get(url, {
+    params: { api_token: IPROG_API_TOKEN },
+    timeout: 10000,
+    validateStatus: () => true,
+  });
+  console.log("[SMS] CREDITS ←", res.status, res.data);
+  return res.data;
+}
+
+// map you already have
+const TABLE_TO_TYPE = {
+  "tbl_plumbing_permits": "plumbing",
+  "tbl_electronics_permits": "electronics",
+  "tbl_building_permits": "building",
+  "tbl_fencing_permits": "fencing",
+};
+const OFFICE_BY_TYPE = {
+  plumbing: "Office of the Municipal Engineer",
+  electronics: "Office of the Municipal Engineer",
+  building: "Office of the Building Official",
+  fencing: "Office of the Municipal Engineer",
+};
+
+// helpers to fetch phone
+async function getUserPhoneByUserId(userId) {
+  const rows = await q("SELECT phone_number FROM tbl_user_info WHERE user_id=? LIMIT 1", [userId]);
+  return rows?.[0]?.phone_number || null;
+}
+async function getUserIdFromTableRow(table, id) {
+  const rows = await q(`SELECT user_id FROM ${table} WHERE id=? LIMIT 1`, [id]);
+  return rows?.[0]?.user_id || null;
+}
+async function getApplicationNo(table, id) {
+  const rows = await q(`SELECT application_no FROM ${table} WHERE id=? LIMIT 1`, [id]);
+  return rows?.[0]?.application_no || null;
+}
+
+function buildStatusMessage({ officeName, applicationTypeLabel, applicationNo, newStatus, extraNote }) {
+  const lines = [
+    officeName || "Municipality",
+    `${applicationTypeLabel || "Application"} ${applicationNo ? `#${applicationNo}` : ""}`.trim(),
+    `Status: ${newStatus}`,
+    extraNote || "Login to your account for details.",
+  ].filter(Boolean);
+  return lines.join("\n").slice(0, 306);
+}
+
+// 🔔 core: fire SMS after a status change (called by updateStatus)
+async function fireSmsFor(table, id, status, schedule) {
+  try {
+    const smsOn = await getSmsEnabledFlag();
+    if (!smsOn) {
+      console.log("[SMS] Skipped (disabled)");
+      return;
+    }
+
+    const application_type = TABLE_TO_TYPE[table];
+    if (!application_type) return;
+
+    // user + phone
+    const userId = await getUserIdFromTableRow(table, id);
+    if (!userId) {
+      console.log("[SMS] No user_id for", table, id);
+      return;
+    }
+    const phone = await getUserPhoneByUserId(userId);
+    if (!phone) {
+      console.log("[SMS] No phone for user", userId);
+      return;
+    }
+
+    const application_no = await getApplicationNo(table, id);
+    const office_name = OFFICE_BY_TYPE[application_type] || "Municipal Office";
+    const extra_note = (function noteForStatus(status, schedule) {
+      switch (status) {
+        case "in-review":
+          return "Your application is under review. Please monitor your requirements in the portal.";
+        case "in-progress":
+          return "Requirements are pending. Upload the needed files to continue.";
+        case "requirements-completed":
+          return "All requirements received. Await final approval.";
+        case "approved":
+          return "Approved. Watch your portal for pickup instructions.";
+        case "ready-for-pickup":
+          return schedule ? `Ready for pickup on ${schedule}. Bring a valid ID.` : "Ready for pickup. Bring a valid ID.";
+        case "rejected":
+          return "Not approved. See details in your portal.";
+        default:
+          return "See your account for details.";
+      }
+    })(status, schedule);
+
+    const label = application_type.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+    const message = buildStatusMessage({
+      officeName: office_name,
+      applicationTypeLabel: label,
+      applicationNo: application_no,
+      newStatus: status,
+      extraNote: extra_note,
+    });
+
+    console.log("[SMS] Will send →", { application_type, id, userId, phone: normPhone(phone), status });
+    await iprogSend({ phone, message });
+  } catch (e) {
+    console.error("[SMS] fireSmsFor error:", e?.response?.status, e?.response?.data || e);
+  }
+}
+
+// ===== Debug endpoints (exported below; add routes) =====
+exports.smsCredits = async (req, res) => {
+  try {
+    const data = await iprogCredits();
+    res.json({ success: true, data });
+  } catch (e) {
+    console.error("[SMS] credits error:", e?.response?.status, e?.response?.data || e);
+    res.status(500).json({ success: false, message: "Credits check failed" });
+  }
+};
+exports.smsTest = async (req, res) => {
+  try {
+    const { phone, message } = req.body || {};
+    if (!phone || !message) return res.status(400).json({ success: false, message: "phone and message required" });
+    await iprogSend({ phone, message });
+    res.json({ success: true, phone: normPhone(phone) });
+  } catch (e) {
+    console.error("[SMS] test error:", e?.response?.status, e?.response?.data || e);
+    res.status(500).json({ success: false, message: "SMS send failed" });
+  }
+};
+// ==================== END SMS CORE ====================
+
 
 // PLUMBING
 exports.getAllPlumbingPermitsForEmployee = (req, res) => {
@@ -229,22 +413,31 @@ exports.getFencingById = (req, res) => {
 
 // generic helper to update status on a table by id
 function updateStatus(res, table, id, status, schedule) {
-  const hasSchedule = typeof schedule !== 'undefined' && schedule !== null;
+  console.log("[STATUS] updateStatus called →", { table, id, status, schedule });
+
+  const hasSchedule = typeof schedule !== "undefined" && schedule !== null;
   const sql = hasSchedule
     ? `UPDATE ${table} SET status = ?, pickup_schedule = ?, updated_at = NOW() WHERE id = ?`
     : `UPDATE ${table} SET status = ?, updated_at = NOW() WHERE id = ?`;
-
   const params = hasSchedule ? [status, schedule, id] : [status, id];
 
   db.query(sql, params, (err, result) => {
     if (err) {
-      console.error(`Failed to update ${table}:`, err);
-      return res.status(500).json({ success: false, message: 'Failed to update' });
+      console.error(`[STATUS] Failed to update ${table}:`, err);
+      return res.status(500).json({ success: false, message: "Failed to update" });
     }
     if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: 'Record not found' });
+      console.warn("[STATUS] No rows affected →", { table, id });
+      return res.status(404).json({ success: false, message: "Record not found" });
     }
+
+    // respond to UI immediately
     res.json({ success: true, message: `Moved to ${status}` });
+
+    // SMS in background (won't block UI)
+    fireSmsFor(table, id, status, schedule)
+      .then(() => console.log("[SMS] done for", { table, id, status }))
+      .catch((e) => console.error("[SMS] background error:", e?.response?.data || e));
   });
 }
 
@@ -360,6 +553,7 @@ exports.fencingSetPickup = (req, res) => {
   const { applicationId, schedule } = req.body;
   updateStatus(res, 'tbl_fencing_permits', applicationId, 'ready-for-pickup', schedule);
 };
+
 // ========================= REQUIREMENTS LIBRARY (EMPLOYEE) =========================
 
 // GET /requirements-library?permit_type=&office_id=&category_id=&q=
@@ -427,7 +621,6 @@ exports.listRequirementLibrary = (req, res) => {
 
 // POST /attach-requirement
 // Body: { application_type, application_id, doc_requirement_id }
-// POST /attach-requirement
 // --- AUTO-HEAL: ensure the (application_type, application_id) exists in application_index
 function ensureAppIndexed(appType, appId, cb) {
   const map = {
@@ -603,8 +796,6 @@ exports.attachRequirementFromLibrary = (req, res) => {
     proceed(idxRows[0]);
   });
 };
-
-
 
 // GET /attached-requirements?application_type=&application_id=
 exports.getAttachedRequirements = (req, res) => {

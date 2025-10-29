@@ -7,7 +7,7 @@ const loginController = require('../Controller/loginController');
 const SignupControler = require('../Controller/signupController');
 const BuspermitController = require('../Controller/buspermitController');
 const addemployeeController = require('../Controller/addemployeeController');
-const employeeController = require('../controller/viewemployeeController');
+
 const officeManagementController = require('../Controller/officeManagementController');
 const applicationController = require('../Controller/applicationController'); 
 const electricalPermitController = require('../Controller/electricalPermitController');

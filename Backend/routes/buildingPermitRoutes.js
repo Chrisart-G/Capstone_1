@@ -14,13 +14,6 @@ router.get('/getbuilding-permits', buildingPermitController.getAllBuildingPermit
 
 
 
-// Update building permit status (accept/reject)
-router.put('/building-applications/:id/accept', buildingPermitController.updateBuildingPermitStatus);
 
-// Move building permit through workflow stages
-router.put('/building-applications/move-to-inprogress', buildingPermitController.moveBuildingToInProgress);
-router.put('/building-applications/move-to-requirements-completed', buildingPermitController.moveBuildingToRequirementsCompleted);
-router.put('/building-applications/move-to-approved', buildingPermitController.moveBuildingToApproved);
-router.put('/building-applications/set-pickup', buildingPermitController.moveBuildingToReadyForPickup);
 
 module.exports = router;

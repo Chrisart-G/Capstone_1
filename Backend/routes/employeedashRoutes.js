@@ -54,5 +54,7 @@ router.get('/attached-requirements', isAuthenticated, C.getAttachedRequirements)
 // Comments on application
 router.get('/application-comments', isAuthenticated, C.getApplicationComments);
 router.post('/application-comments', isAuthenticated, C.addApplicationComment);
-
+//--------------for sms
+router.get('/sms/credits', isAuthenticated, C.smsCredits);
+router.post('/sms/test', isAuthenticated, C.smsTest);
 module.exports = router;

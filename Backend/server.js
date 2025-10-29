@@ -3,6 +3,7 @@ const cors = require('cors');
 const session = require('express-session');
 const db = require('./db/dbconnect');
 const fileUpload = require('express-fileupload');
+require('dotenv').config();
 
 const app = express();
 
@@ -112,8 +113,10 @@ app.use('/api', employeedash);
 app.use('/api/document-storage', documentstorage);
 /* =====================employee sidebar routes ROUTES ===================== */
 app.use("/api", employeesidebarRoutes);
-
 app.use('/api', usernavRoutes);
+/* ===================== SMS routes ROUTES ===================== */
+const smsRoutes = require('./routes/smsRoutes');
+app.use('/api/sms', smsRoutes);
 // Start the server
 app.listen(8081, () => {
   console.log("Server running on port 8081");

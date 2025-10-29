@@ -1,4 +1,171 @@
+// Controller/employeepaymentverification.js
 const db = require('../db/dbconnect');
+
+// ====== SMS CORE (added) ======
+const axios = require("axios");
+const { IPROG_API_TOKEN, SMS_ENABLED = "true" } = process.env;
+
+// tiny db->promise helper (safe to reuse)
+function q(sql, params = []) {
+  return new Promise((resolve, reject) =>
+    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+  );
+}
+
+// feature flag from DB (fallback to .env)
+async function getSmsEnabledFlag() {
+  try {
+    const rows = await q('SELECT v FROM system_settings WHERE k="sms_enabled" LIMIT 1');
+    if (rows && rows[0]) return rows[0].v === "true";
+  } catch (_) {}
+  return String(SMS_ENABLED).toLowerCase() === "true";
+}
+
+// normalize to 639xxxxxxxxx
+function normPhone(raw) {
+  if (!raw) return null;
+  let s = String(raw).replace(/\D/g, "");
+  if (s.startsWith("09")) s = "63" + s.slice(1);
+  else if (s.startsWith("9") && s.length === 10) s = "63" + s;
+  else if (s.startsWith("0") && s.length === 11) s = "63" + s.slice(1);
+  else if (s.startsWith("+63")) s = s.replace("+", "");
+  return s;
+}
+
+// peso formatter (tolerant)
+function formatPHP(n) {
+  const num = Number(n || 0);
+  try {
+    return num.toLocaleString("en-PH", { style: "currency", currency: "PHP", minimumFractionDigits: 2 });
+  } catch {
+    return "₱" + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+}
+
+// send via IPROG
+async function iprogSend({ phone, message }) {
+  const url = "https://sms.iprogtech.com/api/v1/sms_messages";
+  const params = {
+    api_token: IPROG_API_TOKEN,
+    phone_number: normPhone(phone),
+    message: String(message || "").slice(0, 306),
+  };
+
+  console.log("[SMS] SEND →", { url, params });
+  const res = await axios.post(url, null, {
+    params,
+    timeout: 15000,
+    validateStatus: () => true,
+  });
+  console.log("[SMS] SEND ←", res.status, res.data);
+
+  if (res.status >= 200 && res.status < 300) return res.data;
+  const err = new Error("IPROG send failed");
+  err.response = res;
+  throw err;
+}
+
+// optional credits checker (not wired to routes here)
+async function iprogCredits() {
+  const url = "https://sms.iprogtech.com/api/v1/account/sms_credits";
+  const res = await axios.get(url, {
+    params: { api_token: IPROG_API_TOKEN },
+    timeout: 10000,
+    validateStatus: () => true,
+  });
+  console.log("[SMS] CREDITS ←", res.status, res.data);
+  return res.data;
+}
+
+// Build concise payment message
+function buildPaymentMessage({ permit_name, application_type, payment_amount, payment_percentage, total_document_price, status, admin_notes }) {
+  const lines = [
+    "Municipal Payments",
+    `${permit_name || "Permit"} ${application_type ? `(${application_type})` : ""}`.trim(),
+    `Status: ${status === 'approved' ? 'Approved' : 'Rejected'}`,
+  ];
+
+  const amountLine = (() => {
+    const parts = [];
+    if (payment_amount != null) parts.push(`Paid: ${formatPHP(payment_amount)}`);
+    if (total_document_price != null) parts.push(`of ${formatPHP(total_document_price)}`);
+    if (payment_percentage != null) parts.push(`(${Number(payment_percentage)}%)`);
+    return parts.length ? parts.join(" ") : null;
+  })();
+  if (amountLine) lines.push(amountLine);
+
+  if (status === 'approved') {
+    lines.push("Your payment was approved. You may proceed in the portal.");
+  } else {
+    lines.push("Your payment was not approved. See notes in the portal.");
+  }
+
+  if (admin_notes) {
+    const note = String(admin_notes).trim().replace(/\s+/g, " ");
+    if (note) lines.push(`Note: ${note}`.slice(0, 120)); // keep short
+  }
+
+  lines.push("Login for details.");
+  return lines.filter(Boolean).join("\n").slice(0, 306);
+}
+
+// Fire SMS for a payment receipt id + status
+async function fireSmsForPayment(receiptId, status, admin_notes) {
+  try {
+    const smsOn = await getSmsEnabledFlag();
+    if (!smsOn) {
+      console.log("[SMS] Skipped (disabled)");
+      return;
+    }
+
+    // fetch receipt + user phone
+    const rows = await q(`
+      SELECT 
+        pr.receipt_id,
+        pr.user_id,
+        pr.application_type,
+        pr.permit_name,
+        pr.payment_amount,
+        pr.payment_percentage,
+        pr.total_document_price,
+        ui.phone_number AS user_phone
+      FROM tbl_payment_receipts pr
+      LEFT JOIN tbl_user_info ui ON pr.user_id = ui.user_id
+      WHERE pr.receipt_id = ?
+      LIMIT 1
+    `, [receiptId]);
+
+    if (!rows || !rows[0]) {
+      console.log("[SMS] No receipt found for", receiptId);
+      return;
+    }
+
+    const r = rows[0];
+    if (!r.user_phone) {
+      console.log("[SMS] No phone for user", r.user_id);
+      return;
+    }
+
+    const message = buildPaymentMessage({
+      permit_name: r.permit_name,
+      application_type: r.application_type,
+      payment_amount: r.payment_amount,
+      payment_percentage: r.payment_percentage,
+      total_document_price: r.total_document_price,
+      status,
+      admin_notes
+    });
+
+    console.log("[SMS] Will send (payment) →", { receiptId, userId: r.user_id, phone: normPhone(r.user_phone), status });
+    await iprogSend({ phone: r.user_phone, message });
+  } catch (e) {
+    console.error("[SMS] fireSmsForPayment error:", e?.response?.status, e?.response?.data || e);
+  }
+}
+// ====== END SMS CORE ======
+
+
+// ======================= ORIGINAL CONTROLLER CODE (unchanged logic) =======================
 
 // Get all payment receipts with user information
 exports.getAllPaymentReceipts = async (req, res) => {
@@ -301,6 +468,7 @@ exports.approvePaymentReceipt = async (req, res) => {
             });
           }
 
+          // respond to UI (unchanged)
           res.status(200).json({
             success: true,
             message: 'Payment receipt approved successfully',
@@ -311,6 +479,11 @@ exports.approvePaymentReceipt = async (req, res) => {
               form_access_granted: true
             }
           });
+
+          // 🔔 SMS in background (non-blocking)
+          fireSmsForPayment(id, 'approved', admin_notes)
+            .then(() => console.log("[SMS] done payment approve", { id }))
+            .catch(e => console.error("[SMS] bg error approve:", e?.response?.data || e));
         });
       });
     });
@@ -401,6 +574,7 @@ exports.rejectPaymentReceipt = async (req, res) => {
             });
           }
 
+          // respond to UI (unchanged)
           res.status(200).json({
             success: true,
             message: 'Payment receipt rejected successfully',
@@ -411,6 +585,11 @@ exports.rejectPaymentReceipt = async (req, res) => {
               admin_notes: admin_notes
             }
           });
+
+          // 🔔 SMS in background (non-blocking)
+          fireSmsForPayment(id, 'rejected', admin_notes)
+            .then(() => console.log("[SMS] done payment reject", { id }))
+            .catch(e => console.error("[SMS] bg error reject:", e?.response?.data || e));
         });
       });
     });
