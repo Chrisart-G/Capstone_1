@@ -1,5 +1,13 @@
 const db = require('../db/dbconnect');
 //use to create
+
+function requireAuth(req, res) {
+  if (!req.session?.user?.user_id) {
+    res.status(401).json({ success: false, message: 'Unauthorized' });
+    return false;
+  }
+  return true;
+}
 exports.createElectricalPermit = async (req, res) => {
   try {
     // Use session-based authentication like the working business permit controller
@@ -382,141 +390,4 @@ exports.getElectricalPermitById = (req, res) => {
     });
 };
 
-// In electricalPermitController.js
-exports.moveElectricalToInProgress = (req, res) => {
-  const { applicationId } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const sql = `UPDATE tbl_electrical_permits SET status = 'in-progress', updated_at = NOW() WHERE id = ?`;
-
-  db.query(sql, [applicationId], (err, result) => {
-    if (err) {
-      console.error("Failed:", err);
-      return res.status(500).json({ success: false, message: "Failed to update" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Permit not found" });
-    }
-
-    res.json({ success: true, message: "Moved to in-progress" });
-  });
-};
-
-exports.moveElectricalToRequirementsCompleted = (req, res) => {
-  const { applicationId } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const sql = `UPDATE tbl_electrical_permits SET status = 'requirements-completed', updated_at = NOW() WHERE id = ?`;
-
-  db.query(sql, [applicationId], (err, result) => {
-    if (err) {
-      console.error("Failed:", err);
-      return res.status(500).json({ success: false, message: "Failed to update" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Permit not found" });
-    }
-
-    res.json({ success: true, message: "Moved to requirements-completed" });
-  });
-};
-
-
-exports.moveElectricalToApproved = (req, res) => {
-  const { applicationId } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const sql = `UPDATE tbl_electrical_permits SET status = 'approved', updated_at = NOW() WHERE id = ?`;
-
-  db.query(sql, [applicationId], (err, result) => {
-    if (err) {
-      console.error("Failed:", err);
-      return res.status(500).json({ success: false, message: "Failed to update" });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: "Permit not found" });
-    }
-
-    res.json({ success: true, message: "Electrical permit approved" });
-  });
-};
-exports.moveElectricalToReadyForPickup = (req, res) => {
-  const { applicationId, schedule } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ success: false, message: 'Unauthorized' });
-  }
-
-  const sql = `
-    UPDATE tbl_electrical_permits 
-    SET status = 'ready-for-pickup', pickup_schedule = ?, updated_at = NOW()
-    WHERE id = ?
-  `;
-
-  db.query(sql, [schedule, applicationId], (err, result) => {
-    if (err) {
-      console.error('Error setting pickup for electrical permit:', err);
-      return res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: 'Electrical permit not found' });
-    }
-
-    return res.json({ success: true, message: 'Electrical permit set to ready for pickup' });
-  });
-};
-// Move to Approved
-exports.moveElectricalToApproved = (req, res) => {
-  const { electricalId } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  const sql = `
-    UPDATE tbl_electrical_permit 
-    SET application_status = 'approved', updated_at = NOW()
-    WHERE id = ?
-  `;
-
-  db.query(sql, [electricalId], (err, result) => {
-    if (err) return res.status(500).json({ success: false, message: "Failed to approve" });
-    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Electrical permit not found" });
-    return res.json({ success: true, message: "Electrical permit approved" });
-  });
-};
-
-// Set Pickup Schedule (Ready for Pickup)
-exports.moveElectricalToReadyForPickup = (req, res) => {
-  const { electricalId, schedule } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-
-  const sql = `
-    UPDATE tbl_electrical_permit 
-    SET application_status = 'ready-for-pickup', pickup_schedule = ?, updated_at = NOW()
-    WHERE id = ?
-  `;
-
-  db.query(sql, [schedule, electricalId], (err, result) => {
-    if (err) return res.status(500).json({ success: false, message: 'Internal server error' });
-    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Permit not found' });
-    return res.json({ success: true, message: 'Electrical permit set to ready for pickup' });
-  });
-};
 

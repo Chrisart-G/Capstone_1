@@ -1,5 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Clock, AlertCircle, Loader, FileText, RefreshCcw, ChevronDown, ChevronUp, User, Pencil, CreditCard, DollarSign, ExternalLink } from 'lucide-react';
+import {
+  Check,
+  Clock,
+  AlertCircle,
+  Loader,
+  FileText,
+  RefreshCcw,
+  ChevronDown,
+  ChevronUp,
+  User,
+  Pencil,
+  CreditCard,
+  DollarSign,
+  ExternalLink,
+  Filter
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Uheader from '../Header/User_header';
 import UFooter from '../Footer/User_Footer';
@@ -9,6 +24,7 @@ function DocumentStatusTracker() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedCards, setExpandedCards] = useState({});
+  const [viewFilter, setViewFilter] = useState('all'); // 'all' | 'applications' | 'payments'
   const navigate = useNavigate();
 
   // ---------- NEW: requirements state + helpers ----------
@@ -86,7 +102,7 @@ function DocumentStatusTracker() {
   const fetchAllPermitData = async () => {
     try {
       console.log('Fetching all permit data...');
-      
+
       // Fetch all data types (added 4 new permit endpoints)
       const [
         businessResponse,
@@ -111,7 +127,7 @@ function DocumentStatusTracker() {
         fetch('http://localhost:8081/api/building-permits-tracking',   { credentials: 'include' }),
         fetch('http://localhost:8081/api/fencing-permits-tracking',    { credentials: 'include' }),
       ]);
-      
+
       // Parse responses
       const businessData    = await businessResponse.json();
       const electricalData  = await electricalResponse.json();
@@ -123,7 +139,7 @@ function DocumentStatusTracker() {
       const electronicsData = await electronicsResponse.json();
       const buildingData    = await buildingResponse.json();
       const fencingData     = await fencingResponse.json();
-      
+
       console.log('Business Response:', businessData);
       console.log('Electrical Response:', electricalData);
       console.log('Cedula Response:', cedulaData);
@@ -132,9 +148,9 @@ function DocumentStatusTracker() {
       console.log('Electronics Response:', electronicsData);
       console.log('Building Response:', buildingData);
       console.log('Fencing Response:', fencingData);
-      
+
       let allApplications = [];
-      
+
       // Transform business permits
       if (businessData.permits && businessData.permits.length > 0) {
         const transformedBusinessPermits = businessData.permits.map(permit => ({
@@ -149,7 +165,7 @@ function DocumentStatusTracker() {
         }));
         allApplications = [...allApplications, ...transformedBusinessPermits];
       }
-      
+
       // Transform electrical permits
       if (electricalData.success && electricalData.permits && electricalData.permits.length > 0) {
         const transformedElectricalPermits = electricalData.permits.map(permit => ({
@@ -192,9 +208,9 @@ function DocumentStatusTracker() {
         allApplications = [...allApplications, ...transformedCedulas];
       }
 
-      // Transform payment receipts - Enhanced with new payment details
+      // Transform payment receipts
       console.log('Processing payment data:', paymentData);
-      
+
       if (paymentData && paymentData.success && paymentData.data && Array.isArray(paymentData.data) && paymentData.data.length > 0) {
         console.log('Payment data found, transforming...');
         const transformedPayments = paymentData.data.map(payment => {
@@ -220,9 +236,9 @@ function DocumentStatusTracker() {
             approvedBy: payment.approved_by_email,
             receiptId: payment.receipt_id,
             steps: transformPaymentStatusToSteps(
-              payment.payment_status, 
-              payment.formatted_created_at || new Date(payment.created_at).toLocaleString(), 
-              payment.formatted_approved_at || (payment.approved_at ? new Date(payment.approved_at).toLocaleString() : null), 
+              payment.payment_status,
+              payment.formatted_created_at || new Date(payment.created_at).toLocaleString(),
+              payment.formatted_approved_at || (payment.approved_at ? new Date(payment.approved_at).toLocaleString() : null),
               payment.admin_notes
             )
           };
@@ -236,9 +252,7 @@ function DocumentStatusTracker() {
         }
       }
 
-      // ---------------------------
       // NEW: Transform plumbing permits
-      // ---------------------------
       if (plumbingData && plumbingData.success && Array.isArray(plumbingData.permits) && plumbingData.permits.length > 0) {
         const transformedPlumbing = plumbingData.permits.map(p => ({
           id: `plumbing_${p.id}`,
@@ -257,9 +271,7 @@ function DocumentStatusTracker() {
         allApplications = [...allApplications, ...transformedPlumbing];
       }
 
-      // ---------------------------
       // NEW: Transform electronics permits
-      // ---------------------------
       if (electronicsData && electronicsData.success && Array.isArray(electronicsData.permits) && electronicsData.permits.length > 0) {
         const transformedElectronics = electronicsData.permits.map(p => ({
           id: `electronics_${p.id}`,
@@ -278,9 +290,7 @@ function DocumentStatusTracker() {
         allApplications = [...allApplications, ...transformedElectronics];
       }
 
-      // ---------------------------
       // NEW: Transform building permits
-      // ---------------------------
       if (buildingData && buildingData.success && Array.isArray(buildingData.permits) && buildingData.permits.length > 0) {
         const transformedBuilding = buildingData.permits.map(p => ({
           id: `building_${p.id}`,
@@ -300,9 +310,7 @@ function DocumentStatusTracker() {
         allApplications = [...allApplications, ...transformedBuilding];
       }
 
-      // ---------------------------
       // NEW: Transform fencing permits
-      // ---------------------------
       if (fencingData && fencingData.success && Array.isArray(fencingData.permits) && fencingData.permits.length > 0) {
         const transformedFencing = fencingData.permits.map(p => ({
           id: `fencing_${p.id}`,
@@ -320,18 +328,18 @@ function DocumentStatusTracker() {
         }));
         allApplications = [...allApplications, ...transformedFencing];
       }
-      
+
       // Sort all applications by creation date (most recent first)
       allApplications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
+
       console.log('All applications:', allApplications);
       setApplications(allApplications);
-      
+
       // Auto-expand the first (most recent) application
       if (allApplications.length > 0) {
         setExpandedCards({ [allApplications[0].id]: true });
       }
-      
+
       setLoading(false);
     } catch (err) {
       console.error("Error fetching permit data:", err);
@@ -339,14 +347,13 @@ function DocumentStatusTracker() {
       setLoading(false);
     }
   };
-  
+
   useEffect(() => {
     fetchAllPermitData();
   }, []);
 
   // Function to handle form access
   const handleFormAccess = () => {
-    // Refresh the data to show updated form access status
     fetchAllPermitData();
   };
 
@@ -369,7 +376,6 @@ function DocumentStatusTracker() {
   // Function to handle accessing form
   const handleAccessForm = async (application) => {
     try {
-      // Simply navigate to the appropriate form without updating form_access_used
       const formRoute = getFormRoute(application.applicationType);
       if (formRoute) {
         navigate(formRoute);
@@ -382,46 +388,18 @@ function DocumentStatusTracker() {
     }
   };
 
-  // Function to transform the status into a steps array
+  // Helpers
   function transformStatusToSteps(status) {
     const normalizedStatus = status?.toLowerCase().replace(/\s+/g, '').replace(/-/g, '');
 
     const steps = [
-      {
-        name: "Pending",
-        message: "Your application has been submitted and is waiting to be reviewed.",
-        icon: FileText
-      },
-      {
-        name: "InReview",
-        message: "Your application is currently under initial review.",
-        icon: Clock
-      },
-      {
-        name: "InProgress",
-        message: "Please complete the required documents for verification.",
-        icon: Loader
-      },
-      {
-        name: "RequirementsCompleted",
-        message: "All required documents have been submitted and verified.",
-        icon: Check
-      },
-      {
-        name: "Approved",
-        message: "Your application has been approved.",
-        icon: Check
-      },
-      {
-        name: "ReadyForPickup",
-        message: "Your document is ready for pickup at the municipal office.",
-        icon: Check
-      },
-      {
-        name: "Rejected",
-        message: "Your application has been rejected. Please check your email for details.",
-        icon: AlertCircle
-      }
+      { name: "Pending",                message: "Your application has been submitted and is waiting to be reviewed.", icon: FileText },
+      { name: "InReview",               message: "Your application is currently under initial review.",               icon: Clock },
+      { name: "InProgress",             message: "Please complete the required documents for verification.",          icon: Loader },
+      { name: "RequirementsCompleted",  message: "All required documents have been submitted and verified.",          icon: Check },
+      { name: "Approved",               message: "Your application has been approved.",                               icon: Check },
+      { name: "ReadyForPickup",         message: "Your document is ready for pickup at the municipal office.",        icon: Check },
+      { name: "Rejected",               message: "Your application has been rejected. Please check your email for details.", icon: AlertCircle }
     ];
 
     const statusOrder = {
@@ -445,7 +423,6 @@ function DocumentStatusTracker() {
     }));
   }
 
-  // Function to transform payment status into steps - Enhanced with payment details
   function transformPaymentStatusToSteps(status, createdAt, approvedAt, adminNotes) {
     const steps = [
       {
@@ -460,7 +437,7 @@ function DocumentStatusTracker() {
 
     if (status === 'pending') {
       steps.push({
-        name: "PaymentUnderReview", 
+        name: "PaymentUnderReview",
         message: "Your payment is being reviewed by our staff.",
         icon: Clock,
         completed: false,
@@ -470,7 +447,7 @@ function DocumentStatusTracker() {
     } else if (status === 'approved') {
       steps.push(
         {
-          name: "PaymentUnderReview", 
+          name: "PaymentUnderReview",
           message: "Your payment was reviewed by our staff.",
           icon: Clock,
           completed: true,
@@ -489,7 +466,7 @@ function DocumentStatusTracker() {
     } else if (status === 'rejected') {
       steps.push(
         {
-          name: "PaymentUnderReview", 
+          name: "PaymentUnderReview",
           message: "Your payment was reviewed by our staff.",
           icon: Clock,
           completed: true,
@@ -520,42 +497,26 @@ function DocumentStatusTracker() {
 
   function getStatusBadgeColor(status) {
     switch(status?.toLowerCase()) {
-      case 'approved':
-        return "bg-green-100 text-green-800";
-      case 'rejected':
-        return "bg-red-100 text-red-800";
-      case 'in-review':
-        return "bg-yellow-100 text-yellow-800";
-      case 'pending':
-        return "bg-gray-100 text-gray-800";
-      case 'ready for pickup':
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-blue-100 text-blue-800";
+      case 'approved': return "bg-green-100 text-green-800";
+      case 'rejected': return "bg-red-100 text-red-800";
+      case 'in-review': return "bg-yellow-100 text-yellow-800";
+      case 'pending': return "bg-gray-100 text-gray-800";
+      case 'ready for pickup': return "bg-purple-100 text-purple-800";
+      default: return "bg-blue-100 text-blue-800";
     }
   }
 
-  // Extended with new permit types (kept existing styles)
   function getPermitTypeBadgeColor(type) {
     switch(type) {
-      case 'Business Permit':
-        return "bg-blue-100 text-blue-800";
-      case 'Electrical Permit':
-        return "bg-orange-100 text-orange-800";
-      case 'Electronics Permit':
-        return "bg-teal-100 text-teal-800";
-      case 'Building Permit':
-        return "bg-amber-100 text-amber-800";
-      case 'Plumbing Permit':
-        return "bg-cyan-100 text-cyan-800";
-      case 'Fencing Permit':
-        return "bg-lime-100 text-lime-800";
-      case 'Cedula':
-        return "bg-green-100 text-green-800";
-      case 'Payment Receipt':
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      case 'Business Permit':    return "bg-blue-100 text-blue-800";
+      case 'Electrical Permit':  return "bg-orange-100 text-orange-800";
+      case 'Electronics Permit': return "bg-teal-100 text-teal-800";
+      case 'Building Permit':    return "bg-amber-100 text-amber-800";
+      case 'Plumbing Permit':    return "bg-cyan-100 text-cyan-800";
+      case 'Fencing Permit':     return "bg-lime-100 text-lime-800";
+      case 'Cedula':             return "bg-green-100 text-green-800";
+      case 'Payment Receipt':    return "bg-purple-100 text-purple-800";
+      default:                   return "bg-gray-100 text-gray-800";
     }
   }
 
@@ -563,7 +524,6 @@ function DocumentStatusTracker() {
     setExpandedCards(prev => {
       const opening = !prev[applicationId];
       const next = { ...prev, [applicationId]: opening };
-      // when opening, lazy-load requirements if not loaded
       if (opening) {
         const app = applications.find(a => a.id === applicationId);
         if (app && !requirementsByApp[applicationId]) {
@@ -573,6 +533,20 @@ function DocumentStatusTracker() {
       return next;
     });
   };
+
+  // ---------- NEW: filtering logic ----------
+  const isApplicationType = (item) => item.type !== 'Payment Receipt';
+  const counts = {
+    all: applications.length,
+    applications: applications.filter(isApplicationType).length,
+    payments: applications.filter(a => a.type === 'Payment Receipt').length,
+  };
+  const visibleApps = applications.filter(a => {
+    if (viewFilter === 'payments') return a.type === 'Payment Receipt';
+    if (viewFilter === 'applications') return isApplicationType(a);
+    return true; // 'all'
+  });
+  // -----------------------------------------
 
   if (loading) {
     return (
@@ -593,7 +567,7 @@ function DocumentStatusTracker() {
             <div className="p-4 bg-red-50 text-red-700 rounded-lg">
               <h3 className="font-medium text-red-800 mb-2">Error</h3>
               <p>{error}</p>
-              <button 
+              <button
                 onClick={() => window.location.reload()}
                 className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
               >
@@ -628,13 +602,56 @@ function DocumentStatusTracker() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Application Status Tracker</h1>
           <p className="text-gray-600 mt-2">Track the progress of your permit applications, cedula records, and payment receipts</p>
+
+          {/* ---------- NEW: Filter bar ---------- */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center text-sm text-gray-500 mr-1">
+              <Filter className="h-4 w-4 mr-1" /> Filter:
+            </span>
+
+            <button
+              onClick={() => setViewFilter('all')}
+              className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                viewFilter === 'all' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              All <span className="ml-1 text-xs opacity-80">({counts.all})</span>
+            </button>
+
+            <button
+              onClick={() => setViewFilter('applications')}
+              className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                viewFilter === 'applications' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span className="inline-flex items-center">
+                <FileText className="h-4 w-4 mr-1" />
+                Applications
+              </span>
+              <span className="ml-1 text-xs opacity-80">({counts.applications})</span>
+            </button>
+
+            <button
+              onClick={() => setViewFilter('payments')}
+              className={`px-3 py-1.5 rounded-full text-sm border transition ${
+                viewFilter === 'payments' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <span className="inline-flex items-center">
+                <CreditCard className="h-4 w-4 mr-1" />
+                Payment Receipts
+              </span>
+              <span className="ml-1 text-xs opacity-80">({counts.payments})</span>
+            </button>
+          </div>
+          {/* ---------- END Filter bar ---------- */}
         </div>
 
         <div className="space-y-4">
-          {applications.map((application, appIndex) => (
+          {visibleApps.map((application, appIndex) => (
             <div key={application.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
               {/* Application Header */}
-              <div 
+              <div
                 className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
                 onClick={() => toggleCard(application.id)}
               >
@@ -710,7 +727,7 @@ function DocumentStatusTracker() {
               {/* Expandable Content */}
               {expandedCards[application.id] && (
                 <div className="px-6 pb-6 border-t border-gray-200">
-                  
+
                   {/* Enhanced Payment Receipt Details */}
                   {application.type === 'Payment Receipt' && (
                     <div className="mt-6 p-4 bg-purple-50 rounded-lg">
@@ -721,8 +738,8 @@ function DocumentStatusTracker() {
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div><span className="font-medium">Application Type:</span> {application.applicationType}</div>
                         <div><span className="font-medium">Payment Method:</span> {application.paymentMethod}</div>
-                        
-                        {/* Enhanced Payment Details */}
+
+                        {/* Payment Breakdown */}
                         <div className="col-span-2 bg-white p-3 rounded border">
                           <h4 className="font-medium text-gray-800 mb-2 flex items-center">
                             <DollarSign className="h-4 w-4 mr-1" />
@@ -750,8 +767,8 @@ function DocumentStatusTracker() {
                             <div>
                               <span className="text-gray-600">Payment Progress:</span>
                               <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                                <div 
-                                  className="bg-green-600 h-2 rounded-full" 
+                                <div
+                                  className="bg-green-600 h-2 rounded-full"
                                   style={{
                                     width: `${((application.paymentAmount || 0) / (application.totalDocumentPrice || 1)) * 100}%`
                                   }}
@@ -763,13 +780,13 @@ function DocumentStatusTracker() {
                             </div>
                           </div>
                         </div>
-                        
-                        <div><span className="font-medium">Form Access:</span> 
+
+                        <div><span className="font-medium">Form Access:</span>
                           <span className={`ml-1 px-2 py-1 rounded text-xs ${application.formAccessGranted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                             {application.formAccessGranted ? 'Granted' : 'Not Granted'}
                           </span>
                         </div>
-                        <div><span className="font-medium">Access Used:</span> 
+                        <div><span className="font-medium">Access Used:</span>
                           <span className={`ml-1 px-2 py-1 rounded text-xs ${application.formAccessUsed ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800'}`}>
                             {application.formAccessUsed ? 'Yes' : 'No'}
                           </span>
@@ -795,9 +812,9 @@ function DocumentStatusTracker() {
                                 Application Form Access
                               </h4>
                               <p className="text-sm text-gray-600 mt-1">
-                                {(application.status === 'approved' && application.formAccessGranted && !application.formAccessUsed) ? 
+                                {(application.status === 'approved' && application.formAccessGranted && !application.formAccessUsed) ?
                                   'Your payment has been approved. You can now access the application form.' :
-                                  application.formAccessUsed ? 
+                                  application.formAccessUsed ?
                                   'Form access has been used. You can no longer access this form.' :
                                   !application.formAccessGranted ?
                                   'Form access will be available once your payment is approved.' :
@@ -805,7 +822,7 @@ function DocumentStatusTracker() {
                                 }
                               </p>
                             </div>
-                            
+
                             {(application.status === 'approved' && application.formAccessGranted && !application.formAccessUsed) && (
                               <button
                                 onClick={() => handleAccessForm(application)}
@@ -815,14 +832,14 @@ function DocumentStatusTracker() {
                                 Access Form
                               </button>
                             )}
-                            
+
                             {application.formAccessUsed && (
                               <div className="flex items-center text-gray-500">
                                 <Check className="h-4 w-4 mr-2" />
                                 <span className="text-sm">Form Accessed</span>
                               </div>
                             )}
-                            
+
                             {!application.formAccessGranted && (
                               <div className="flex items-center text-orange-500">
                                 <Clock className="h-4 w-4 mr-2" />
@@ -830,8 +847,7 @@ function DocumentStatusTracker() {
                               </div>
                             )}
                           </div>
-                          
-                          {/* Show when form access was used */}
+
                           {application.formAccessUsed && application.formAccessUsedAt && (
                             <div className="mt-2 text-xs text-gray-500">
                               Form accessed on: {new Date(application.formAccessUsedAt).toLocaleString()}
@@ -870,7 +886,7 @@ function DocumentStatusTracker() {
                       <div key={step.name} className="mb-8 flex items-start">
                         {/* Icon */}
                         <div className={`flex items-center justify-center w-10 h-10 rounded-full ${getStatusColor(step)} text-white shrink-0`}>
-                          {step.name.includes('Payment') ? 
+                          {step.name.includes('Payment') ?
                             React.createElement(DollarSign, { size: 20 }) :
                             React.createElement(step.icon, { size: 20 })
                           }
@@ -878,12 +894,12 @@ function DocumentStatusTracker() {
 
                         {/* Vertical Line */}
                         {index < application.steps.length - 1 && (
-                          <div 
-                            className={`absolute left-5 w-0.5 ${step.completed ? "bg-green-500" : step.rejected ? "bg-red-500" : "bg-gray-300"}`} 
-                            style={{ 
-                              top: 40, 
-                              height: "calc(100% - 80px)", 
-                              transform: "translateX(-50%)" 
+                          <div
+                            className={`absolute left-5 w-0.5 ${step.completed ? "bg-green-500" : step.rejected ? "bg-red-500" : "bg-gray-300"}`}
+                            style={{
+                              top: 40,
+                              height: "calc(100% - 80px)",
+                              transform: "translateX(-50%)"
                             }}
                           ></div>
                         )}
@@ -892,7 +908,7 @@ function DocumentStatusTracker() {
                         <div className="ml-4 flex-1">
                           <h3 className={`font-medium ${
                             step.rejected ? "text-red-600" :
-                            step.current ? "text-blue-600" : 
+                            step.current ? "text-blue-600" :
                             step.completed ? "text-green-600" : "text-gray-500"
                           }`}>
                             {step.name.replace(/([A-Z])/g, ' $1').trim()}
@@ -918,7 +934,7 @@ function DocumentStatusTracker() {
                     ))}
                   </div>
 
-                  {/* ---------- NEW: Requirements block ---------- */}
+                  {/* Requirements block */}
                   <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                     <h3 className="font-medium text-gray-800 mb-3 flex items-center">
                       <FileText className="h-4 w-4 mr-2" />
@@ -986,7 +1002,6 @@ function DocumentStatusTracker() {
                       );
                     })()}
                   </div>
-                  {/* ---------- END NEW ---------- */}
 
                   {/* Additional Information Section */}
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">

@@ -7,7 +7,7 @@ const loginController = require('../Controller/loginController');
 const SignupControler = require('../Controller/signupController');
 const BuspermitController = require('../Controller/buspermitController');
 const addemployeeController = require('../Controller/addemployeeController');
-const employeeController = require('../controller/viewemployeeController');
+
 const officeManagementController = require('../Controller/officeManagementController');
 const applicationController = require('../Controller/applicationController'); 
 const electricalPermitController = require('../Controller/electricalPermitController');
@@ -19,18 +19,8 @@ const applicationRequirementsController = require('../Controller/applicationrequ
 router.post('/login', loginController.Login);
 router.post('/Signup', SignupControler.Signup);
 
-// ======================= BUSINESS PERMIT ROUTES =======================
-router.post('/BusinessPermit', isAuthenticated, BuspermitController.SubmitBusinessPermit);
-router.get('/businesspermits', isAuthenticated, BuspermitController.getAllPermits);
 
-router.get('/applications', isAuthenticated, BuspermitController.GetAllApplications);
-router.get('/applications/:id', isAuthenticated, BuspermitController.GetApplicationById);
-router.put('/applications/:id/accept', applicationController.acceptApplication);
 
-router.put('/applications/move-to-inprogress', BuspermitController.moveBusinessToInProgress);
-router.put('/applications/move-to-requirements-completed', BuspermitController.moveBusinessToRequirementsCompleted);
-router.put('/applications/move-to-approved', BuspermitController.moveBusinessToApproved);
-router.put('/applications/set-pickup', BuspermitController.moveBusinessToReadyForPickup);
 
 // ======================= EMPLOYEE MANAGEMENT ROUTES =======================
 router.get('/employees', employeeController.getAllEmployees);
@@ -70,7 +60,7 @@ router.put('/electrical-applications/set-pickup', electricalPermitController.mov
 // ======================= CEDULA ROUTES =======================
 // Move status routes
 router.put('/cedula/move-to-requirements-completed', CedulaController.moveCedulaToRequirementsCompleted);
-router.put('/cedula/move-to-inprogress', CedulaController.moveCedulaToInProgress);
+
 router.put('/cedula/move-to-approved', CedulaController.moveCedulaToApproved);
 router.put('/cedula/set-pickup', CedulaController.moveCedulaToReadyForPickup);
 
