@@ -1,20 +1,182 @@
-
+// Controller/buspermitController.js
 const path = require('path');
 const fs = require('fs');
 const db = require('../db/dbconnect');
+const axios = require('axios');
+
+/* ===================================================================
+   SMS CORE (mirrors employeedashController)
+=================================================================== */
+const { IPROG_API_TOKEN, SMS_ENABLED = "true" } = process.env;
+
+/* ---------------- DB helper ---------------- */
+function q(sql, params = []) {
+  return new Promise((resolve, reject) =>
+    db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+  );
+}
+
+/* ---------------- Feature flag ---------------- */
+async function getSmsEnabledFlag() {
+  try {
+    const rows = await q('SELECT v FROM system_settings WHERE k="sms_enabled" LIMIT 1');
+    if (rows && rows[0]) return rows[0].v === "true";
+  } catch (_) {}
+  return String(SMS_ENABLED).toLowerCase() === "true";
+}
+
+/* ---------------- Phone normalizer ---------------- */
+function normPhone(raw) {
+  if (!raw) return null;
+  let s = String(raw).replace(/\D/g, "");
+  if (s.startsWith("09")) s = "63" + s.slice(1);
+  else if (s.startsWith("9") && s.length === 10) s = "63" + s;
+  else if (s.startsWith("0") && s.length === 11) s = "63" + s.slice(1);
+  else if (s.startsWith("+63")) s = s.replace("+", "");
+  return s;
+}
+
+/* ---------------- IPROG SMS ---------------- */
+async function iprogSend({ phone, message }) {
+  const url = "https://sms.iprogtech.com/api/v1/sms_messages";
+  const params = {
+    api_token: IPROG_API_TOKEN,
+    phone_number: normPhone(phone),
+    message: String(message || "").slice(0, 306),
+  };
+
+  console.log("[SMS] SEND →", { url, params });
+  const res = await axios.post(url, null, {
+    params,
+    timeout: 15000,
+    validateStatus: () => true,
+  });
+  console.log("[SMS] SEND ←", res.status, res.data);
+
+  if (res.status >= 200 && res.status < 300) return res.data;
+  const err = new Error("IPROG send failed");
+  err.response = res;
+  throw err;
+}
+
+/* ---------------- Business-specific lookups ---------------- */
+async function getBusinessUserId(permitId) {
+  const rows = await q(
+    'SELECT user_id FROM business_permits WHERE BusinessP_id=? LIMIT 1',
+    [permitId]
+  );
+  return rows?.[0]?.user_id || null;
+}
+
+async function getUserPhoneByUserId(userId) {
+  const rows = await q('SELECT phone_number FROM tbl_user_info WHERE user_id=? LIMIT 1', [userId]);
+  return rows?.[0]?.phone_number || null;
+}
+
+async function getBusinessName(permitId) {
+  const rows = await q(
+    'SELECT business_name FROM business_permits WHERE BusinessP_id=? LIMIT 1',
+    [permitId]
+  );
+  return rows?.[0]?.business_name || 'Business';
+}
+
+/* ---------------- Message composition (same style) ---------------- */
+function buildStatusMessage({ officeName, applicationTypeLabel, applicationNo, newStatus, extraNote }) {
+  const lines = [
+    officeName || "Municipality",
+    `${applicationTypeLabel || "Application"} ${applicationNo ? `#${applicationNo}` : ""}`.trim(),
+    `Status: ${newStatus}`,
+    extraNote || "Login to your account for details.",
+  ].filter(Boolean);
+  return lines.join("\n").slice(0, 306);
+}
+
+function noteForStatus(status, schedule) {
+  switch (status) {
+    case "in-review":
+      return "Your application is under review. Please monitor your requirements in the portal.";
+    case "in-progress":
+      return "Requirements are pending. Upload the needed files to continue.";
+    case "requirements-completed":
+      return "All requirements received. Await final approval.";
+    case "approved":
+      return "Approved. Watch your portal for pickup instructions.";
+    case "ready-for-pickup":
+      return schedule ? `Ready for pickup on ${schedule}. Bring a valid ID.` : "Ready for pickup. Bring a valid ID.";
+    case "rejected":
+      return "Not approved. See details in your portal.";
+    default:
+      return "See your account for details.";
+  }
+}
+
+/* ---------------- Fire SMS for BUSINESS ONLY ---------------- */
+async function fireSmsForBusiness(permitId, status, schedule) {
+  try {
+    const smsOn = await getSmsEnabledFlag();
+    if (!smsOn) {
+      console.log("[SMS] Skipped (disabled)");
+      return;
+    }
+
+    const userId = await getBusinessUserId(permitId);
+    if (!userId) {
+      console.log("[SMS] No user_id for business_permits", permitId);
+      return;
+    }
+
+    const phone = await getUserPhoneByUserId(userId);
+    if (!phone) {
+      console.log("[SMS] No phone for user", userId);
+      return;
+    }
+
+    const businessName = await getBusinessName(permitId);
+    const office_name = "Business Permit & Licensing Office";
+    const label = "Business Permit"; // fixed label for this controller
+    const extra_note = noteForStatus(status, schedule);
+
+    // business_permits has no application_no → pass null
+    const message = buildStatusMessage({
+      officeName: office_name,
+      applicationTypeLabel: `${label} – ${businessName}`,
+      applicationNo: null,
+      newStatus: status,
+      extraNote: extra_note,
+    });
+
+    console.log("[SMS] Will send →", {
+      application_type: "business",
+      id: permitId,
+      userId,
+      phone: normPhone(phone),
+      status,
+      schedule: schedule || null,
+    });
+
+    await iprogSend({ phone, message });
+  } catch (e) {
+    console.error("[SMS] fireSmsForBusiness error:", e?.response?.status, e?.response?.data || e);
+  }
+}
+
+/* ===================================================================
+   EXISTING CONTROLLER LOGIC (kept intact)
+=================================================================== */
 
 const saveFile = (file) => {
-    if (!file) return null;
-    const uploadPath = path.join(__dirname, '../uploads/business_docs');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    const filename = `${Date.now()}_${file.name}`;
-    const filePath = path.join(uploadPath, filename);
-    file.mv(filePath);
-    return `/uploads/business_docs/${filename}`;
-  };
-  
+  if (!file) return null;
+  const uploadPath = path.join(__dirname, '../uploads/business_docs');
+  if (!fs.existsSync(uploadPath)) {
+    fs.mkdirSync(uploadPath, { recursive: true });
+  }
+  const filename = `${Date.now()}_${file.name}`;
+  const filePath = path.join(uploadPath, filename);
+  file.mv(filePath);
+  return `/uploads/business_docs/${filename}`;
+};
+
 exports.SubmitBusinessPermit = async (req, res) => {
   try {
     if (!req.session?.user?.user_id) {
@@ -46,7 +208,6 @@ exports.SubmitBusinessPermit = async (req, res) => {
     db.beginTransaction((err) => {
       if (err) return res.status(500).json({ message: "DB error", error: err });
 
-      // First, insert the business permit
       const sql = `INSERT INTO business_permits (
           application_type, payment_mode, application_date, tin_no, registration_no, registration_date,
           business_type, amendment_from, amendment_to, tax_incentive, tax_incentive_entity,
@@ -81,7 +242,7 @@ exports.SubmitBusinessPermit = async (req, res) => {
         }
 
         const permitId = result.insertId;
-        const activityValues = data.businessActivities.map((act) => [
+        const activityValues = (data.businessActivities || []).map((act) => [
           permitId,
           act.line,
           act.units,
@@ -90,17 +251,7 @@ exports.SubmitBusinessPermit = async (req, res) => {
           act.grossNonEssential,
         ]);
 
-        const actSql = `INSERT INTO business_activities (
-          permit_id, line_of_business, units, capitalization, gross_essential, gross_non_essential
-        ) VALUES ?`;
-
-        db.query(actSql, [activityValues], (err2) => {
-          if (err2) {
-            console.error("Activity insert failed:", err2);
-            return db.rollback(() => res.status(500).json({ message: "Activity insert failed", error: err2.message }));
-          }
-
-          // After successful business permit submission, update the payment receipt form access
+        const afterActivities = () => {
           const updateFormAccessSql = `UPDATE tbl_payment_receipts 
             SET form_access_used = 1, 
                 form_access_used_at = CURRENT_TIMESTAMP,
@@ -118,7 +269,6 @@ exports.SubmitBusinessPermit = async (req, res) => {
           db.query(updateFormAccessSql, [permitId, userId], (err3) => {
             if (err3) {
               console.error("Form access update failed:", err3);
-              // Don't rollback the entire transaction for this, just log the error
               console.warn("Business permit submitted successfully but form access update failed");
             }
 
@@ -132,10 +282,24 @@ exports.SubmitBusinessPermit = async (req, res) => {
                 success: true, 
                 message: "Business permit submitted successfully", 
                 permitId,
-                formAccessUpdated: !err3 // Let frontend know if form access was updated
+                formAccessUpdated: !err3
               });
             });
           });
+        };
+
+        if (activityValues.length === 0) return afterActivities();
+
+        const actSql = `INSERT INTO business_activities (
+          permit_id, line_of_business, units, capitalization, gross_essential, gross_non_essential
+        ) VALUES ?`;
+
+        db.query(actSql, [activityValues], (err2) => {
+          if (err2) {
+            console.error("Activity insert failed:", err2);
+            return db.rollback(() => res.status(500).json({ message: "Activity insert failed", error: err2.message }));
+          }
+          afterActivities();
         });
       });
     });
@@ -144,168 +308,99 @@ exports.SubmitBusinessPermit = async (req, res) => {
     res.status(500).json({ message: "Unexpected server error", error: err.message });
   }
 };
-  
+
 // this coode to get the data from tbl_business_permits and get the email from tb_logins display
 exports.getAllPermits = (req, res) => {
-    console.log("Session in BusinessPermit:", req.session);
-    console.log("User in session:", req.session?.user);
-    console.log("User ID in session:", req.session?.user?.user_id);
+  console.log("Session in BusinessPermit:", req.session);
+  console.log("User in session:", req.session?.user);
+  console.log("User ID in session:", req.session?.user?.user_id);
 
-    if (!req.session || !req.session.user || !req.session.user.user_id) {
-        console.log("User not authenticated or missing user_id");
-        return res.status(401).json({ message: "Unauthorized. Please log in." });
+  if (!req.session || !req.session.user || !req.session.user.user_id) {
+    console.log("User not authenticated or missing user_id");
+    return res.status(401).json({ message: "Unauthorized. Please log in." });
+  }
+  
+  const userId = req.session.user.user_id;
+  console.log("Using user_id for business permit:", userId);
+
+  const sql = `
+    SELECT bp.BusinessP_id, bp.status, bp.business_name, bp.application_type, 
+           bp.application_date, bp.created_at, l.email
+    FROM business_permits bp
+    LEFT JOIN tb_logins l ON bp.user_id = l.user_id
+    WHERE bp.user_id = ?
+    ORDER BY bp.created_at DESC
+  `;
+
+  db.query(sql, [userId], (err, results) => {
+    if (err) {
+      console.error("Error fetching permits:", err);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Error retrieving permit applications", 
+        error: err.message 
+      });
     }
-    
-    // Get user_id from session
-    const userId = req.session.user.user_id;
-    console.log("Using user_id for business permit:", userId);
 
-    const sql = `
-        SELECT bp.BusinessP_id, bp.status, bp.business_name, bp.application_type, 
-               bp.application_date, bp.created_at, l.email
-        FROM business_permits bp
-        LEFT JOIN tb_logins l ON bp.user_id = l.user_id
-        WHERE bp.user_id = ?
-        ORDER BY bp.created_at DESC
-    `;
-
-    db.query(sql, [userId], (err, results) => {
-        if (err) {
-            console.error("Error fetching permits:", err);
-            return res.status(500).json({ 
-                success: false, 
-                message: "Error retrieving permit applications", 
-                error: err.message 
-            });
-        }
-
-        res.json({ success: true, permits: results });
-    });
+    res.json({ success: true, permits: results });
+  });
 };
 
-
 exports.GetAllApplications = (req, res) => {
-    // Check if user is logged in
-    if (!req.session.user || !req.session.user.user_id) {
-        return res.status(401).json({ 
-            success: false, 
-            message: 'Not authenticated' 
-        });
+  if (!req.session.user || !req.session.user.user_id) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+
+  const query = `
+    SELECT 
+      a.BusinessP_id as id, 
+      CONCAT(a.first_name, ' ', a.last_name) as name, 
+      a.application_type as type, 
+      a.application_date as submitted, 
+      a.status,
+      COUNT(b.id) as documentCount
+    FROM 
+      business_permits a
+    LEFT JOIN 
+      business_activities b ON a.BusinessP_id = b.permit_id
+    GROUP BY 
+      a.BusinessP_id
+    ORDER BY 
+      a.application_date DESC
+  `;
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching applications:', err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'An error occurred while fetching applications' 
+      });
     }
     
-    // Sample query - adjust based on your actual database schema
-    // This query gets all applications and counts associated documents
-    const query = `
-        SELECT 
-            a.id, 
-            a.applicant_name as name, 
-            a.application_type as type, 
-            a.submission_date as submitted, 
-            a.status,
-            COUNT(d.id) as documentCount
-        FROM 
-            applications a
-        LEFT JOIN 
-            application_documents d ON a.id = d.application_id
-        GROUP BY 
-            a.id
-        ORDER BY 
-            a.submission_date DESC
-    `;
-    
-    db.query(query, (err, results) => {
-        if (err) {
-            console.error('Error fetching applications:', err);
-            return res.status(500).json({ 
-                success: false, 
-                message: 'An error occurred while fetching applications' 
-            });
-        }
-        
-        return res.json({ 
-            success: true, 
-            applications: results
-        });
-    });
-};
-
-// Get single application by ID
-// Get all applications
-exports.GetAllApplications = (req, res) => {
-    // Check if user is logged in
-    if (!req.session.user || !req.session.user.user_id) {
-        return res.status(401).json({ 
-            success: false, 
-            message: 'Not authenticated' 
-        });
-    }
-    
-    // Updated query to use business_permits table instead of applications
-    const query = `
-        SELECT 
-            a.BusinessP_id as id, 
-            CONCAT(a.first_name, ' ', a.last_name) as name, 
-            a.application_type as type, 
-            a.application_date as submitted, 
-            a.status,
-            COUNT(b.id) as documentCount
-        FROM 
-            business_permits a
-        LEFT JOIN 
-            business_activities b ON a.BusinessP_id = b.permit_id
-        GROUP BY 
-            a.BusinessP_id
-        ORDER BY 
-            a.application_date DESC
-    `;
-    
-    db.query(query, (err, results) => {
-        if (err) {
-            console.error('Error fetching applications:', err);
-            return res.status(500).json({ 
-                success: false, 
-                message: 'An error occurred while fetching applications' 
-            });
-        }
-        
-        return res.json({ 
-            success: true, 
-            applications: results 
-        });
-    });
+    return res.json({ success: true, applications: results });
+  });
 };
 
 // Get application by ID
 exports.GetApplicationById = (req, res) => {
-  // Check if user is logged in
   if (!req.session.user || !req.session.user.user_id) {
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Not authenticated' 
-    });
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
   }
 
   const applicationId = req.params.id;
-
   const query = `SELECT * FROM business_permits WHERE BusinessP_id = ?`;
 
   db.query(query, [applicationId], (err, results) => {
     if (err) {
       console.error('Error fetching full application details:', err);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'An error occurred while fetching application details' 
-      });
+      return res.status(500).json({ success: false, message: 'An error occurred while fetching application details' });
     }
 
     if (results.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Application not found' 
-      });
+      return res.status(404).json({ success: false, message: 'Application not found' });
     }
 
-    // ✅ Then fetch related business activities
     const activitiesQuery = `
       SELECT id, line_of_business, units, capitalization, created_at
       FROM business_activities
@@ -315,73 +410,58 @@ exports.GetApplicationById = (req, res) => {
     db.query(activitiesQuery, [applicationId], (actErr, activities) => {
       if (actErr) {
         console.error('Error fetching business activities:', actErr);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'An error occurred while fetching business activities' 
-        });
+        return res.status(500).json({ success: false, message: 'An error occurred while fetching business activities' });
       }
 
       const applicationData = results[0];
       applicationData.activities = activities;
 
-      return res.json({ 
-        success: true, 
-        application: applicationData
-      });
+      return res.json({ success: true, application: applicationData });
     });
   });
 };
 
+/* ===================================================================
+   STATUS UPDATES (with same debug + SMS)
+=================================================================== */
 
-// Update application status
+// Generic admin update
 exports.UpdateApplicationStatus = (req, res) => {
-    // Check if user is logged in
-    if (!req.session.user || !req.session.user.user_id) {
-        return res.status(401).json({ 
-            success: false, 
-            message: 'Not authenticated' 
-        });
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
+  const { applicationId, newStatus } = req.body;
+
+  console.log("[STATUS] UpdateApplicationStatus →", { applicationId, newStatus });
+
+  const updateQuery = `
+    UPDATE business_permits
+    SET status = ?, updated_at = NOW()
+    WHERE BusinessP_id = ?
+  `;
+  
+  db.query(updateQuery, [newStatus, applicationId], (err, results) => {
+    if (err) {
+      console.error('Error updating application status:', err);
+      return res.status(500).json({ success: false, message: 'An error occurred while updating application status' });
     }
-    
-    const { applicationId, newStatus, remarks } = req.body;
-    
-    // Update application status in business_permits table
-    const updateQuery = `
-        UPDATE business_permits
-        SET status = ?, updated_at = NOW()
-        WHERE BusinessP_id = ?
-    `;
-    
-    db.query(
-        updateQuery, 
-        [newStatus, applicationId], 
-        (err, results) => {
-            if (err) {
-                console.error('Error updating application status:', err);
-                return res.status(500).json({ 
-                    success: false, 
-                    message: 'An error occurred while updating application status' 
-                });
-            }
-            
-            if (results.affectedRows === 0) {
-                return res.status(404).json({ 
-                    success: false, 
-                    message: 'Application not found' 
-                });
-            }
-            
-            return res.json({ 
-                success: true, 
-                message: 'Application status updated successfully' 
-            });
-        }
+    if (results.affectedRows === 0) {
+      console.warn("[STATUS] No rows affected → business_permits", { applicationId });
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    res.json({ success: true, message: 'Application status updated successfully' });
+
+    // Fire SMS (non-blocking)
+    fireSmsForBusiness(applicationId, String(newStatus).toLowerCase()).catch(e =>
+      console.error("[SMS] background error:", e?.response?.data || e)
     );
+  });
 };
 
-// In buspermitController.js
 exports.moveBusinessToInProgress = (req, res) => {
   const { applicationId } = req.body;
+  console.log("[STATUS] moveBusinessToInProgress →", { applicationId });
 
   if (!req.session?.user?.user_id) {
     return res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -395,14 +475,21 @@ exports.moveBusinessToInProgress = (req, res) => {
     }
 
     if (results.affectedRows === 0) {
+      console.warn("[STATUS] No rows affected → business_permits", { applicationId });
       return res.status(404).json({ success: false, message: 'Application not found' });
     }
 
-    return res.json({ success: true, message: 'Moved to in-progress' });
+    res.json({ success: true, message: 'Moved to in-progress' });
+
+    fireSmsForBusiness(applicationId, 'in-progress').catch(e =>
+      console.error("[SMS] background error:", e?.response?.data || e)
+    );
   });
 };
+
 exports.moveBusinessToRequirementsCompleted = (req, res) => {
   const { applicationId } = req.body;
+  console.log("[STATUS] moveBusinessToRequirementsCompleted →", { applicationId });
 
   if (!req.session?.user?.user_id) {
     return res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -417,58 +504,21 @@ exports.moveBusinessToRequirementsCompleted = (req, res) => {
     }
 
     if (results.affectedRows === 0) {
+      console.warn("[STATUS] No rows affected → business_permits", { applicationId });
       return res.status(404).json({ success: false, message: 'Application not found' });
     }
 
-    return res.json({ success: true, message: 'Moved to requirements-completed' });
+    res.json({ success: true, message: 'Moved to requirements-completed' });
+
+    fireSmsForBusiness(applicationId, 'requirements-completed').catch(e =>
+      console.error("[SMS] background error:", e?.response?.data || e)
+    );
   });
 };
 
 exports.moveBusinessToApproved = (req, res) => {
   const { applicationId } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ success: false, message: 'Not authenticated' });
-  }
-
-  const sql = `UPDATE business_permits SET status = 'approved', updated_at = NOW() WHERE BusinessP_id = ?`;
-
-  db.query(sql, [applicationId], (err, results) => {
-    if (err) {
-      console.error('Error approving application:', err);
-      return res.status(500).json({ success: false });
-    }
-
-    if (results.affectedRows === 0) {
-      return res.status(404).json({ success: false, message: 'Application not found' });
-    }
-
-    return res.json({ success: true, message: 'Application approved' });
-  });
-};
-exports.moveBusinessToReadyForPickup = (req, res) => {
-  const { applicationId, schedule } = req.body;
-
-  if (!req.session?.user?.user_id) {
-    return res.status(401).json({ success: false, message: 'Not authenticated' });
-  }
-
-  const sql = `
-    UPDATE business_permits 
-    SET status = 'ready-for-pickup', pickup_schedule = ?, updated_at = NOW() 
-    WHERE BusinessP_id = ?
-  `;
-
-  db.query(sql, [schedule, applicationId], (err, result) => {
-    if (err) return res.status(500).json({ success: false, message: "Failed to update", error: err.message });
-    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Not found" });
-
-    res.json({ success: true, message: "Pickup scheduled" });
-  });
-};
-// Move to Approved
-exports.moveBusinessToApproved = (req, res) => {
-  const { applicationId } = req.body;
+  console.log("[STATUS] moveBusinessToApproved →", { applicationId });
 
   if (!req.session?.user?.user_id) {
     return res.status(401).json({ message: "Unauthorized" });
@@ -482,14 +532,22 @@ exports.moveBusinessToApproved = (req, res) => {
 
   db.query(sql, [applicationId], (err, result) => {
     if (err) return res.status(500).json({ success: false, message: "Failed to approve" });
-    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Permit not found" });
-    return res.json({ success: true, message: "Business permit approved" });
+    if (result.affectedRows === 0) {
+      console.warn("[STATUS] No rows affected → business_permits", { applicationId });
+      return res.status(404).json({ success: false, message: "Permit not found" });
+    }
+    
+    res.json({ success: true, message: "Business permit approved" });
+
+    fireSmsForBusiness(applicationId, 'approved').catch(e =>
+      console.error("[SMS] background error:", e?.response?.data || e)
+    );
   });
 };
 
-// Set Pickup Schedule (Ready for Pickup)
 exports.moveBusinessToReadyForPickup = (req, res) => {
   const { applicationId, schedule } = req.body;
+  console.log("[STATUS] moveBusinessToReadyForPickup →", { applicationId, schedule });
 
   if (!req.session?.user?.user_id) {
     return res.status(401).json({ message: 'Unauthorized' });
@@ -497,14 +555,63 @@ exports.moveBusinessToReadyForPickup = (req, res) => {
 
   const sql = `
     UPDATE business_permits 
-    SET status = 'ready-for-pickup', pickup_schedule = ?, updated_at = NOW()
+    SET status = 'ready-for-pickup', pickup_schedule = ?, updated_at = NOW() 
     WHERE BusinessP_id = ?
   `;
 
-  db.query(sql, [schedule, applicationId], (err, result) => {
-    if (err) return res.status(500).json({ success: false, message: 'Failed to update status' });
-    if (result.affectedRows === 0) return res.status(404).json({ success: false, message: 'Permit not found' });
-    return res.json({ success: true, message: 'Business permit moved to ready-for-pickup' });
+  db.query(sql, [schedule || null, applicationId], (err, result) => {
+    if (err) {
+      console.error("[STATUS] Failed to update business_permits:", err);
+      return res.status(500).json({ success: false, message: "Failed to update", error: err.message });
+    }
+    if (result.affectedRows === 0) {
+      console.warn("[STATUS] No rows affected → business_permits", { applicationId });
+      return res.status(404).json({ success: false, message: "Not found" });
+    }
+
+    res.json({ success: true, message: "Pickup scheduled" });
+
+    // include schedule text
+    fireSmsForBusiness(applicationId, 'ready-for-pickup', schedule || null).catch(e =>
+      console.error("[SMS] background error:", e?.response?.data || e)
+    );
   });
 };
+// Accept (pending -> in-review) for BUSINESS
+exports.acceptBusiness = (req, res) => {
+  if (!req.session?.user?.user_id) {
+    return res.status(401).json({ success: false, message: 'Not authenticated' });
+  }
 
+  // supports both /:id and body.applicationId
+  const applicationId = Number(req.params.id || req.body?.applicationId);
+  console.log("[STATUS] acceptBusiness →", { applicationId });
+
+  if (!Number.isFinite(applicationId) || applicationId <= 0) {
+    return res.status(400).json({ success: false, message: 'Valid applicationId required' });
+  }
+
+  const sql = `
+    UPDATE business_permits
+    SET status = 'in-review', updated_at = NOW()
+    WHERE BusinessP_id = ?
+  `;
+
+  db.query(sql, [applicationId], (err, result) => {
+    if (err) {
+      console.error("[STATUS] Failed to set in-review (business_permits):", err);
+      return res.status(500).json({ success: false, message: 'Failed to update' });
+    }
+    if (result.affectedRows === 0) {
+      console.warn("[STATUS] No rows affected → business_permits", { applicationId });
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    res.json({ success: true, message: 'Moved to in-review' });
+
+    // 🔔 SMS (same pattern/logs as other moves)
+    fireSmsForBusiness(applicationId, 'in-review')
+      .then(() => console.log("[SMS] done for", { table: 'business_permits', id: applicationId, status: 'in-review' }))
+      .catch((e) => console.error("[SMS] background error:", e?.response?.data || e));
+  });
+};

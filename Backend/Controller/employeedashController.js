@@ -3,9 +3,7 @@ const db = require('../db/dbconnect');
 const axios = require("axios");
 const { IPROG_API_TOKEN, SMS_ENABLED = "true" } = process.env;
 
-/**
- * Helper: check auth
- */
+/* ---------------- Auth ---------------- */
 function requireAuth(req, res) {
   if (!req.session || !req.session.user || !req.session.user.user_id) {
     res.status(401).json({ success: false, message: 'Unauthorized. Please log in.' });
@@ -14,17 +12,14 @@ function requireAuth(req, res) {
   return true;
 }
 
-// ====================== SMS CORE (embedded) ======================
-
-
-// quick db->promise helper (keeps rest of your controller untouched)
+/* ---------------- DB helper ---------------- */
 function q(sql, params = []) {
   return new Promise((resolve, reject) =>
     db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
   );
 }
 
-// feature flag from DB (fallback to .env)
+/* ---------------- Feature flag ---------------- */
 async function getSmsEnabledFlag() {
   try {
     const rows = await q('SELECT v FROM system_settings WHERE k="sms_enabled" LIMIT 1');
@@ -33,7 +28,7 @@ async function getSmsEnabledFlag() {
   return String(SMS_ENABLED).toLowerCase() === "true";
 }
 
-// normalize to 639xxxxxxxxx
+/* ---------------- Phone normalizer ---------------- */
 function normPhone(raw) {
   if (!raw) return null;
   let s = String(raw).replace(/\D/g, "");
@@ -44,7 +39,7 @@ function normPhone(raw) {
   return s;
 }
 
-// send via IPROG (docs: POST with query params)
+/* ---------------- IPROG SMS ---------------- */
 async function iprogSend({ phone, message }) {
   const url = "https://sms.iprogtech.com/api/v1/sms_messages";
   const params = {
@@ -67,7 +62,6 @@ async function iprogSend({ phone, message }) {
   throw err;
 }
 
-// optional: credits check for quick debugging
 async function iprogCredits() {
   const url = "https://sms.iprogtech.com/api/v1/account/sms_credits";
   const res = await axios.get(url, {
@@ -79,31 +73,38 @@ async function iprogCredits() {
   return res.data;
 }
 
-// map you already have
+/* ---------------- Type mapping for SMS ---------------- */
 const TABLE_TO_TYPE = {
   "tbl_plumbing_permits": "plumbing",
   "tbl_electronics_permits": "electronics",
   "tbl_building_permits": "building",
   "tbl_fencing_permits": "fencing",
+  "tbl_electrical_permits": "electrical",
+  "tbl_cedula": "cedula",
 };
+
 const OFFICE_BY_TYPE = {
   plumbing: "Office of the Municipal Engineer",
   electronics: "Office of the Municipal Engineer",
   building: "Office of the Building Official",
   fencing: "Office of the Municipal Engineer",
+  electrical: "Office of the Municipal Engineer",
+  cedula: "Municipal Treasurer’s Office",
 };
 
-// helpers to fetch phone
+/* ---------------- Lookups ---------------- */
 async function getUserPhoneByUserId(userId) {
   const rows = await q("SELECT phone_number FROM tbl_user_info WHERE user_id=? LIMIT 1", [userId]);
   return rows?.[0]?.phone_number || null;
 }
 async function getUserIdFromTableRow(table, id) {
-  const rows = await q(`SELECT user_id FROM ${table} WHERE id=? LIMIT 1`, [id]);
+  const key = table === 'tbl_cedula' ? 'id' : 'id';
+  const rows = await q(`SELECT user_id FROM ${table} WHERE ${key}=? LIMIT 1`, [id]);
   return rows?.[0]?.user_id || null;
 }
 async function getApplicationNo(table, id) {
-  const rows = await q(`SELECT application_no FROM ${table} WHERE id=? LIMIT 1`, [id]);
+  // cedula doesn’t have application_no — this returns null and message omits it
+  const rows = await q(`SELECT application_no FROM ${table} WHERE id=? LIMIT 1`, [id]).catch(() => []);
   return rows?.[0]?.application_no || null;
 }
 
@@ -117,7 +118,7 @@ function buildStatusMessage({ officeName, applicationTypeLabel, applicationNo, n
   return lines.join("\n").slice(0, 306);
 }
 
-// 🔔 core: fire SMS after a status change (called by updateStatus)
+/* ---------------- Fire SMS after status change ---------------- */
 async function fireSmsFor(table, id, status, schedule) {
   try {
     const smsOn = await getSmsEnabledFlag();
@@ -129,7 +130,6 @@ async function fireSmsFor(table, id, status, schedule) {
     const application_type = TABLE_TO_TYPE[table];
     if (!application_type) return;
 
-    // user + phone
     const userId = await getUserIdFromTableRow(table, id);
     if (!userId) {
       console.log("[SMS] No user_id for", table, id);
@@ -178,7 +178,7 @@ async function fireSmsFor(table, id, status, schedule) {
   }
 }
 
-// ===== Debug endpoints (exported below; add routes) =====
+/* ---------------- Public debug endpoints ---------------- */
 exports.smsCredits = async (req, res) => {
   try {
     const data = await iprogCredits();
@@ -199,221 +199,14 @@ exports.smsTest = async (req, res) => {
     res.status(500).json({ success: false, message: "SMS send failed" });
   }
 };
-// ==================== END SMS CORE ====================
 
+/* ===================================================================
+   SHARED HELPERS FOR STATUS UPDATES
+=================================================================== */
 
-// PLUMBING
-exports.getAllPlumbingPermitsForEmployee = (req, res) => {
-  if (!requireAuth(req, res)) return;
-
-  const sql = `
-    SELECT p.*, l.email
-    FROM tbl_plumbing_permits p
-    LEFT JOIN tb_logins l ON p.user_id = l.user_id
-    ORDER BY p.created_at DESC
-  `;
-
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error('Error fetching plumbing permits:', err);
-      return res.status(500).json({ success: false, message: 'Error retrieving plumbing permits' });
-    }
-    const applications = rows.map(r => ({
-      id: r.id,
-      type: 'Plumbing Permit',
-      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
-      status: r.status || 'pending',
-      submitted: r.created_at,
-      email: r.email,
-      user_id: r.user_id,
-      ...r
-    }));
-    res.json({ success: true, applications });
-  });
-};
-
-// ELECTRONICS
-exports.getAllElectronicsPermitsForEmployee = (req, res) => {
-  if (!requireAuth(req, res)) return;
-
-  const sql = `
-    SELECT e.*, l.email
-    FROM tbl_electronics_permits e
-    LEFT JOIN tb_logins l ON e.user_id = l.user_id
-    ORDER BY e.created_at DESC
-  `;
-
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error('Error fetching electronics permits:', err);
-      return res.status(500).json({ success: false, message: 'Error retrieving electronics permits' });
-    }
-    const applications = rows.map(r => ({
-      id: r.id,
-      type: 'Electronics Permit',
-      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
-      status: r.status || 'pending',
-      submitted: r.created_at,
-      email: r.email,
-      user_id: r.user_id,
-      ...r
-    }));
-    res.json({ success: true, applications });
-  });
-};
-
-// BUILDING
-exports.getAllBuildingPermitsForEmployee = (req, res) => {
-  if (!requireAuth(req, res)) return;
-
-  const sql = `
-    SELECT b.*, l.email
-    FROM tbl_building_permits b
-    LEFT JOIN tb_logins l ON b.user_id = l.user_id
-    ORDER BY b.created_at DESC
-  `;
-
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error('Error fetching building permits:', err);
-      return res.status(500).json({ success: false, message: 'Error retrieving building permits' });
-    }
-    const applications = rows.map(r => ({
-      id: r.id,
-      type: 'Building Permit',
-      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
-      status: r.status || 'pending',
-      submitted: r.created_at,
-      email: r.email,
-      user_id: r.user_id,
-      ...r
-    }));
-    res.json({ success: true, applications });
-  });
-};
-
-// FENCING
-exports.getAllFencingPermitsForEmployee = (req, res) => {
-  if (!requireAuth(req, res)) return;
-
-  const sql = `
-    SELECT f.*, l.email
-    FROM tbl_fencing_permits f
-    LEFT JOIN tb_logins l ON f.user_id = l.user_id
-    ORDER BY f.created_at DESC
-  `;
-
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error('Error fetching fencing permits:', err);
-      return res.status(500).json({ success: false, message: 'Error retrieving fencing permits' });
-    }
-    const applications = rows.map(r => ({
-      id: r.id,
-      type: 'Fencing Permit',
-      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
-      status: r.status || 'pending',
-      submitted: r.created_at,
-      email: r.email,
-      user_id: r.user_id,
-      ...r
-    }));
-    res.json({ success: true, applications });
-  });
-};
-
-/**
- * ---- GET BY ID (for “View Info” modal) ----
- */
-
-exports.getPlumbingById = (req, res) => {
-  if (!requireAuth(req, res)) return;
-  const { id } = req.params;
-
-  const sql = `
-    SELECT p.*, l.email
-    FROM tbl_plumbing_permits p
-    LEFT JOIN tb_logins l ON p.user_id = l.user_id
-    WHERE p.id = ?
-    LIMIT 1
-  `;
-
-  db.query(sql, [id], (err, rows) => {
-    if (err) return res.status(500).json({ success: false, message: 'Error retrieving plumbing permit' });
-    if (!rows.length) return res.status(404).json({ success: false, message: 'Plumbing permit not found' });
-    res.json({ success: true, application: rows[0] });
-  });
-};
-
-exports.getElectronicsById = (req, res) => {
-  if (!requireAuth(req, res)) return;
-  const { id } = req.params;
-
-  const sql = `
-    SELECT e.*, l.email
-    FROM tbl_electronics_permits e
-    LEFT JOIN tb_logins l ON e.user_id = l.user_id
-    WHERE e.id = ?
-    LIMIT 1
-  `;
-
-  db.query(sql, [id], (err, rows) => {
-    if (err) return res.status(500).json({ success: false, message: 'Error retrieving electronics permit' });
-    if (!rows.length) return res.status(404).json({ success: false, message: 'Electronics permit not found' });
-    res.json({ success: true, application: rows[0] });
-  });
-};
-
-exports.getBuildingById = (req, res) => {
-  if (!requireAuth(req, res)) return;
-  const { id } = req.params;
-
-  const sql = `
-    SELECT b.*, l.email
-    FROM tbl_building_permits b
-    LEFT JOIN tb_logins l ON b.user_id = l.user_id
-    WHERE b.id = ?
-    LIMIT 1
-  `;
-
-  db.query(sql, [id], (err, rows) => {
-    if (err) return res.status(500).json({ success: false, message: 'Error retrieving building permit' });
-    if (!rows.length) return res.status(404).json({ success: false, message: 'Building permit not found' });
-    res.json({ success: true, application: rows[0] });
-  });
-};
-
-exports.getFencingById = (req, res) => {
-  if (!requireAuth(req, res)) return;
-  const { id } = req.params;
-
-  const sql = `
-    SELECT f.*, l.email
-    FROM tbl_fencing_permits f
-    LEFT JOIN tb_logins l ON f.user_id = l.user_id
-    WHERE f.id = ?
-    LIMIT 1
-  `;
-
-  db.query(sql, [id], (err, rows) => {
-    if (err) return res.status(500).json({ success: false, message: 'Error retrieving fencing permit' });
-    if (!rows.length) return res.status(404).json({ success: false, message: 'Fencing permit not found' });
-    res.json({ success: true, application: rows[0] });
-  });
-};
-
-/**
- * ---- STATUS TRANSITIONS ----
- * All: accept -> set in-review
- * move-to-inprogress
- * move-to-requirements-completed
- * move-to-approved
- * set-pickup -> ready-for-pickup (+ schedule)
- */
-
-// generic helper to update status on a table by id
+// For tables that use `status` (plumbing/electronics/building/fencing/electrical)
 function updateStatus(res, table, id, status, schedule) {
-  console.log("[STATUS] updateStatus called →", { table, id, status, schedule });
+  console.log("[STATUS] updateStatus →", { table, id, status, schedule });
 
   const hasSchedule = typeof schedule !== "undefined" && schedule !== null;
   const sql = hasSchedule
@@ -431,127 +224,520 @@ function updateStatus(res, table, id, status, schedule) {
       return res.status(404).json({ success: false, message: "Record not found" });
     }
 
-    // respond to UI immediately
     res.json({ success: true, message: `Moved to ${status}` });
 
-    // SMS in background (won't block UI)
     fireSmsFor(table, id, status, schedule)
       .then(() => console.log("[SMS] done for", { table, id, status }))
       .catch((e) => console.error("[SMS] background error:", e?.response?.data || e));
   });
 }
 
-// ---- Accept -> in-review
-exports.acceptPlumbing = (req, res) => {
+// For Cedula which uses `application_status`
+function updateCedulaStatusGeneric(res, id, status, schedule) {
+  console.log("[STATUS] updateCedulaStatusGeneric →", { id, status, schedule });
+
+  const hasSchedule = typeof schedule !== "undefined" && schedule !== null;
+  const sql = hasSchedule
+    ? `UPDATE tbl_cedula SET application_status = ?, pickup_schedule = ?, updated_at = NOW() WHERE id = ?`
+    : `UPDATE tbl_cedula SET application_status = ?, updated_at = NOW() WHERE id = ?`;
+  const params = hasSchedule ? [status, schedule, id] : [status, id];
+
+  db.query(sql, params, (err, result) => {
+    if (err) {
+      console.error(`[STATUS] Failed to update tbl_cedula:`, err);
+      return res.status(500).json({ success: false, message: "Failed to update" });
+    }
+    if (result.affectedRows === 0) {
+      console.warn("[STATUS] No rows affected → tbl_cedula", { id });
+      return res.status(404).json({ success: false, message: "Record not found" });
+    }
+
+    res.json({ success: true, message: `Moved to ${status}` });
+
+    fireSmsFor('tbl_cedula', id, status, schedule)
+      .then(() => console.log("[SMS] done for", { table: 'tbl_cedula', id, status }))
+      .catch((e) => console.error("[SMS] background error:", e?.response?.data || e));
+  });
+}
+
+/* ===================================================================
+   LISTS (Employee dashboard)
+=================================================================== */
+
+exports.getAllPlumbingPermitsForEmployee = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const sql = `
+    SELECT p.*, l.email
+    FROM tbl_plumbing_permits p
+    LEFT JOIN tb_logins l ON p.user_id = l.user_id
+    ORDER BY p.created_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving plumbing permits' });
+    const applications = rows.map(r => ({
+      id: r.id, type: 'Plumbing Permit',
+      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      status: r.status || 'pending', submitted: r.created_at, email: r.email, user_id: r.user_id, ...r
+    }));
+    res.json({ success: true, applications });
+  });
+};
+
+exports.getAllElectronicsPermitsForEmployee = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const sql = `
+    SELECT e.*, l.email
+    FROM tbl_electronics_permits e
+    LEFT JOIN tb_logins l ON e.user_id = l.user_id
+    ORDER BY e.created_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving electronics permits' });
+    const applications = rows.map(r => ({
+      id: r.id, type: 'Electronics Permit',
+      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      status: r.status || 'pending', submitted: r.created_at, email: r.email, user_id: r.user_id, ...r
+    }));
+    res.json({ success: true, applications });
+  });
+};
+
+exports.getAllBuildingPermitsForEmployee = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const sql = `
+    SELECT b.*, l.email
+    FROM tbl_building_permits b
+    LEFT JOIN tb_logins l ON b.user_id = l.user_id
+    ORDER BY b.created_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving building permits' });
+    const applications = rows.map(r => ({
+      id: r.id, type: 'Building Permit',
+      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      status: r.status || 'pending', submitted: r.created_at, email: r.email, user_id: r.user_id, ...r
+    }));
+    res.json({ success: true, applications });
+  });
+};
+
+exports.getAllFencingPermitsForEmployee = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const sql = `
+    SELECT f.*, l.email
+    FROM tbl_fencing_permits f
+    LEFT JOIN tb_logins l ON f.user_id = l.user_id
+    ORDER BY f.created_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving fencing permits' });
+    const applications = rows.map(r => ({
+      id: r.id, type: 'Fencing Permit',
+      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      status: r.status || 'pending', submitted: r.created_at, email: r.email, user_id: r.user_id, ...r
+    }));
+    res.json({ success: true, applications });
+  });
+};
+
+/* ---- ELECTRICAL lists ---- */
+exports.getAllElectricalPermitsForEmployee = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const sql = `
+    SELECT e.*, l.email
+    FROM tbl_electrical_permits e
+    LEFT JOIN tb_logins l ON e.user_id = l.user_id
+    ORDER BY e.created_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving electrical permits' });
+    const applications = rows.map(r => ({
+      id: r.id, type: 'Electrical Permit',
+      name: `${r.first_name || ''} ${r.middle_initial || ''} ${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      status: r.status || 'pending', submitted: r.created_at, email: r.email, user_id: r.user_id, ...r
+    }));
+    res.json({ success: true, applications });
+  });
+};
+
+/* ---- CEDULA lists ---- */
+exports.getAllCedulaForEmployee = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const sql = `
+    SELECT c.*, l.email
+    FROM tbl_cedula c
+    LEFT JOIN tb_logins l ON c.user_id = l.user_id
+    ORDER BY c.created_at DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving cedula applications' });
+    const applications = rows.map(r => ({
+      id: r.id,
+      type: 'Cedula',
+      name: r.name,
+      status: r.application_status || 'pending',
+      application_status: r.application_status || 'pending',
+      submitted: r.created_at,
+      email: r.email,
+      user_id: r.user_id,
+      ...r
+    }));
+    res.json({ success: true, applications });
+  });
+};
+
+/* ===================================================================
+   GET BY ID
+=================================================================== */
+
+exports.getPlumbingById = (req, res) => {
   if (!requireAuth(req, res)) return;
   const { id } = req.params;
-  updateStatus(res, 'tbl_plumbing_permits', id, 'in-review');
+  const sql = `
+    SELECT p.*, l.email
+    FROM tbl_plumbing_permits p
+    LEFT JOIN tb_logins l ON p.user_id = l.user_id
+    WHERE p.id = ? LIMIT 1
+  `;
+  db.query(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving plumbing permit' });
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Plumbing permit not found' });
+    res.json({ success: true, application: rows[0] });
+  });
 };
 
-exports.acceptElectronics = (req, res) => {
+exports.getElectronicsById = (req, res) => {
   if (!requireAuth(req, res)) return;
   const { id } = req.params;
-  updateStatus(res, 'tbl_electronics_permits', id, 'in-review');
+  const sql = `
+    SELECT e.*, l.email
+    FROM tbl_electronics_permits e
+    LEFT JOIN tb_logins l ON e.user_id = l.user_id
+    WHERE e.id = ? LIMIT 1
+  `;
+  db.query(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving electronics permit' });
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Electronics permit not found' });
+    res.json({ success: true, application: rows[0] });
+  });
 };
 
-exports.acceptBuilding = (req, res) => {
+exports.getBuildingById = (req, res) => {
   if (!requireAuth(req, res)) return;
   const { id } = req.params;
-  updateStatus(res, 'tbl_building_permits', id, 'in-review');
+  const sql = `
+    SELECT b.*, l.email
+    FROM tbl_building_permits b
+    LEFT JOIN tb_logins l ON b.user_id = l.user_id
+    WHERE b.id = ? LIMIT 1
+  `;
+  db.query(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving building permit' });
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Building permit not found' });
+    res.json({ success: true, application: rows[0] });
+  });
 };
 
-exports.acceptFencing = (req, res) => {
+exports.getFencingById = (req, res) => {
   if (!requireAuth(req, res)) return;
   const { id } = req.params;
-  updateStatus(res, 'tbl_fencing_permits', id, 'in-review');
+  const sql = `
+    SELECT f.*, l.email
+    FROM tbl_fencing_permits f
+    LEFT JOIN tb_logins l ON f.user_id = l.user_id
+    WHERE f.id = ? LIMIT 1
+  `;
+  db.query(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving fencing permit' });
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Fencing permit not found' });
+    res.json({ success: true, application: rows[0] });
+  });
 };
 
-// ---- Move to in-progress
-exports.plumbingToInProgress = (req, res) => {
+/* ---- ELECTRICAL by id ---- */
+exports.getElectricalPermitById = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_plumbing_permits', req.body.applicationId || req.body.id, 'in-progress');
+  const { id } = req.params;
+  const sql = `
+    SELECT e.*, l.email
+    FROM tbl_electrical_permits e
+    LEFT JOIN tb_logins l ON e.user_id = l.user_id
+    WHERE e.id = ? LIMIT 1
+  `;
+  db.query(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving electrical permit' });
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Electrical permit not found' });
+    res.json({ success: true, application: rows[0] });
+  });
 };
 
-exports.electronicsToInProgress = (req, res) => {
+/* ---- CEDULA by id ---- */
+exports.getCedulaById = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_electronics_permits', req.body.applicationId || req.body.id, 'in-progress');
+  const { id } = req.params;
+  const sql = `
+    SELECT c.*, l.email
+    FROM tbl_cedula c
+    LEFT JOIN tb_logins l ON c.user_id = l.user_id
+    WHERE c.id = ? LIMIT 1
+  `;
+  db.query(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: 'Error retrieving cedula' });
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Cedula not found' });
+    res.json({ success: true, application: rows[0] });
+  });
 };
 
-exports.buildingToInProgress = (req, res) => {
+/* ===================================================================
+   ACCEPT → IN-REVIEW
+   (match frontend paths)
+=================================================================== */
+
+// Existing 4 permits
+exports.acceptPlumbing   = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_plumbing_permits',   req.params.id, 'in-review'); };
+exports.acceptElectronics= (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_electronics_permits', req.params.id, 'in-review'); };
+exports.acceptBuilding   = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_building_permits',    req.params.id, 'in-review'); };
+exports.acceptFencing    = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_fencing_permits',     req.params.id, 'in-review'); };
+
+// ELECTRICAL: /api/electrical-applications/:id/accept  (frontend sends {status:'in-review'})
+exports.updateElectricalPermitStatus = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_building_permits', req.body.applicationId || req.body.id, 'in-progress');
+  const { id } = req.params;
+  // regardless of body status, we align to 'in-review' to keep UI predictable
+  updateStatus(res, 'tbl_electrical_permits', id, 'in-review');
 };
 
-exports.fencingToInProgress = (req, res) => {
+// CEDULA: /api/cedula-applications/:id/accept  (frontend sends {status:'in-review'})
+exports.updateCedulaStatus = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_fencing_permits', req.body.applicationId || req.body.id, 'in-progress');
+  const { id } = req.params;
+  const status = (req.body?.status || 'in-review').toLowerCase();
+  updateCedulaStatusGeneric(res, id, status);
 };
 
-// ---- Move to requirements-completed
-exports.plumbingToRequirementsCompleted = (req, res) => {
+/* ===================================================================
+   MOVE: IN-REVIEW → IN-PROGRESS
+=================================================================== */
+
+exports.plumbingToInProgress    = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_plumbing_permits',    req.body.applicationId || req.body.id, 'in-progress'); };
+exports.electronicsToInProgress = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_electronics_permits', req.body.applicationId || req.body.id, 'in-progress'); };
+exports.buildingToInProgress    = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_building_permits',    req.body.applicationId || req.body.id, 'in-progress'); };
+exports.fencingToInProgress     = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_fencing_permits',     req.body.applicationId || req.body.id, 'in-progress'); };
+
+// ELECTRICAL: /api/electrical-applications/move-to-inprogress
+exports.electricalToInProgress = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_plumbing_permits', req.body.applicationId || req.body.id, 'requirements-completed');
+  updateStatus(res, 'tbl_electrical_permits', req.body.applicationId || req.body.id, 'in-progress');
 };
 
-exports.electronicsToRequirementsCompleted = (req, res) => {
+// CEDULA: /api/cedula/move-to-inprogress (accept id or cedulaId)
+// CEDULA: /api/cedula/move-to-inprogress (accept id or cedulaId)
+exports.moveCedulaToInProgress = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_electronics_permits', req.body.applicationId || req.body.id, 'requirements-completed');
+  
+  // Try to get ID from params first (for /:id route), then from body, then from query
+  let id = req.params?.id ? Number(req.params.id) : null;
+  
+  if (!id) {
+    id = resolveCedulaId(req);
+  }
+  
+  // Additional fallback for query parameter
+  if (!id) {
+    const fallbackId = Number(String(req.query?.id ?? "").trim());
+    id = Number.isFinite(fallbackId) && fallbackId > 0 ? fallbackId : null;
+  }
+
+  if (!id) {
+    console.error("[CEDULA] moveCedulaToInProgress - No valid ID found:", {
+      params: req.params,
+      body: req.body,
+      query: req.query
+    });
+    return res.status(400).json({
+      success: false,
+      message: "Cedula ID is required. Please provide id in request body, params, or query."
+    });
+  }
+  
+  console.log("[CEDULA] moveCedulaToInProgress - Processing ID:", id);
+  updateCedulaStatusGeneric(res, id, "in-progress");
 };
 
-exports.buildingToRequirementsCompleted = (req, res) => {
+
+
+/* ===================================================================
+   MOVE: IN-PROGRESS → REQUIREMENTS-COMPLETED
+=================================================================== */
+
+exports.plumbingToRequirementsCompleted    = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_plumbing_permits',    req.body.applicationId || req.body.id, 'requirements-completed'); };
+exports.electronicsToRequirementsCompleted = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_electronics_permits', req.body.applicationId || req.body.id, 'requirements-completed'); };
+exports.buildingToRequirementsCompleted    = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_building_permits',    req.body.applicationId || req.body.id, 'requirements-completed'); };
+exports.fencingToRequirementsCompleted     = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_fencing_permits',     req.body.applicationId || req.body.id, 'requirements-completed'); };
+
+// ELECTRICAL
+exports.electricalToRequirementsCompleted = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_building_permits', req.body.applicationId || req.body.id, 'requirements-completed');
+  updateStatus(res, 'tbl_electrical_permits', req.body.applicationId || req.body.id, 'requirements-completed');
 };
 
-exports.fencingToRequirementsCompleted = (req, res) => {
+// CEDULA
+exports.moveCedulaToRequirementsCompleted = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_fencing_permits', req.body.applicationId || req.body.id, 'requirements-completed');
+
+  const id = resolveCedulaId(req);
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Cedula ID is required (id | cedulaId | applicationId)." });
+  }
+
+  updateCedulaStatusGeneric(res, id, "requirements-completed");
 };
 
-// ---- Move to approved
-exports.plumbingToApproved = (req, res) => {
+
+/* ===================================================================
+   MOVE: REQUIREMENTS-COMPLETED → APPROVED
+=================================================================== */
+
+exports.plumbingToApproved    = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_plumbing_permits',    req.body.applicationId || req.body.id, 'approved'); };
+exports.electronicsToApproved = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_electronics_permits', req.body.applicationId || req.body.id, 'approved'); };
+exports.buildingToApproved    = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_building_permits',    req.body.applicationId || req.body.id, 'approved'); };
+exports.fencingToApproved     = (req, res) => { if (!requireAuth(req, res)) return; updateStatus(res, 'tbl_fencing_permits',     req.body.applicationId || req.body.id, 'approved'); };
+
+// ELECTRICAL
+exports.electricalToApproved = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_plumbing_permits', req.body.applicationId || req.body.id, 'approved');
+  updateStatus(res, 'tbl_electrical_permits', req.body.applicationId || req.body.id, 'approved');
 };
 
-exports.electronicsToApproved = (req, res) => {
+// CEDULA
+exports.moveCedulaToApproved = (req, res) => {
   if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_electronics_permits', req.body.applicationId || req.body.id, 'approved');
+
+  const id = resolveCedulaId(req);
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Cedula ID is required (id | cedulaId | applicationId)." });
+  }
+
+  updateCedulaStatusGeneric(res, id, "approved");
 };
 
-exports.buildingToApproved = (req, res) => {
-  if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_building_permits', req.body.applicationId || req.body.id, 'approved');
-};
 
-exports.fencingToApproved = (req, res) => {
-  if (!requireAuth(req, res)) return;
-  updateStatus(res, 'tbl_fencing_permits', req.body.applicationId || req.body.id, 'approved');
-};
+/* ===================================================================
+   READY FOR PICKUP (schedule)
+=================================================================== */
 
-// ---- Set pickup (ready-for-pickup)
-exports.plumbingSetPickup = (req, res) => {
+exports.plumbingSetPickup    = (req, res) => { if (!requireAuth(req, res)) return; const { applicationId, schedule } = req.body; updateStatus(res, 'tbl_plumbing_permits',    applicationId, 'ready-for-pickup', schedule); };
+exports.electronicsSetPickup = (req, res) => { if (!requireAuth(req, res)) return; const { applicationId, schedule } = req.body; updateStatus(res, 'tbl_electronics_permits', applicationId, 'ready-for-pickup', schedule); };
+exports.buildingSetPickup    = (req, res) => { if (!requireAuth(req, res)) return; const { applicationId, schedule } = req.body; updateStatus(res, 'tbl_building_permits',    applicationId, 'ready-for-pickup', schedule); };
+exports.fencingSetPickup     = (req, res) => { if (!requireAuth(req, res)) return; const { applicationId, schedule } = req.body; updateStatus(res, 'tbl_fencing_permits',     applicationId, 'ready-for-pickup', schedule); };
+
+// ELECTRICAL
+exports.electricalSetPickup = (req, res) => {
   if (!requireAuth(req, res)) return;
   const { applicationId, schedule } = req.body;
-  updateStatus(res, 'tbl_plumbing_permits', applicationId, 'ready-for-pickup', schedule);
+  updateStatus(res, 'tbl_electrical_permits', applicationId, 'ready-for-pickup', schedule);
 };
 
-exports.electronicsSetPickup = (req, res) => {
+// CEDULA
+exports.moveCedulaToReadyForPickup = (req, res) => {
   if (!requireAuth(req, res)) return;
-  const { applicationId, schedule } = req.body;
-  updateStatus(res, 'tbl_electronics_permits', applicationId, 'ready-for-pickup', schedule);
+
+  const id = resolveCedulaId(req);
+  const schedule = req.body?.schedule || null;
+
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Cedula ID is required (id | cedulaId | applicationId)." });
+  }
+
+  updateCedulaStatusGeneric(res, id, "ready-for-pickup", schedule);
 };
 
-exports.buildingSetPickup = (req, res) => {
+
+/* ===================================================================
+   REJECT (electrical only — matches old route)
+=================================================================== */
+exports.electricalToRejected = (req, res) => {
   if (!requireAuth(req, res)) return;
-  const { applicationId, schedule } = req.body;
-  updateStatus(res, 'tbl_building_permits', applicationId, 'ready-for-pickup', schedule);
+  updateStatus(res, 'tbl_electrical_permits', req.body.applicationId || req.body.id, 'rejected');
 };
 
-exports.fencingSetPickup = (req, res) => {
+/* ===================================================================
+   REQUIREMENTS LIBRARY / COMMENTS (unchanged placeholders)
+=================================================================== */
+
+exports.listRequirementLibrary = async (req, res) => {
   if (!requireAuth(req, res)) return;
-  const { applicationId, schedule } = req.body;
-  updateStatus(res, 'tbl_fencing_permits', applicationId, 'ready-for-pickup', schedule);
+  try {
+    const rows = await q("SELECT id, name, description, file_path FROM requirements_library ORDER BY name ASC");
+    res.json({ success: true, items: rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: "Failed to list library" });
+  }
+};
+
+exports.attachRequirementFromLibrary = async (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const { applicationType, applicationId, requirementId } = req.body || {};
+  if (!applicationType || !applicationId || !requirementId) {
+    return res.status(400).json({ success: false, message: "Missing fields" });
+  }
+  try {
+    await q(
+      "INSERT INTO tbl_application_requirements (application_type, application_id, requirement_id, created_at) VALUES (?,?,?,NOW())",
+      [applicationType, applicationId, requirementId]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: "Attach failed" });
+  }
+};
+
+exports.getAttachedRequirements = async (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const { applicationType, applicationId } = req.query || {};
+  try {
+    const rows = await q(
+      "SELECT r.* FROM tbl_application_requirements ar JOIN requirements_library r ON r.id=ar.requirement_id WHERE ar.application_type=? AND ar.application_id=?",
+      [applicationType, applicationId]
+    );
+    res.json({ success: true, items: rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: "Fetch failed" });
+  }
+};
+
+exports.getApplicationComments = async (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const { applicationType, applicationId } = req.query || {};
+  try {
+    const rows = await q(
+      "SELECT * FROM application_comments WHERE application_type=? AND application_id=? ORDER BY created_at DESC",
+      [applicationType, applicationId]
+    );
+    res.json({ success: true, comments: rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: "Failed to load comments" });
+  }
+};
+
+exports.addApplicationComment = async (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const { applicationType, applicationId, comment } = req.body || {};
+  if (!comment) return res.status(400).json({ success: false, message: "Comment required" });
+  try {
+    await q(
+      "INSERT INTO application_comments (application_type, application_id, comment, employee_user_id, created_at) VALUES (?,?,?,?,NOW())",
+      [applicationType, applicationId, comment, req.session.user.user_id]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, message: "Failed to add comment" });
+  }
 };
 
 // ========================= REQUIREMENTS LIBRARY (EMPLOYEE) =========================

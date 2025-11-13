@@ -11,8 +11,7 @@ router.get('/businesspermits', isAuthenticated, BuspermitController.getAllPermit
 
 router.get('/applications', isAuthenticated, BuspermitController.GetAllApplications);
 router.get('/applications/:id', isAuthenticated, BuspermitController.GetApplicationById);
-router.put('/applications/:id/accept', applicationController.acceptApplication);
-
+router.put('/applications/:id/accept', /*isAuthenticated,*/ BuspermitController.acceptBusiness);
 router.put('/applications/move-to-inprogress', BuspermitController.moveBusinessToInProgress);
 router.put('/applications/move-to-requirements-completed', BuspermitController.moveBusinessToRequirementsCompleted);
 router.put('/applications/move-to-approved', BuspermitController.moveBusinessToApproved);
