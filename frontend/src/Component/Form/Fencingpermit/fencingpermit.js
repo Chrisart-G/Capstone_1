@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
 
@@ -32,6 +32,57 @@ const FencingPermitForm = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Auto-fill states
+  const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
+  const [autoFillError, setAutoFillError] = useState('');
+
+  // Fetch user info for fencing auto-fill
+  useEffect(() => {
+    const fetchUserInfoForFencing = async () => {
+      setIsLoadingUserInfo(true);
+      setAutoFillError('');
+
+      try {
+        const response = await fetch('http://localhost:8081/api/user-info-fencing', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.success && data.userInfo) {
+            const ui = data.userInfo;
+
+            setFormData(prev => ({
+              ...prev,
+              lastName: ui.lastName || prev.lastName,
+              firstName: ui.firstName || prev.firstName,
+              middleInitial: ui.middleInitial || prev.middleInitial,
+              street: ui.street || prev.street,
+              barangay: ui.barangay || prev.barangay,
+              cityMunicipality: ui.cityMunicipality || prev.cityMunicipality,
+              telephoneNo: ui.telephoneNo || prev.telephoneNo
+            }));
+          } else {
+            setAutoFillError(data.message || 'Could not auto-fill your information.');
+          }
+        } else if (response.status === 401) {
+          setAutoFillError('Please log in to auto-fill your information.');
+        } else {
+          setAutoFillError('Failed to load your profile information for auto-fill.');
+        }
+      } catch (err) {
+        console.error('Error fetching user info for fencing:', err);
+        setAutoFillError('Unable to auto-fill your information. You can still fill the form manually.');
+      } finally {
+        setIsLoadingUserInfo(false);
+      }
+    };
+
+    fetchUserInfoForFencing();
+  }, []);
+
   const handleInputChange = (field, value) => {
     // Clear messages when user starts typing
     setError('');
@@ -50,22 +101,22 @@ const FencingPermitForm = () => {
       setError('Last name is required');
       return false;
     }
-    
+
     if (!formData.firstName.trim()) {
       setError('First name is required');
       return false;
     }
-    
+
     if (!formData.scopeOfWork || formData.scopeOfWork === '') {
       setError('Please select a valid scope of work');
       return false;
     }
-    
+
     if (formData.scopeOfWork === 'others' && !formData.otherScopeSpecify.trim()) {
       setError('Please specify the scope of work when selecting "Others"');
       return false;
     }
-    
+
     return true;
   };
 
@@ -97,7 +148,7 @@ const FencingPermitForm = () => {
 
       if (data.success) {
         setSuccess(`Application submitted successfully! Your application number is: ${data.data.applicationNo}`);
-        
+
         // Reset form after 3 seconds
         setTimeout(() => {
           setFormData({
@@ -151,6 +202,23 @@ const FencingPermitForm = () => {
             <h1 className="text-2xl font-bold text-gray-800 mb-2">FENCING PERMIT FORM</h1>
           </div>
 
+          {/* Auto-fill status message */}
+          {(isLoadingUserInfo || autoFillError) && (
+            <div className="mx-6 mt-4">
+              {isLoadingUserInfo && (
+                <div className="flex items-center text-xs text-gray-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
+                  <span>Loading your profile information...</span>
+                </div>
+              )}
+              {autoFillError && !isLoadingUserInfo && (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded mt-1">
+                  {autoFillError}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Alert Messages */}
           {error && (
             <div className="mx-6 mt-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -180,6 +248,7 @@ const FencingPermitForm = () => {
 
           <div className="p-6">
             <div className="grid grid-cols-4 gap-4 mb-6">
+              {/* LAST NAME (auto-filled, read-only) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
                   LAST NAME <span className="text-red-500">*</span>
@@ -187,12 +256,18 @@ const FencingPermitForm = () => {
                 <input
                   type="text"
                   value={formData.lastName}
-                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="Last Name"
+                  title="This field is auto-filled from your account information"
                   required
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  * Auto-filled from your account information
+                </p>
               </div>
+
+              {/* FIRST NAME (auto-filled, read-only) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
                   FIRST NAME <span className="text-red-500">*</span>
@@ -200,23 +275,35 @@ const FencingPermitForm = () => {
                 <input
                   type="text"
                   value={formData.firstName}
-                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="First Name"
+                  title="This field is auto-filled from your account information"
                   required
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  * Auto-filled from your account information
+                </p>
               </div>
+
+              {/* MIDDLE INITIAL (auto-filled, read-only if provided) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">M.I</label>
                 <input
                   type="text"
                   value={formData.middleInitial}
-                  onChange={(e) => handleInputChange('middleInitial', e.target.value)}
-                  placeholder="Middle Initial"
+                  readOnly
                   maxLength="5"
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
+                  placeholder="Middle Initial"
+                  title="This field is auto-filled from your account information"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  * Auto-filled from your account information
+                </p>
               </div>
+
+              {/* TIN (user editable) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">TIN</label>
                 <input
@@ -274,36 +361,55 @@ const FencingPermitForm = () => {
                   className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 />
               </div>
+
+              {/* STREET (auto-filled, read-only) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">STREET</label>
                 <input
                   type="text"
                   value={formData.street}
-                  onChange={(e) => handleInputChange('street', e.target.value)}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="Street"
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  title="This field is auto-filled from your account information"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  * Auto-filled from your account information
+                </p>
               </div>
+
+              {/* BARANGAY (auto-filled, read-only) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">BARANGAY</label>
                 <input
                   type="text"
                   value={formData.barangay}
-                  onChange={(e) => handleInputChange('barangay', e.target.value)}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="Barangay"
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  title="This field is auto-filled from your account information"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  * Auto-filled from your account information
+                </p>
               </div>
+
+              {/* CITY / MUNICIPALITY (auto-filled, read-only) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">CITY / MUNICIPALITY</label>
                 <input
                   type="text"
                   value={formData.cityMunicipality}
-                  onChange={(e) => handleInputChange('cityMunicipality', e.target.value)}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="City/Municipality"
-                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                  title="This field is auto-filled from your account information"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  * Auto-filled from your account information
+                </p>
               </div>
+
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">ZIP CODE</label>
                 <input
@@ -314,18 +420,24 @@ const FencingPermitForm = () => {
                   className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 />
               </div>
+
               <div className="col-span-1"></div>
             </div>
 
+            {/* TELEPHONE (auto-filled, read-only) */}
             <div className="mb-6">
               <label className="block text-sm font-bold mb-2 text-gray-700">TELEPHONE NO.</label>
               <input
                 type="text"
                 value={formData.telephoneNo}
-                onChange={(e) => handleInputChange('telephoneNo', e.target.value)}
+                readOnly
+                className="w-full max-w-md p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                 placeholder="Telephone no."
-                className="w-full max-w-md p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
+                title="This field is auto-filled from your account information"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                * Auto-filled from your account information
+              </p>
             </div>
           </div>
 
@@ -459,10 +571,10 @@ const FencingPermitForm = () => {
             <div className="text-center mt-8">
               <button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoadingUserInfo}
                 className={`${
-                  isSubmitting 
-                    ? 'bg-gray-400 cursor-not-allowed' 
+                  isSubmitting || isLoadingUserInfo
+                    ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700'
                 } text-white px-8 py-3 rounded-lg font-bold text-lg shadow-lg transition-all duration-200`}
               >

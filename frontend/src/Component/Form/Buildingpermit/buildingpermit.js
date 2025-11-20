@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
@@ -6,6 +6,7 @@ import UFooter from '../../Footer/User_Footer';
 export default function BuildingPermitForm() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     appliesAlsoFor: '',
     lastName: '',
@@ -41,13 +42,68 @@ export default function BuildingPermitForm() {
     groupF: ''
   });
 
+  // ⭐ NEW: auto-fill states
+  const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
+  const [autoFillError, setAutoFillError] = useState('');
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    // enforce 1 character for middleInitial
+    const processedValue = name === 'middleInitial' ? value.slice(0, 1) : value;
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: processedValue
     }));
   };
+
+  // ⭐ NEW: fetch user info for building auto-fill
+  useEffect(() => {
+    const fetchUserInfoForBuilding = async () => {
+      setIsLoadingUserInfo(true);
+      setAutoFillError('');
+
+      try {
+        const response = await fetch('http://localhost:8081/api/user-info-building', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.success && data.userInfo) {
+            const ui = data.userInfo;
+
+            setFormData(prev => ({
+              ...prev,
+              lastName: ui.lastName || prev.lastName,
+              firstName: ui.firstName || prev.firstName,
+              middleInitial: ui.middleInitial || prev.middleInitial,
+              street: ui.street || prev.street,
+              barangay: ui.barangay || prev.barangay,
+              cityMunicipality: ui.cityMunicipality || prev.cityMunicipality,
+              telephoneNo: ui.telephoneNo || prev.telephoneNo
+            }));
+          } else {
+            setAutoFillError(data.message || 'Could not auto-fill your information.');
+          }
+        } else if (response.status === 401) {
+          setAutoFillError('Please log in to auto-fill your information.');
+        } else {
+          setAutoFillError('Failed to load your profile information for auto-fill.');
+        }
+      } catch (err) {
+        console.error('Error fetching user info for building:', err);
+        setAutoFillError('Unable to auto-fill your information. You can still fill the form manually for other fields.');
+      } finally {
+        setIsLoadingUserInfo(false);
+      }
+    };
+
+    fetchUserInfoForBuilding();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -127,6 +183,23 @@ export default function BuildingPermitForm() {
               <h1 className="text-3xl font-bold text-gray-800">BUILDING PERMIT FORM</h1>
             </div>
 
+            {/* Auto-fill status */}
+            {(isLoadingUserInfo || autoFillError) && (
+              <div className="mb-4">
+                {isLoadingUserInfo && (
+                  <div className="flex items-center text-xs text-gray-600">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
+                    <span>Loading your profile information...</span>
+                  </div>
+                )}
+                {autoFillError && !isLoadingUserInfo && (
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded mt-1">
+                    {autoFillError}
+                  </div>
+                )}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-6">
               {/* This Applies Also For */}
               <div className="mb-6">
@@ -154,6 +227,7 @@ export default function BuildingPermitForm() {
                 </div>
                 <div className="border border-gray-300 border-t-0 p-4 rounded-b-md">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    {/* LAST NAME (auto-filled, read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         LAST NAME <span className="text-red-500">*</span>
@@ -165,9 +239,16 @@ export default function BuildingPermitForm() {
                         onChange={handleInputChange}
                         placeholder="Last Name"
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                        title="Auto-filled from your account information"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * Auto-filled from your account information
+                      </p>
                     </div>
+
+                    {/* FIRST NAME (auto-filled, read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         FIRST NAME <span className="text-red-500">*</span>
@@ -179,9 +260,16 @@ export default function BuildingPermitForm() {
                         onChange={handleInputChange}
                         placeholder="First Name"
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                        title="Auto-filled from your account information"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * Auto-filled from your account information
+                      </p>
                     </div>
+
+                    {/* M.I (auto-filled, read-only, 1 char) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">M.I</label>
                       <input
@@ -189,10 +277,18 @@ export default function BuildingPermitForm() {
                         name="middleInitial"
                         value={formData.middleInitial}
                         onChange={handleInputChange}
-                        placeholder="Middle Name"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="M"
+                        maxLength={1}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                        title="Auto-filled from your account information"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * Auto-filled from your account information
+                      </p>
                     </div>
+
+                    {/* TIN (editable) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">TIN</label>
                       <input
@@ -243,6 +339,7 @@ export default function BuildingPermitForm() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                    {/* STREET (auto-filled, read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">STREET</label>
                       <input
@@ -251,9 +348,15 @@ export default function BuildingPermitForm() {
                         value={formData.street}
                         onChange={handleInputChange}
                         placeholder="Street"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                        title="Auto-filled from your account information"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * Auto-filled from your account information
+                      </p>
                     </div>
+                    {/* BARANGAY (auto-filled, read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">BARANGAY</label>
                       <input
@@ -262,9 +365,15 @@ export default function BuildingPermitForm() {
                         value={formData.barangay}
                         onChange={handleInputChange}
                         placeholder="Barangay"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                        title="Auto-filled from your account information"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * Auto-filled from your account information
+                      </p>
                     </div>
+                    {/* CITY / MUNICIPALITY (auto-filled, read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">CITY / MUNICIPALITY</label>
                       <input
@@ -273,8 +382,13 @@ export default function BuildingPermitForm() {
                         value={formData.cityMunicipality}
                         onChange={handleInputChange}
                         placeholder="City/Municipality"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                        title="Auto-filled from your account information"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * Auto-filled from your account information
+                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">ZIP CODE</label>
@@ -298,8 +412,13 @@ export default function BuildingPermitForm() {
                         value={formData.telephoneNo}
                         onChange={handleInputChange}
                         placeholder="Telephone no."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                        title="Auto-filled from your account information"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * Auto-filled from your account information
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -627,9 +746,9 @@ export default function BuildingPermitForm() {
               <div className="text-center">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoadingUserInfo}
                   className={`${
-                    isSubmitting 
+                    isSubmitting || isLoadingUserInfo
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-green-600 hover:bg-green-700'
                   } text-white font-semibold px-8 py-3 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-green-500`}

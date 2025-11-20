@@ -694,20 +694,10 @@ exports.attachRequirementFromLibrary = async (req, res) => {
   }
 };
 
-exports.getAttachedRequirements = async (req, res) => {
-  if (!requireAuth(req, res)) return;
-  const { applicationType, applicationId } = req.query || {};
-  try {
-    const rows = await q(
-      "SELECT r.* FROM tbl_application_requirements ar JOIN requirements_library r ON r.id=ar.requirement_id WHERE ar.application_type=? AND ar.application_id=?",
-      [applicationType, applicationId]
-    );
-    res.json({ success: true, items: rows });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ success: false, message: "Fetch failed" });
-  }
-};
+
+
+
+
 
 exports.getApplicationComments = async (req, res) => {
   if (!requireAuth(req, res)) return;
@@ -984,33 +974,62 @@ exports.attachRequirementFromLibrary = (req, res) => {
 };
 
 // GET /attached-requirements?application_type=&application_id=
+// GET /attached-requirements?application_type=&application_id=
 exports.getAttachedRequirements = (req, res) => {
   if (!requireAuth(req, res)) return;
 
   const { application_type = "", application_id = "" } = req.query;
   if (!application_type || !application_id) {
-    return res.status(400).json({ success: false, message: "Missing application_type or application_id." });
+    return res.status(400).json({
+      success: false,
+      message: "Missing application_type or application_id.",
+    });
   }
 
   const sql = `
-    SELECT requirement_id, user_id, file_path, application_type, application_id, pdf_path, uploaded_at
+    SELECT
+      requirement_id,
+      user_id,
+      file_path,
+      application_type,
+      application_id,
+      pdf_path,
+      user_upload_path,
+      uploaded_at,
+      user_uploaded_at
     FROM tbl_application_requirements
     WHERE application_type = ? AND application_id = ?
     ORDER BY uploaded_at DESC
   `;
+
   db.query(sql, [application_type, application_id], (err, rows) => {
     if (err) {
       console.error("getAttachedRequirements error:", err);
-      return res.status(500).json({ success: false, message: "Failed to load attached requirements." });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to load attached requirements." });
     }
+
     const base = `${req.protocol}://${req.get("host")}`;
-    const items = rows.map(r => ({
+    const items = rows.map((r) => ({
       ...r,
-      file_url: r.pdf_path ? `${base}${r.pdf_path}` : null
+      // system template
+      file_url: r.pdf_path ? `${base}${r.pdf_path}` : null,
+      // user-uploaded filled requirement
+      user_file_url: r.user_upload_path ? `${base}${r.user_upload_path}` : null,
     }));
+
+    console.log(
+      "[ATTACHED-REQ] type=%s id=%s rows=%d",
+      application_type,
+      application_id,
+      items.length
+    );
+
     res.json({ success: true, items });
   });
 };
+
 
 // GET /application-comments?application_type=&application_id=
 exports.getApplicationComments = (req, res) => {

@@ -13,5 +13,11 @@ router.get('/user-info-cedula', isAuthenticated, formsfillController.getUserInfo
 
 // Route to get user information for auto-filling electrical forms
 router.get('/user-info-electrical', isAuthenticated, formsfillController.getUserInfoForElectrical);
+// for fencing 
+router.get('/user-info-fencing', isAuthenticated, formsfillController.getUserInfoForFencing);
+// for electronics 
+router.get('/user-info-electronics', isAuthenticated, formsfillController.getUserInfoForElectronics);
+router.get('/user-info-building', isAuthenticated, formsfillController.getUserInfoForBuilding);
+router.get('/user-info-plumbing', isAuthenticated, formsfillController.getUserInfoForPlumbing);
 
 module.exports = router;

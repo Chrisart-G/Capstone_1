@@ -130,33 +130,52 @@ function AttachedRequirementsPanel({ selectedApplication }) {
           <p className="text-sm text-gray-500 mt-3">Loading attached requirements…</p>
         ) : hasItems ? (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-            {items.map((it) => (
-              <div
-                key={`${it.requirement_id}-${it.file_path}-${it.uploaded_at}`}
-                className="bg-gray-50 border rounded p-3 flex items-center justify-between"
-              >
-                <div className="pr-3">
-                  <p className="text-sm font-medium text-gray-800">
-                    {it.file_path || "Requirement"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Added: {new Date(it.uploaded_at).toLocaleString()}
-                  </p>
-                </div>
-                {it.file_url ? (
-                  <a
-                    href={it.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline text-sm"
-                  >
-                    View / Download
-                  </a>
-                ) : (
-                  <span className="text-xs text-gray-400 italic">No file</span>
-                )}
-              </div>
-            ))}
+           {items.map((it) => (
+  <div
+    key={`${it.requirement_id}-${it.file_path}-${it.uploaded_at}-${it.user_uploaded_at || "na"}`}
+    className="bg-gray-50 border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between"
+  >
+    <div className="pr-3 mb-2 md:mb-0">
+      <p className="text-sm font-medium text-gray-800">
+        {it.file_path || "Requirement"}
+      </p>
+      <p className="text-xs text-gray-500">
+        System attached: {new Date(it.uploaded_at).toLocaleString()}
+      </p>
+      {it.user_uploaded_at && (
+        <p className="text-xs text-gray-500">
+          User uploaded: {new Date(it.user_uploaded_at).toLocaleString()}
+        </p>
+      )}
+    </div>
+
+    <div className="flex flex-wrap gap-2">
+      {it.file_url && (
+        <a
+          href={it.file_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline text-xs md:text-sm"
+        >
+          View Template
+        </a>
+      )}
+      {it.user_file_url && (
+        <a
+          href={it.user_file_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-green-600 hover:underline text-xs md:text-sm"
+        >
+          View User Upload
+        </a>
+      )}
+      {!it.file_url && !it.user_file_url && (
+        <span className="text-xs text-gray-400 italic">No file</span>
+      )}
+    </div>
+  </div>
+))}
           </div>
         ) : (
           <p className="text-sm text-gray-500 mt-3">No requirements attached yet.</p>

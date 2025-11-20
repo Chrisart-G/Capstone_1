@@ -3,7 +3,7 @@ const router = express.Router();
 const isAuthenticated = require('../middleware/sessionAuth');
 
 const BuspermitController = require('../Controller/buspermitController');
-const applicationController = require('../Controller/applicationController');
+
 
 // ======================= BUSINESS PERMIT ROUTES =======================
 router.post('/BusinessPermit', isAuthenticated, BuspermitController.SubmitBusinessPermit);

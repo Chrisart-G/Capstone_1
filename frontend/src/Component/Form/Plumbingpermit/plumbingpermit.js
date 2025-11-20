@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
 
@@ -32,29 +32,82 @@ export default function PlumbingPermitForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // ⭐ NEW: auto-fill states
+  const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
+  const [autoFillError, setAutoFillError] = useState('');
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
-    // Clear any previous error messages
+
+    // Clear any previous messages
     setError('');
     setSuccess('');
+
+    // Enforce 1 char for middleInitial
+    const processedValue = name === 'middleInitial' ? value.slice(0, 1) : value;
     
     if (name === 'scopeOfWork') {
-      setFormData({
-        ...formData,
-        [name]: value,
-        otherScopeSpecify: value === 'others' ? formData.otherScopeSpecify : ''
-      });
+      setFormData(prev => ({
+        ...prev,
+        [name]: processedValue,
+        otherScopeSpecify: processedValue === 'others' ? prev.otherScopeSpecify : ''
+      }));
     } else {
-      setFormData({
-        ...formData,
-        [name]: value
-      });
+      setFormData(prev => ({
+        ...prev,
+        [name]: processedValue
+      }));
     }
   };
 
+  // ⭐ NEW: fetch user info for plumbing auto-fill
+  useEffect(() => {
+    const fetchUserInfoForPlumbing = async () => {
+      setIsLoadingUserInfo(true);
+      setAutoFillError('');
+
+      try {
+        const response = await fetch('http://localhost:8081/api/user-info-plumbing', {
+          method: 'GET',
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.success && data.userInfo) {
+            const ui = data.userInfo;
+
+            setFormData(prev => ({
+              ...prev,
+              lastName: ui.lastName || prev.lastName,
+              firstName: ui.firstName || prev.firstName,
+              middleInitial: ui.middleInitial || prev.middleInitial,
+              addressStreet: ui.addressStreet || prev.addressStreet,
+              addressBarangay: ui.addressBarangay || prev.addressBarangay,
+              addressCity: ui.addressCity || prev.addressCity,
+              telephoneNo: ui.telephoneNo || prev.telephoneNo
+            }));
+          } else {
+            setAutoFillError(data.message || 'Could not auto-fill your information.');
+          }
+        } else if (response.status === 401) {
+          setAutoFillError('Please log in to auto-fill your information.');
+        } else {
+          setAutoFillError('Failed to load your profile information for auto-fill.');
+        }
+      } catch (err) {
+        console.error('Error fetching user info for plumbing:', err);
+        setAutoFillError('Unable to auto-fill your information. You can still complete the form manually.');
+      } finally {
+        setIsLoadingUserInfo(false);
+      }
+    };
+
+    fetchUserInfoForPlumbing();
+  }, []);
+
   const validateForm = () => {
-    // Check required fields
     if (!formData.lastName.trim()) {
       setError('Last name is required');
       return false;
@@ -79,7 +132,6 @@ export default function PlumbingPermitForm() {
   };
 
   const handleSubmit = async () => {
-    // Validate form before submission
     if (!validateForm()) {
       return;
     }
@@ -107,8 +159,7 @@ export default function PlumbingPermitForm() {
       if (data.success) {
         setSuccess(`Application submitted successfully! Your application number is: ${data.data.applicationNo}`);
         
-        // Optionally reset form after successful submission
-        // Reset form after a delay to show success message
+        // Reset after a short delay
         setTimeout(() => {
           setFormData({
             lastName: '',
@@ -164,6 +215,23 @@ export default function PlumbingPermitForm() {
             <h1 className="text-xl font-bold mt-4">PLUMBING PERMIT</h1>
           </div>
 
+          {/* Auto-fill status */}
+          {(isLoadingUserInfo || autoFillError) && (
+            <div>
+              {isLoadingUserInfo && (
+                <div className="flex items-center text-xs text-gray-600 mb-1">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
+                  <span>Loading your profile information...</span>
+                </div>
+              )}
+              {autoFillError && !isLoadingUserInfo && (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded">
+                  {autoFillError}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Alert Messages */}
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -192,6 +260,7 @@ export default function PlumbingPermitForm() {
             
             {/* Name Fields */}
             <div className="grid grid-cols-4 gap-2 mb-2">
+              {/* LAST NAME (auto-filled, read-only) */}
               <div className="col-span-2 border border-gray-300 p-1">
                 <p className="text-xs mb-1">LAST NAME <span className="text-red-500">*</span></p>
                 <input
@@ -200,9 +269,16 @@ export default function PlumbingPermitForm() {
                   value={formData.lastName}
                   onChange={handleChange}
                   required
-                  className="w-full focus:outline-none text-sm"
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="Auto-filled from your account information"
                 />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  * Auto-filled from your account information
+                </p>
               </div>
+
+              {/* FIRST NAME (auto-filled, read-only) */}
               <div className="col-span-1 border border-gray-300 p-1">
                 <p className="text-xs mb-1">FIRST NAME <span className="text-red-500">*</span></p>
                 <input
@@ -211,9 +287,16 @@ export default function PlumbingPermitForm() {
                   value={formData.firstName}
                   onChange={handleChange}
                   required
-                  className="w-full focus:outline-none text-sm"
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="Auto-filled from your account information"
                 />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  * Auto-filled from your account information
+                </p>
               </div>
+
+              {/* M.I + TIN */}
               <div className="col-span-1 border border-gray-300 p-1">
                 <div className="grid grid-cols-2">
                   <div>
@@ -223,8 +306,11 @@ export default function PlumbingPermitForm() {
                       name="middleInitial"
                       value={formData.middleInitial}
                       onChange={handleChange}
-                      maxLength="5"
-                      className="w-full focus:outline-none text-sm"
+                      maxLength={1}
+                      readOnly
+                      className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                      placeholder="M"
+                      title="Auto-filled from your account information"
                     />
                   </div>
                   <div>
@@ -287,6 +373,7 @@ export default function PlumbingPermitForm() {
                   className="w-full focus:outline-none text-sm"
                 />
               </div>
+              {/* STREET (auto-filled, read-only) */}
               <div className="col-span-2 border border-gray-300 p-1">
                 <p className="text-xs">STREET</p>
                 <input
@@ -294,9 +381,12 @@ export default function PlumbingPermitForm() {
                   name="addressStreet"
                   value={formData.addressStreet}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="Auto-filled from your account information"
                 />
               </div>
+              {/* BARANGAY (auto-filled, read-only) */}
               <div className="border border-gray-300 p-1">
                 <p className="text-xs">BARANGAY</p>
                 <input
@@ -304,9 +394,12 @@ export default function PlumbingPermitForm() {
                   name="addressBarangay"
                   value={formData.addressBarangay}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="Auto-filled from your account information"
                 />
               </div>
+              {/* CITY/MUNICIPALITY (auto-filled, read-only) */}
               <div className="border border-gray-300 p-1">
                 <p className="text-xs">CITY/MUNICIPALITY</p>
                 <input
@@ -314,7 +407,9 @@ export default function PlumbingPermitForm() {
                   name="addressCity"
                   value={formData.addressCity}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  readOnly
+                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  title="Auto-filled from your account information"
                 />
               </div>
               <div className="border border-gray-300 p-1">
@@ -329,7 +424,7 @@ export default function PlumbingPermitForm() {
               </div>
             </div>
 
-            {/* Phone Number */}
+            {/* Phone Number (auto-filled, read-only) */}
             <div className="grid grid-cols-6 gap-2 mb-2">
               <div className="col-span-6 border border-gray-300 p-1">
                 <p className="text-xs text-center">TELEPHONE NO.</p>
@@ -338,9 +433,14 @@ export default function PlumbingPermitForm() {
                   name="telephoneNo"
                   value={formData.telephoneNo}
                   onChange={handleChange}
-                  className="w-1/2 mx-auto block text-center border-b border-gray-300 focus:outline-none text-sm"
+                  readOnly
+                  className="w-1/2 mx-auto block text-center border-b border-gray-300 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
                   placeholder="Enter phone number"
+                  title="Auto-filled from your account information"
                 />
+                <p className="text-[10px] text-gray-500 mt-1 text-center">
+                  * Auto-filled from your account information
+                </p>
               </div>
             </div>
 
@@ -473,9 +573,9 @@ export default function PlumbingPermitForm() {
           <div className="text-center">
             <button 
               onClick={handleSubmit} 
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoadingUserInfo}
               className={`${
-                isSubmitting 
+                isSubmitting || isLoadingUserInfo
                   ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-blue-500 hover:bg-blue-700'
               } text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors`}

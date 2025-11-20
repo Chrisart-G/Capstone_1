@@ -186,63 +186,155 @@ exports.getFencingPermitsForTracking = async (req, res) => {
     res.status(500).json({ message: "Unexpected server error", error: err.message });
   }
 };
+// Create or reuse application_index row
+function ensureAppIndex(application_type, application_id, user_id, cb) {
+  const t = String(application_type || "").toLowerCase();
 
+  const selectSql = `
+    SELECT app_uid
+    FROM application_index
+    WHERE application_type = ?
+      AND application_id = ?
+      AND user_id = ?
+    LIMIT 1
+  `;
+
+  db.query(selectSql, [t, application_id, user_id], (selErr, selRows) => {
+    if (selErr) return cb(selErr);
+    if (selRows.length) return cb(null, selRows[0].app_uid); // already exists
+
+    const insertSql = `
+      INSERT INTO application_index (application_type, application_id, user_id)
+      VALUES (?, ?, ?)
+    `;
+    db.query(insertSql, [t, application_id, user_id], (insErr, insRes) => {
+      if (insErr) return cb(insErr);
+      cb(null, insRes.insertId); // new app_uid
+    });
+  });
+}
 
 //-------------------------- for the fetch of requirements
 exports.getUserAttachedRequirements = (req, res) => {
   const userId = getUserIdFromSession(req);
-  if (!userId) return res.status(401).json({ success: false, message: "Unauthorized." });
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
 
   const application_type = String(req.query.application_type || "").toLowerCase();
   const application_id = Number(req.query.application_id || 0);
+
   if (!application_type || !application_id) {
-    return res.status(400).json({ success: false, message: "application_type and application_id are required." });
+    return res.status(400).json({
+      success: false,
+      message: "application_type and application_id are required."
+    });
   }
 
-  // Find the app_uid for THIS user's app
+  console.log("getUserAttachedRequirements:", {
+    userId,
+    application_type,
+    application_id
+  });
+
+  // 1) Try normal path via application_index (preferred)
   const idxSql = `
     SELECT app_uid
     FROM application_index
-    WHERE application_type = ? AND application_id = ? AND user_id = ?
+    WHERE application_type = ?
+      AND application_id = ?
+      AND user_id = ?
     LIMIT 1
   `;
+
   db.query(idxSql, [application_type, application_id, userId], (idxErr, idxRows) => {
     if (idxErr) {
       console.error("getUserAttachedRequirements idx error:", idxErr);
       return res.status(500).json({ success: false, message: "Server error." });
     }
-    if (!idxRows.length) {
-      return res.status(404).json({ success: false, message: "Application not found for this user." });
-    }
 
-    const app_uid = idxRows[0].app_uid;
-    const sql = `
-      SELECT
-        requirement_id,               -- PK of tbl_application_requirements row
-        file_path AS requirement_name,
-        pdf_path,
-        user_upload_path,
-        uploaded_at,
-        user_uploaded_at
-      FROM tbl_application_requirements
-      WHERE app_uid = ?
-      ORDER BY uploaded_at ASC
-    `;
-    db.query(sql, [app_uid], (err, rows) => {
-      if (err) {
-        console.error("getUserAttachedRequirements error:", err);
-        return res.status(500).json({ success: false, message: "Failed to load attached requirements." });
-      }
+    // Helper to send rows -> items
+    const sendRows = (rows) => {
       const items = rows.map(r => ({
         requirement_id: r.requirement_id,
         name: r.requirement_name,
-        template_url: absUrl(req, r.pdf_path),           // template to download
-        user_file_url: absUrl(req, r.user_upload_path),  // user's uploaded file (if any)
+        template_url: absUrl(req, r.pdf_path),        // template to download
+        user_file_url: absUrl(req, r.user_upload_path), // user's uploaded file (if any)
         uploaded_at: r.uploaded_at,
         user_uploaded_at: r.user_uploaded_at
       }));
-      res.json({ success: true, items });
-    });
+
+      console.log(
+        "getUserAttachedRequirements -> rows:",
+        items.length
+      );
+
+      // IMPORTANT: always success=true, even if 0 items
+      return res.json({ success: true, items });
+    };
+
+    if (idxRows.length) {
+      // ✅ Normal case: we have app_uid
+      const app_uid = idxRows[0].app_uid;
+      const sql = `
+        SELECT
+          requirement_id,
+          file_path AS requirement_name,
+          pdf_path,
+          user_upload_path,
+          uploaded_at,
+          user_uploaded_at
+        FROM tbl_application_requirements
+        WHERE app_uid = ?
+        ORDER BY uploaded_at ASC
+      `;
+      db.query(sql, [app_uid], (err, rows) => {
+        if (err) {
+          console.error("getUserAttachedRequirements error:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to load attached requirements."
+          });
+        }
+        return sendRows(rows);
+      });
+    } else {
+      // ⚠️ Fallback: no application_index row, try direct match on user_id + type + id
+      console.warn(
+        "getUserAttachedRequirements: no application_index row, using fallback",
+        { application_type, application_id, userId }
+      );
+
+      const fallbackSql = `
+        SELECT
+          requirement_id,
+          file_path AS requirement_name,
+          pdf_path,
+          user_upload_path,
+          uploaded_at,
+          user_uploaded_at
+        FROM tbl_application_requirements
+        WHERE user_id = ?
+          AND application_type = ?
+          AND application_id = ?
+        ORDER BY uploaded_at ASC
+      `;
+
+      db.query(
+        fallbackSql,
+        [userId, application_type, application_id],
+        (fbErr, fbRows) => {
+          if (fbErr) {
+            console.error("getUserAttachedRequirements fallback error:", fbErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to load attached requirements."
+            });
+          }
+          return sendRows(fbRows);
+        }
+      );
+    }
   });
 };
 
