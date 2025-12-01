@@ -117,6 +117,12 @@ app.use('/api', usernavRoutes);
 /* ===================== SMS routes ROUTES ===================== */
 const smsRoutes = require('./routes/smsRoutes');
 app.use('/api/sms', smsRoutes);
+const admindocupriceRoutes = require('./routes/admindocupriceRoutes');
+// ...
+app.use('/api/document-prices', admindocupriceRoutes);
+
+const admindashRoutes = require('./routes/admindashRoutes');
+app.use('/api/admin-dashboard', admindashRoutes);
 // Start the server
 app.listen(8081, () => {
   console.log("Server running on port 8081");

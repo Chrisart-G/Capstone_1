@@ -343,9 +343,12 @@ exports.getUserAttachedRequirements = (req, res) => {
  * FormData: application_type, application_id, requirement_id (the row PK in tbl_application_requirements), file
  * Saves user's filled file and stores path in tbl_application_requirements.user_upload_path
  */
+// In Controller/permitstrackingController.js
 exports.uploadUserRequirement = (req, res) => {
   const userId = getUserIdFromSession(req);
-  if (!userId) return res.status(401).json({ success: false, message: "Unauthorized." });
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
 
   const application_type = String(req.body.application_type || "").toLowerCase();
   const application_id = Number(req.body.application_id || 0);
@@ -353,27 +356,53 @@ exports.uploadUserRequirement = (req, res) => {
   const file = req.files?.file || null;
 
   if (!application_type || !application_id || !requirement_id || !file) {
-    return res.status(400).json({ success: false, message: "application_type, application_id, requirement_id and file are required." });
+    return res.status(400).json({
+      success: false,
+      message: "application_type, application_id, requirement_id and file are required."
+    });
   }
 
   // Validate this requirement row belongs to THIS user's app
   const sql = `
-    SELECT r.requirement_id, r.app_uid, ai.user_id
+    SELECT
+      r.requirement_id,
+      r.app_uid,
+      r.user_upload_path,
+      ai.user_id
     FROM tbl_application_requirements r
     JOIN application_index ai ON ai.app_uid = r.app_uid
     WHERE r.requirement_id = ? AND ai.application_type = ? AND ai.application_id = ?
     LIMIT 1
   `;
+
   db.query(sql, [requirement_id, application_type, application_id], (err, rows) => {
     if (err) {
       console.error("uploadUserRequirement lookup error:", err);
       return res.status(500).json({ success: false, message: "Server error." });
     }
     if (!rows.length) {
-      return res.status(404).json({ success: false, message: "Requirement not found for this application." });
+      return res.status(404).json({
+        success: false,
+        message: "Requirement not found for this application."
+      });
     }
-    if (rows[0].user_id !== userId) {
-      return res.status(403).json({ success: false, message: "You are not allowed to upload for this application." });
+    const row = rows[0];
+
+    if (row.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to upload for this application."
+      });
+    }
+
+    // ❗ NEW: once user has uploaded, do not allow another upload
+    if (row.user_upload_path) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "A file has already been uploaded for this requirement. " +
+          "Please contact the municipal office if you need to change it."
+      });
     }
 
     // Save file under /uploads/user_uploads
@@ -383,6 +412,7 @@ exports.uploadUserRequirement = (req, res) => {
 
     const safe = `${Date.now()}_${String(file.name).replace(/[^\w.\-]+/g, "_")}`;
     const absPath = path.join(absDir, safe);
+
     file.mv(absPath, (mvErr) => {
       if (mvErr) {
         console.error("upload mv error:", mvErr);
@@ -408,5 +438,252 @@ exports.uploadUserRequirement = (req, res) => {
         });
       });
     });
+  });
+};
+exports.replaceUserRequirementUpload = (req, res) => {
+  const userId = getUserIdFromSession(req);
+  const role = req.session?.user?.role || 'citizen';
+
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+  if (role !== 'admin' && role !== 'employee') {
+    return res.status(403).json({
+      success: false,
+      message: "Only municipal staff can replace uploads."
+    });
+  }
+
+  const requirement_id = Number(req.body.requirement_id || 0);
+  const file = req.files?.file || null;
+
+  if (!requirement_id || !file) {
+    return res.status(400).json({
+      success: false,
+      message: "requirement_id and file are required."
+    });
+  }
+
+  const sql = `
+    SELECT requirement_id, user_upload_path
+    FROM tbl_application_requirements
+    WHERE requirement_id = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [requirement_id], (err, rows) => {
+    if (err) {
+      console.error("replaceUserRequirementUpload lookup error:", err);
+      return res.status(500).json({ success: false, message: "Server error." });
+    }
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Requirement not found."
+      });
+    }
+
+    const row = rows[0];
+
+    // Optional: delete existing file
+    if (row.user_upload_path) {
+      try {
+        const rel = row.user_upload_path.replace(/^\//, "");
+        const absOld = path.join(__dirname, "..", rel);
+        if (fs.existsSync(absOld)) {
+          fs.unlinkSync(absOld);
+        }
+      } catch (e) {
+        console.warn("Failed to delete old requirement file:", e);
+      }
+    }
+
+    // Save new file
+    const UP_SUBDIR = "uploads/user_uploads";
+    const absDir = path.join(__dirname, "..", UP_SUBDIR);
+    if (!fs.existsSync(absDir)) fs.mkdirSync(absDir, { recursive: true });
+
+    const safe = `${Date.now()}_${String(file.name).replace(/[^\w.\-]+/g, "_")}`;
+    const absPath = path.join(absDir, safe);
+
+    file.mv(absPath, (mvErr) => {
+      if (mvErr) {
+        console.error("replace mv error:", mvErr);
+        return res.status(500).json({ success: false, message: "Failed to save file." });
+      }
+
+      const relPath = `/${UP_SUBDIR}/${safe}`;
+      const upd = `
+        UPDATE tbl_application_requirements
+        SET user_upload_path = ?, user_uploaded_at = NOW()
+        WHERE requirement_id = ?
+      `;
+      db.query(upd, [relPath, requirement_id], (updErr) => {
+        if (updErr) {
+          console.error("replaceUserRequirementUpload update error:", updErr);
+          return res.status(500).json({ success: false, message: "Failed to record upload." });
+        }
+
+        return res.json({
+          success: true,
+          message: "Requirement file has been replaced.",
+          requirement_id,
+          user_file_url: absUrl(req, relPath)
+        });
+      });
+    });
+  });
+};
+exports.replaceUserRequirementUploadByUser = (req, res) => {
+  const userId = getUserIdFromSession(req);
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+
+  const application_type = String(req.body.application_type || "").toLowerCase();
+  const application_id = Number(req.body.application_id || 0);
+  const requirement_id  = Number(req.body.requirement_id || 0);
+  const file = req.files?.file || null;
+
+  if (!application_type || !application_id || !requirement_id || !file) {
+    return res.status(400).json({
+      success: false,
+      message: "application_type, application_id, requirement_id and file are required."
+    });
+  }
+
+  const sql = `
+    SELECT
+      r.requirement_id,
+      r.app_uid,
+      r.user_upload_path,
+      ai.user_id
+    FROM tbl_application_requirements r
+    JOIN application_index ai ON ai.app_uid = r.app_uid
+    WHERE r.requirement_id = ? AND ai.application_type = ? AND ai.application_id = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [requirement_id, application_type, application_id], (err, rows) => {
+    if (err) {
+      console.error("replaceUserRequirementUploadByUser lookup error:", err);
+      return res.status(500).json({ success: false, message: "Server error." });
+    }
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Requirement not found for this application."
+      });
+    }
+
+    const row = rows[0];
+
+    // must be the same user who owns this application
+    if (row.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to replace this requirement."
+      });
+    }
+
+    // delete old file if it exists
+    if (row.user_upload_path) {
+      try {
+        const rel = row.user_upload_path.replace(/^\//, "");
+        const absOld = path.join(__dirname, "..", rel);
+        if (fs.existsSync(absOld)) {
+          fs.unlinkSync(absOld);
+        }
+      } catch (e) {
+        console.warn("Failed to delete old requirement file:", e);
+      }
+    }
+
+    // Save new file
+    const UP_SUBDIR = "uploads/user_uploads";
+    const absDir = path.join(__dirname, "..", UP_SUBDIR);
+    if (!fs.existsSync(absDir)) fs.mkdirSync(absDir, { recursive: true });
+
+    const safe = `${Date.now()}_${String(file.name).replace(/[^\w.\-]+/g, "_")}`;
+    const absPath = path.join(absDir, safe);
+
+    file.mv(absPath, (mvErr) => {
+      if (mvErr) {
+        console.error("replaceUserRequirementUploadByUser mv error:", mvErr);
+        return res.status(500).json({ success: false, message: "Failed to save file." });
+      }
+
+      const relPath = `/${UP_SUBDIR}/${safe}`;
+      const upd = `
+        UPDATE tbl_application_requirements
+        SET user_upload_path = ?, user_uploaded_at = NOW()
+        WHERE requirement_id = ?
+      `;
+      db.query(upd, [relPath, requirement_id], (updErr) => {
+        if (updErr) {
+          console.error("replaceUserRequirementUploadByUser update error:", updErr);
+          return res.status(500).json({ success: false, message: "Failed to record upload." });
+        }
+
+        return res.json({
+          success: true,
+          message: "Requirement file has been replaced.",
+          requirement_id,
+          user_file_url: absUrl(req, relPath)
+        });
+      });
+    });
+  });
+};
+exports.addUserCommentForApplication = (req, res) => {
+  const userId = getUserIdFromSession(req);
+  if (!userId) {
+    return res.status(401).json({ success: false, message: "Unauthorized. Please log in." });
+  }
+
+  const application_type = String(req.body.application_type || "").toLowerCase();
+  const application_id = Number(req.body.application_id || 0);
+  const rawStatus      = req.body.status_at_post || null;
+  const comment        = String(req.body.comment || "").trim();
+
+  if (!application_type || !application_id || !comment) {
+    return res.status(400).json({
+      success: false,
+      message: "application_type, application_id and comment are required."
+    });
+  }
+
+  // normalize status (pending / in-review / in-progress / etc.)
+  const status_at_post = rawStatus ? normalizeStatus(rawStatus) : null;
+
+  // ensure we have an app_uid in application_index
+  ensureAppIndex(application_type, application_id, userId, (idxErr, appUid) => {
+    if (idxErr) {
+      console.error("ensureAppIndex error (user comment):", idxErr);
+      return res.status(500).json({ success: false, message: "Failed to link application index." });
+    }
+
+    const insertSql = `
+      INSERT INTO application_comments
+        (app_uid, application_type, application_id, status_at_post, comment, author_user_id, author_role, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'user', NOW())
+    `;
+
+    db.query(
+      insertSql,
+      [String(appUid), application_type, application_id, status_at_post, comment, userId],
+      (insErr, insRes) => {
+        if (insErr) {
+          console.error("addUserCommentForApplication insert error:", insErr);
+          return res.status(500).json({ success: false, message: "Failed to save your comment." });
+        }
+
+        return res.json({
+          success: true,
+          message: "Comment posted.",
+          id: insRes.insertId
+        });
+      }
+    );
   });
 };

@@ -13,7 +13,7 @@ const FencingPermitForm = () => {
     useOrCharacter: '',
     addressNo: '',
     street: '',
-    barangay: '',
+    barangay: '',             // manual
     cityMunicipality: '',
     zipCode: '',
     telephoneNo: '',
@@ -32,55 +32,51 @@ const FencingPermitForm = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Auto-fill states
+  // --- auto-fill state for fencing ---
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
-  const [autoFillError, setAutoFillError] = useState('');
 
-  // Fetch user info for fencing auto-fill
   useEffect(() => {
-    const fetchUserInfoForFencing = async () => {
+    const fetchUserInfo = async () => {
       setIsLoadingUserInfo(true);
-      setAutoFillError('');
-
       try {
-        const response = await fetch('http://localhost:8081/api/user-info-fencing', {
+        const res = await fetch('http://localhost:8081/api/user-info-fencing', {
           method: 'GET',
-          credentials: 'include'
+          credentials: 'include',
         });
 
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.success && data.userInfo) {
-            const ui = data.userInfo;
-
-            setFormData(prev => ({
-              ...prev,
-              lastName: ui.lastName || prev.lastName,
-              firstName: ui.firstName || prev.firstName,
-              middleInitial: ui.middleInitial || prev.middleInitial,
-              street: ui.street || prev.street,
-              barangay: ui.barangay || prev.barangay,
-              cityMunicipality: ui.cityMunicipality || prev.cityMunicipality,
-              telephoneNo: ui.telephoneNo || prev.telephoneNo
-            }));
-          } else {
-            setAutoFillError(data.message || 'Could not auto-fill your information.');
-          }
-        } else if (response.status === 401) {
-          setAutoFillError('Please log in to auto-fill your information.');
-        } else {
-          setAutoFillError('Failed to load your profile information for auto-fill.');
+        if (!res.ok) {
+          console.warn('Failed to fetch fencing user info, status:', res.status);
+          return;
         }
+
+        const data = await res.json();
+        if (!data.success || !data.userInfo) {
+          console.warn('Fencing user info success=false or no userInfo payload');
+          return;
+        }
+
+        const ui = data.userInfo;
+
+        setFormData(prev => ({
+          ...prev,
+          lastName: ui.lastName || prev.lastName,
+          firstName: ui.firstName || prev.firstName,
+          middleInitial: ui.middleInitial || prev.middleInitial,
+
+          street: ui.street || prev.street,
+          // barangay is manual now – DO NOT overwrite it from API
+          cityMunicipality: ui.cityMunicipality || prev.cityMunicipality || 'Hinigaran',
+
+          telephoneNo: ui.telephoneNo || ui.phoneNumber || prev.telephoneNo,
+        }));
       } catch (err) {
-        console.error('Error fetching user info for fencing:', err);
-        setAutoFillError('Unable to auto-fill your information. You can still fill the form manually.');
+        console.error('Error fetching fencing user info:', err);
       } finally {
         setIsLoadingUserInfo(false);
       }
     };
 
-    fetchUserInfoForFencing();
+    fetchUserInfo();
   }, []);
 
   const handleInputChange = (field, value) => {
@@ -189,35 +185,17 @@ const FencingPermitForm = () => {
 
   return (
     <div>
-      <Uheader/>
+      <Uheader />
       <div className="min-h-screen bg-gray-100 p-4">
-
         {/* Main Form Container */}
         <div className="max-w-4xl mx-auto bg-white shadow-lg">
           {/* Logo and Title Section */}
           <div className="text-center py-6 border-b">
             <div className="flex justify-center items-center">
-              <img src="img/logo.png" alt="" className="w-40 h-30"/>
+              <img src="img/logo.png" alt="" className="w-40 h-30" />
             </div>
             <h1 className="text-2xl font-bold text-gray-800 mb-2">FENCING PERMIT FORM</h1>
           </div>
-
-          {/* Auto-fill status message */}
-          {(isLoadingUserInfo || autoFillError) && (
-            <div className="mx-6 mt-4">
-              {isLoadingUserInfo && (
-                <div className="flex items-center text-xs text-gray-600">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
-                  <span>Loading your profile information...</span>
-                </div>
-              )}
-              {autoFillError && !isLoadingUserInfo && (
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded mt-1">
-                  {autoFillError}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Alert Messages */}
           {error && (
@@ -248,7 +226,7 @@ const FencingPermitForm = () => {
 
           <div className="p-6">
             <div className="grid grid-cols-4 gap-4 mb-6">
-              {/* LAST NAME (auto-filled, read-only) */}
+              {/* LAST NAME - auto-filled, read-only */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
                   LAST NAME <span className="text-red-500">*</span>
@@ -259,15 +237,13 @@ const FencingPermitForm = () => {
                   readOnly
                   className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="Last Name"
-                  title="This field is auto-filled from your account information"
-                  required
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   * Auto-filled from your account information
                 </p>
               </div>
 
-              {/* FIRST NAME (auto-filled, read-only) */}
+              {/* FIRST NAME - auto-filled, read-only */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">
                   FIRST NAME <span className="text-red-500">*</span>
@@ -278,32 +254,28 @@ const FencingPermitForm = () => {
                   readOnly
                   className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="First Name"
-                  title="This field is auto-filled from your account information"
-                  required
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   * Auto-filled from your account information
                 </p>
               </div>
 
-              {/* MIDDLE INITIAL (auto-filled, read-only if provided) */}
+              {/* M.I - auto-filled, read-only */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">M.I</label>
                 <input
                   type="text"
                   value={formData.middleInitial}
                   readOnly
-                  maxLength="5"
                   className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="Middle Initial"
-                  title="This field is auto-filled from your account information"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   * Auto-filled from your account information
                 </p>
               </div>
 
-              {/* TIN (user editable) */}
+              {/* TIN - still manual */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">TIN</label>
                 <input
@@ -361,55 +333,42 @@ const FencingPermitForm = () => {
                   className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 />
               </div>
-
-              {/* STREET (auto-filled, read-only) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">STREET</label>
                 <input
                   type="text"
                   value={formData.street}
                   readOnly
-                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="Street"
-                  title="This field is auto-filled from your account information"
+                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   * Auto-filled from your account information
                 </p>
               </div>
-
-              {/* BARANGAY (auto-filled, read-only) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">BARANGAY</label>
                 <input
                   type="text"
                   value={formData.barangay}
-                  readOnly
-                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
+                  onChange={(e) => handleInputChange('barangay', e.target.value)}
                   placeholder="Barangay"
-                  title="This field is auto-filled from your account information"
+                  className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  * Auto-filled from your account information
-                </p>
               </div>
-
-              {/* CITY / MUNICIPALITY (auto-filled, read-only) */}
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">CITY / MUNICIPALITY</label>
                 <input
                   type="text"
                   value={formData.cityMunicipality}
                   readOnly
-                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                   placeholder="City/Municipality"
-                  title="This field is auto-filled from your account information"
+                  className="w-full p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   * Auto-filled from your account information
                 </p>
               </div>
-
               <div>
                 <label className="block text-sm font-bold mb-2 text-gray-700">ZIP CODE</label>
                 <input
@@ -420,11 +379,10 @@ const FencingPermitForm = () => {
                   className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-blue-500"
                 />
               </div>
-
               <div className="col-span-1"></div>
             </div>
 
-            {/* TELEPHONE (auto-filled, read-only) */}
+            {/* Telephone No. */}
             <div className="mb-6">
               <label className="block text-sm font-bold mb-2 text-gray-700">TELEPHONE NO.</label>
               <input
@@ -433,15 +391,17 @@ const FencingPermitForm = () => {
                 readOnly
                 className="w-full max-w-md p-3 border border-gray-300 rounded bg-gray-100 cursor-not-allowed"
                 placeholder="Telephone no."
-                title="This field is auto-filled from your account information"
               />
               <p className="text-xs text-gray-500 mt-1">
-                * Auto-filled from your account information
+                * Auto-filled from your account information (phone number)
               </p>
             </div>
           </div>
 
-          {/* Location of Construction Section */}
+          {/* LOCATION OF CONSTRUCTION, SCOPE OF WORK etc... (unchanged) */}
+          {/* ... keep your existing code from here down, no change needed ... */}
+
+          {/* LOCATION OF CONSTRUCTION Section */}
           <div className="bg-blue-600 text-white px-6 py-3">
             <h2 className="text-lg font-bold">LOCATION OF CONSTRUCTION:</h2>
           </div>
@@ -550,7 +510,6 @@ const FencingPermitForm = () => {
               </select>
             </div>
 
-            {/* Show text input when "others" is selected */}
             {formData.scopeOfWork === 'others' && (
               <div className="mb-6">
                 <label className="block text-sm font-bold mb-2 text-gray-700">
@@ -591,7 +550,7 @@ const FencingPermitForm = () => {
           </div>
         </div>
       </div>
-      <UFooter/>
+      <UFooter />
     </div>
   );
 };

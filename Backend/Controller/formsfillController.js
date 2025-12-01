@@ -235,21 +235,25 @@ exports.getUserInfoForFencing = (req, res) => {
     const middleInitial =
       (userInfo.middlename || '').trim().charAt(0).toUpperCase() || '';
 
+    const phone = userInfo.phone_number || '';
+
     const userData = {
       // name
       lastName: userInfo.lastname || '',
       firstName: userInfo.firstname || '',
       middleInitial,
 
-      // owner / applicant address pieces (very basic split)
+      // owner / applicant address pieces
       street: addressParts[0] || '',
-      barangay: addressParts[1] || '',
+      // barangay is manual in the form now, so we don't auto-fill it
+      barangay: '',
       cityMunicipality: addressParts[2] || 'Hinigaran', // default city
 
       // contact
-      telephoneNo: userInfo.phone_number || '',
+      telephoneNo: phone,       // <- this is tbl_user_info.phone_number
+      phoneNumber: phone,       // optional alias, if you need later
 
-      // extras if you need later
+      // extras
       fullAddress: rawAddress,
       email: userInfo.email || ''
     };
@@ -261,7 +265,7 @@ exports.getUserInfoForFencing = (req, res) => {
     });
   });
 };
-
+// this line of code are for electronics permit auto fill -------------------------------------//
 exports.getUserInfoForElectronics = (req, res) => {
   console.log("Session in getUserInfoForElectronics:", req.session);
   console.log("User in session:", req.session?.user);

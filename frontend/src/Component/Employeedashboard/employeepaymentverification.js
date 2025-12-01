@@ -218,7 +218,8 @@ const PaymentVerification = () => {
         onNavigate={handleNavigate}
       />
       
-      <div className="flex-1 flex flex-col overflow-hidden ml-64">
+      {/* ALIGNMENT FIX: removed extra ml-64 so content sits right next to sidebar */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
           <div className="flex justify-between items-center">
@@ -293,114 +294,161 @@ const PaymentVerification = () => {
                 <p className="mt-1 text-sm text-gray-500">No payment receipts found for the selected filter.</p>
               </div>
             ) : (
-              filteredReceipts.map((receipt) => (
-                <div key={receipt.receipt_id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {receipt.user_first_name} {receipt.user_last_name}
-                        </h3>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(receipt.payment_status)}`}>
-                          {receipt.payment_status}
-                        </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPaymentMethodBadge(receipt.payment_method)}`}>
-                          {receipt.payment_method}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm text-gray-500">Permit Type</p>
-                          <p className="font-medium">{receipt.permit_name}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Amount Paid</p>
-                          <p className="font-medium text-green-600">{formatCurrency(receipt.payment_amount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Total Fee</p>
-                          <p className="font-medium">{formatCurrency(receipt.total_document_price)}</p>
-                        </div>
-                      </div>
+              filteredReceipts.map((receipt) => {
+                const total = parseFloat(receipt.total_document_price || 0);
+                const paid = parseFloat(receipt.payment_amount || 0);
+                const remaining = Math.max(total - paid, 0);
+                const percentage =
+                  total > 0 ? Math.min((paid / total) * 100, 100) : 0;
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <p className="text-sm text-gray-500">Email</p>
-                          <p className="font-medium">{receipt.user_email}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Submitted</p>
-                          <p className="font-medium">{formatDate(receipt.created_at)}</p>
-                        </div>
-                      </div>
-
-                      {receipt.admin_notes && (
-                        <div className="mb-4">
-                          <p className="text-sm text-gray-500">Admin Notes</p>
-                          <p className="text-sm bg-gray-50 p-2 rounded">{receipt.admin_notes}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="ml-6 flex-shrink-0">
-                      {receipt.receipt_image && (
-                        <div className="mb-4">
-                          <img
-                            src={`${API_BASE_URL}${receipt.receipt_image}`}
-                            alt="Payment Receipt"
-                            className="w-32 h-40 object-cover rounded border cursor-pointer hover:opacity-75"
-                            onClick={() => window.open(`${API_BASE_URL}${receipt.receipt_image}`, '_blank')}
-                          />
-                        </div>
-                      )}
-                      
-                      {receipt.payment_status === 'pending' && (
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => openModal(receipt, 'approve')}
-                            className="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                return (
+                  <div
+                    key={receipt.receipt_id}
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-3">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {receipt.user_first_name} {receipt.user_last_name}
+                          </h3>
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(
+                              receipt.payment_status
+                            )}`}
                           >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => openModal(receipt, 'reject')}
-                            className="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            {receipt.payment_status}
+                          </span>
+                          <span
+                            className={`px-2 py-1 text-xs font-medium rounded-full ${getPaymentMethodBadge(
+                              receipt.payment_method
+                            )}`}
                           >
-                            Reject
-                          </button>
+                            {receipt.payment_method}
+                          </span>
                         </div>
-                      )}
-                      
-                      {receipt.payment_status === 'approved' && (
-                        <div className="text-center">
-                          <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                            ✓ Approved
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Permit Type</p>
+                            <p className="font-medium">{receipt.permit_name}</p>
                           </div>
-                          {receipt.approved_by_first_name && (
-                            <p className="text-xs text-gray-500 mt-2">
-                              By: {receipt.approved_by_first_name} {receipt.approved_by_last_name}
+
+                          {/* UPDATED: show full payment (100%) */}
+                          <div>
+                            <p className="text-sm text-gray-500">Amount Paid</p>
+                            <p className="font-medium text-green-600">
+                              {formatCurrency(paid)}
                             </p>
-                          )}
-                        </div>
-                      )}
-                      
-                      {receipt.payment_status === 'rejected' && (
-                        <div className="text-center">
-                          <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                            ✗ Rejected
+                            <p className="text-xs text-gray-500">
+                              {percentage >= 100
+                                ? 'Full payment (100%)'
+                                : `${percentage.toFixed(1)}% of total fee`}
+                            </p>
                           </div>
-                          {receipt.approved_by_first_name && (
-                            <p className="text-xs text-gray-500 mt-2">
-                              By: {receipt.approved_by_first_name} {receipt.approved_by_last_name}
+
+                          <div>
+                            <p className="text-sm text-gray-500">Total Fee</p>
+                            <p className="font-medium">
+                              {formatCurrency(total)}
                             </p>
-                          )}
+                            {remaining > 0 && (
+                              <p className="text-xs text-orange-600">
+                                Remaining balance: {formatCurrency(remaining)}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Email</p>
+                            <p className="font-medium">{receipt.user_email}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Submitted</p>
+                            <p className="font-medium">
+                              {formatDate(receipt.created_at)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {receipt.admin_notes && (
+                          <div className="mb-4">
+                            <p className="text-sm text-gray-500">Admin Notes</p>
+                            <p className="text-sm bg-gray-50 p-2 rounded">
+                              {receipt.admin_notes}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="ml-6 flex-shrink-0">
+                        {receipt.receipt_image && (
+                          <div className="mb-4">
+                            <img
+                              src={`${API_BASE_URL}${receipt.receipt_image}`}
+                              alt="Payment Receipt"
+                              className="w-32 h-40 object-cover rounded border cursor-pointer hover:opacity-75"
+                              onClick={() =>
+                                window.open(
+                                  `${API_BASE_URL}${receipt.receipt_image}`,
+                                  '_blank'
+                                )
+                              }
+                            />
+                          </div>
+                        )}
+                        
+                        {receipt.payment_status === 'pending' && (
+                          <div className="space-y-2">
+                            <button
+                              onClick={() => openModal(receipt, 'approve')}
+                              className="w-full px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => openModal(receipt, 'reject')}
+                              className="w-full px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                        
+                        {receipt.payment_status === 'approved' && (
+                          <div className="text-center">
+                            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                              ✓ Approved
+                            </div>
+                            {receipt.approved_by_first_name && (
+                              <p className="text-xs text-gray-500 mt-2">
+                                By: {receipt.approved_by_first_name}{' '}
+                                {receipt.approved_by_last_name}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
+                        {receipt.payment_status === 'rejected' && (
+                          <div className="text-center">
+                            <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                              ✗ Rejected
+                            </div>
+                            {receipt.approved_by_first_name && (
+                              <p className="text-xs text-gray-500 mt-2">
+                                By: {receipt.approved_by_first_name}{' '}
+                                {receipt.approved_by_last_name}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 

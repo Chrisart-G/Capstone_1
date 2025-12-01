@@ -38,7 +38,7 @@ const ElectronicsPermitForm = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ⭐ NEW: auto-fill states
+  // Auto-fill states
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
   const [autoFillError, setAutoFillError] = useState('');
 
@@ -53,7 +53,6 @@ const ElectronicsPermitForm = () => {
     'Other'
   ];
 
-  // ⭐ NEW: fetch user info for electronics auto-fill
   useEffect(() => {
     const fetchUserInfoForElectronics = async () => {
       setIsLoadingUserInfo(true);
@@ -77,7 +76,7 @@ const ElectronicsPermitForm = () => {
               firstName: ui.firstName || prev.firstName,
               middleInitial: ui.middleInitial || prev.middleInitial,
               ownerStreet: ui.ownerStreet || prev.ownerStreet,
-              ownerBarangay: ui.ownerBarangay || prev.ownerBarangay,
+              // ownerBarangay is manual
               ownerCity: ui.ownerCity || prev.ownerCity,
               telephoneNo: ui.telephoneNo || prev.telephoneNo
             }));
@@ -91,7 +90,7 @@ const ElectronicsPermitForm = () => {
         }
       } catch (err) {
         console.error('Error fetching user info for electronics:', err);
-        setAutoFillError('Unable to auto-fill your information. You can still fill the form manually for other fields.');
+        setAutoFillError('Unable to auto-fill your information. You can still complete the form manually.');
       } finally {
         setIsLoadingUserInfo(false);
       }
@@ -103,15 +102,13 @@ const ElectronicsPermitForm = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    // For middleInitial, enforce max 1 character at handler level as well (extra safety)
-    const newValue = name === 'middleInitial' ? value.slice(0, 1) : value;
+    const processedValue = name === 'middleInitial' ? value.slice(0, 1) : value;
 
     setFormData(prev => ({
       ...prev,
-      [name]: newValue
+      [name]: processedValue
     }));
     
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -123,7 +120,6 @@ const ElectronicsPermitForm = () => {
   const validateForm = () => {
     const newErrors = {};
     
-    // Required fields validation
     const requiredFields = [
       'lastName', 'firstName', 'tin', 'forConstructionOwned', 
       'formOfOwnership', 'useOrCharacter', 'ownerStreet', 
@@ -136,7 +132,6 @@ const ElectronicsPermitForm = () => {
       }
     });
 
-    // Phone number validation
     if (formData.telephoneNo && !/^[\d\s\-\+\(\)]+$/.test(formData.telephoneNo)) {
       newErrors.telephoneNo = 'Please enter a valid phone number';
     }
@@ -166,8 +161,6 @@ const ElectronicsPermitForm = () => {
         if (response.ok && data.success) {
           alert('Electronics permit application submitted successfully!');
           console.log('Submission response:', data);
-          
-          // Navigate to Docutracker page
           window.location.href = '/Docutracker';
         } else {
           alert(data.message || 'Failed to submit application. Please try again.');
@@ -191,7 +184,6 @@ const ElectronicsPermitForm = () => {
     required = false,
     className = "",
     readOnly = false,
-    maxLength
   }) => (
     <div className={`flex flex-col ${className}`}>
       <label className="text-sm font-medium text-gray-700 mb-1">
@@ -204,12 +196,18 @@ const ElectronicsPermitForm = () => {
         onChange={handleInputChange}
         placeholder={placeholder}
         readOnly={readOnly}
-        maxLength={maxLength}
+        maxLength={name === 'middleInitial' ? 1 : undefined}
         className={`px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
           errors[name] ? 'border-red-500' : 'border-gray-300'
         } ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+        title={readOnly ? 'Auto-filled from your account information' : undefined}
       />
       {errors[name] && <span className="text-red-500 text-xs mt-1">{errors[name]}</span>}
+      {readOnly && (
+        <p className="text-[10px] text-gray-500 mt-1">
+          * Auto-filled from your account information
+        </p>
+      )}
     </div>
   );
 
@@ -217,7 +215,6 @@ const ElectronicsPermitForm = () => {
     <div>
       <Uheader/>
       <div className="min-h-screen bg-gray-50">
-        {/* Main Content */}
         <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             {/* Form Header */}
@@ -229,17 +226,17 @@ const ElectronicsPermitForm = () => {
             </div>
 
             <div className="p-6 space-y-8">
-              {/* Auto-fill status message */}
+              {/* Auto-fill status */}
               {(isLoadingUserInfo || autoFillError) && (
-                <div className="mb-4">
+                <div>
                   {isLoadingUserInfo && (
-                    <div className="flex items-center text-xs text-gray-600">
+                    <div className="flex items-center text-xs text-gray-600 mb-1">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
                       <span>Loading your profile information...</span>
                     </div>
                   )}
                   {autoFillError && !isLoadingUserInfo && (
-                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded mt-1">
+                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded">
                       {autoFillError}
                     </div>
                   )}
@@ -252,7 +249,6 @@ const ElectronicsPermitForm = () => {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Auto-filled, read-only name fields */}
                 <InputField
                   label="LAST NAME"
                   name="lastName"
@@ -271,10 +267,8 @@ const ElectronicsPermitForm = () => {
                   label="M.I"
                   name="middleInitial"
                   placeholder="M"
-                  maxLength={1}
                   readOnly
                 />
-                {/* TIN remains editable */}
                 <InputField
                   label="TIN"
                   name="tin"
@@ -310,7 +304,6 @@ const ElectronicsPermitForm = () => {
                   name="ownerNo"
                   placeholder="No."
                 />
-                {/* Auto-filled, read-only address */}
                 <InputField
                   label="STREET"
                   name="ownerStreet"
@@ -318,12 +311,13 @@ const ElectronicsPermitForm = () => {
                   required
                   readOnly
                 />
+                {/* BARANGAY manual again */}
                 <InputField
                   label="BARANGAY"
                   name="ownerBarangay"
                   placeholder="Barangay"
                   required
-                  readOnly
+                  readOnly={false}
                 />
                 <InputField
                   label="CITY / MUNICIPALITY"
@@ -340,14 +334,13 @@ const ElectronicsPermitForm = () => {
               </div>
 
               <div className="flex justify-center">
-                {/* Auto-filled, read-only telephone */}
                 <InputField
                   label="TELEPHONE NO."
                   name="telephoneNo"
                   placeholder="Telephone no."
                   required
-                  readOnly
                   className="w-full max-w-sm"
+                  readOnly
                 />
               </div>
 
@@ -357,16 +350,44 @@ const ElectronicsPermitForm = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <InputField label="LOT NO." name="lotNo" placeholder="Lot no." />
-                <InputField label="BLK NO." name="blkNo" placeholder="Blk no." />
-                <InputField label="TCT NO." name="tctNo" placeholder="Tct no." />
-                <InputField label="CURRENT TAX DEC. NO." name="currentTaxDecNo" placeholder="Current tax dec. no." />
+                <InputField
+                  label="LOT NO."
+                  name="lotNo"
+                  placeholder="Lot no."
+                />
+                <InputField
+                  label="BLK NO."
+                  name="blkNo"
+                  placeholder="Blk no."
+                />
+                <InputField
+                  label="TCT NO."
+                  name="tctNo"
+                  placeholder="Tct no."
+                />
+                <InputField
+                  label="CURRENT TAX DEC. NO."
+                  name="currentTaxDecNo"
+                  placeholder="Current tax dec. no."
+                />
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <InputField label="STREET" name="constructionStreet" placeholder="Street" />
-                <InputField label="BARANGAY" name="constructionBarangay" placeholder="Barangay" />
-                <InputField label="CITY / MUNICIPALITY" name="constructionCity" placeholder="City/Municipality" />
+                <InputField
+                  label="STREET"
+                  name="constructionStreet"
+                  placeholder="Street"
+                />
+                <InputField
+                  label="BARANGAY"
+                  name="constructionBarangay"
+                  placeholder="Barangay"
+                />
+                <InputField
+                  label="CITY / MUNICIPALITY"
+                  name="constructionCity"
+                  placeholder="City/Municipality"
+                />
               </div>
 
               {/* Scope of Work Section */}

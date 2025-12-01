@@ -1,8 +1,16 @@
 // Controller/employeedashController.js
 const db = require('../db/dbconnect');
 const axios = require("axios");
+const path = require("path");         // ✅ ADD THIS
+const fs = require("fs");       
+const { PDFDocument, StandardFonts } = require("pdf-lib");
 const { IPROG_API_TOKEN, SMS_ENABLED = "true" } = process.env;
-
+const PICKUP_UPLOAD_BASE = path.join(
+  __dirname,
+  "..",
+  "uploads",
+  "pickup_docs"
+);
 /* ---------------- Auth ---------------- */
 function requireAuth(req, res) {
   if (!req.session || !req.session.user || !req.session.user.user_id) {
@@ -81,6 +89,7 @@ const TABLE_TO_TYPE = {
   "tbl_fencing_permits": "fencing",
   "tbl_electrical_permits": "electrical",
   "tbl_cedula": "cedula",
+  "business_permits": "business", // NEW
 };
 
 const OFFICE_BY_TYPE = {
@@ -90,7 +99,152 @@ const OFFICE_BY_TYPE = {
   fencing: "Office of the Municipal Engineer",
   electrical: "Office of the Municipal Engineer",
   cedula: "Municipal Treasurer’s Office",
+  business: "Business Permits & Licensing Office", // NEW
 };
+// this is for schedule pickup
+
+
+function ensureDirExists(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+/**
+ * Save the uploaded pickup document.
+ * Allowed extensions: .pdf, .jpg, .jpeg, .png
+ * Returns relative path like /uploads/pickup_docs/business/12345_file.pdf
+ */
+function savePickupFile(file, subfolder) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve(null); // file is optional
+
+    const allowedExt = [".pdf", ".jpg", ".jpeg", ".png"];
+    const ext = path.extname(file.name || "").toLowerCase();
+
+    if (!allowedExt.includes(ext)) {
+      return reject(
+        new Error("Invalid file type. Allowed: PDF, JPG, JPEG, PNG.")
+      );
+    }
+
+    const safeName = String(file.name || "pickup")
+      .replace(/[^a-z0-9.\-_]/gi, "_");
+    const finalName = `${Date.now()}_${safeName}`;
+
+    ensureDirExists(PICKUP_UPLOAD_BASE);
+    const destFolder = path.join(PICKUP_UPLOAD_BASE, subfolder);
+    ensureDirExists(destFolder);
+
+    const absPath = path.join(destFolder, finalName);
+    const relPath = `/uploads/pickup_docs/${subfolder}/${finalName}`;
+
+    file.mv(absPath, (err) => {
+      if (err) return reject(err);
+      return resolve(relPath);
+    });
+  });
+}
+
+function setPickupWithFile(req, res, {
+  table,
+  pkCol,
+  idFieldName,
+  statusField,   // "status" or "application_status"
+  appType,       // for folder name and SMS mapping
+}) {
+  if (!requireAuth(req, res)) return;
+
+  const rawId =
+    req.body?.[idFieldName] ??
+    req.body?.applicationId ??
+    req.body?.id;
+
+  const applicationId = Number(rawId);
+  const schedule = req.body?.schedule || null;
+
+  if (!Number.isFinite(applicationId) || applicationId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid application ID is required.",
+    });
+  }
+
+  if (!schedule) {
+    return res.status(400).json({
+      success: false,
+      message: "Pickup schedule is required.",
+    });
+  }
+
+  const file = req.files?.pickup_file || null;
+
+  savePickupFile(file, appType)
+    .then((pickupFilePath) => {
+      const hasFile = !!pickupFilePath;
+
+      const sql = hasFile
+        ? `UPDATE ${table}
+           SET ${statusField} = 'ready-for-pickup',
+               pickup_schedule = ?,
+               pickup_file_path = ?,
+               updated_at = NOW()
+           WHERE ${pkCol} = ?`
+        : `UPDATE ${table}
+           SET ${statusField} = 'ready-for-pickup',
+               pickup_schedule = ?,
+               updated_at = NOW()
+           WHERE ${pkCol} = ?`;
+
+      const params = hasFile
+        ? [schedule, pickupFilePath, applicationId]
+        : [schedule, applicationId];
+
+      db.query(sql, params, (err, result) => {
+        if (err) {
+          console.error("[PICKUP] Failed to update", table, err);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to schedule pickup.",
+          });
+        }
+
+        if (!result.affectedRows) {
+          console.warn("[PICKUP] No rows affected", { table, applicationId });
+          return res.status(404).json({
+            success: false,
+            message: "Application not found.",
+          });
+        }
+
+        res.json({
+          success: true,
+          message: "Pickup scheduled and moved to ready-for-pickup.",
+          pickup_schedule: schedule,
+          pickup_file_path: pickupFilePath || null,
+        });
+
+        // SMS with schedule (uses same helper as other status updates)
+        fireSmsFor(table, applicationId, "ready-for-pickup", schedule)
+          .then(() =>
+            console.log("[SMS] done for pickup", { table, applicationId })
+          )
+          .catch((e) =>
+            console.error(
+              "[SMS] pickup background error:",
+              e?.response?.data || e
+            )
+          );
+      });
+    })
+    .catch((err) => {
+      console.error("[PICKUP] file save error:", err);
+      return res.status(400).json({
+        success: false,
+        message: err.message || "Invalid pickup document file.",
+      });
+    });
+}
 
 /* ---------------- Lookups ---------------- */
 async function getUserPhoneByUserId(userId) {
@@ -98,15 +252,30 @@ async function getUserPhoneByUserId(userId) {
   return rows?.[0]?.phone_number || null;
 }
 async function getUserIdFromTableRow(table, id) {
-  const key = table === 'tbl_cedula' ? 'id' : 'id';
-  const rows = await q(`SELECT user_id FROM ${table} WHERE ${key}=? LIMIT 1`, [id]);
+  let key = "id";
+  if (table === "business_permits") {
+    key = "BusinessP_id"; // PK for business_permits
+  }
+  // tbl_cedula and tbl_*_permits all use "id"
+  const rows = await q(
+    `SELECT user_id FROM ${table} WHERE ${key}=? LIMIT 1`,
+    [id]
+  );
   return rows?.[0]?.user_id || null;
 }
+
 async function getApplicationNo(table, id) {
-  // cedula doesn’t have application_no — this returns null and message omits it
-  const rows = await q(`SELECT application_no FROM ${table} WHERE id=? LIMIT 1`, [id]).catch(() => []);
+  // cedula and business_permits don’t have application_no
+  if (table === "tbl_cedula" || table === "business_permits") {
+    return null;
+  }
+  const rows = await q(
+    `SELECT application_no FROM ${table} WHERE id=? LIMIT 1`,
+    [id]
+  ).catch(() => []);
   return rows?.[0]?.application_no || null;
 }
+
 
 function buildStatusMessage({ officeName, applicationTypeLabel, applicationNo, newStatus, extraNote }) {
   const lines = [
@@ -625,18 +794,82 @@ exports.moveCedulaToApproved = (req, res) => {
 /* ===================================================================
    READY FOR PICKUP (schedule)
 =================================================================== */
+/* ===================================================================
+   READY FOR PICKUP (schedule + optional document upload)
+   =================================================================== */
 
-exports.plumbingSetPickup    = (req, res) => { if (!requireAuth(req, res)) return; const { applicationId, schedule } = req.body; updateStatus(res, 'tbl_plumbing_permits',    applicationId, 'ready-for-pickup', schedule); };
-exports.electronicsSetPickup = (req, res) => { if (!requireAuth(req, res)) return; const { applicationId, schedule } = req.body; updateStatus(res, 'tbl_electronics_permits', applicationId, 'ready-for-pickup', schedule); };
-exports.buildingSetPickup    = (req, res) => { if (!requireAuth(req, res)) return; const { applicationId, schedule } = req.body; updateStatus(res, 'tbl_building_permits',    applicationId, 'ready-for-pickup', schedule); };
-exports.fencingSetPickup     = (req, res) => { if (!requireAuth(req, res)) return; const { applicationId, schedule } = req.body; updateStatus(res, 'tbl_fencing_permits',     applicationId, 'ready-for-pickup', schedule); };
+// BUSINESS PERMIT (business_permits)
+exports.businessSetPickup = (req, res) =>
+  setPickupWithFile(req, res, {
+    table: "business_permits",
+    pkCol: "BusinessP_id",
+    idFieldName: "applicationId",
+    statusField: "status",
+    appType: "business",
+  });
+
+// PLUMBING
+exports.plumbingSetPickup = (req, res) =>
+  setPickupWithFile(req, res, {
+    table: "tbl_plumbing_permits",
+    pkCol: "id",
+    idFieldName: "applicationId",
+    statusField: "status",
+    appType: "plumbing",
+  });
+
+// ELECTRONICS
+exports.electronicsSetPickup = (req, res) =>
+  setPickupWithFile(req, res, {
+    table: "tbl_electronics_permits",
+    pkCol: "id",
+    idFieldName: "applicationId",
+    statusField: "status",
+    appType: "electronics",
+  });
+
+// BUILDING
+exports.buildingSetPickup = (req, res) =>
+  setPickupWithFile(req, res, {
+    table: "tbl_building_permits",
+    pkCol: "id",
+    idFieldName: "applicationId",
+    statusField: "status",
+    appType: "building",
+  });
+
+// FENCING
+exports.fencingSetPickup = (req, res) =>
+  setPickupWithFile(req, res, {
+    table: "tbl_fencing_permits",
+    pkCol: "id",
+    idFieldName: "applicationId",
+    statusField: "status",
+    appType: "fencing",
+  });
 
 // ELECTRICAL
-exports.electricalSetPickup = (req, res) => {
-  if (!requireAuth(req, res)) return;
-  const { applicationId, schedule } = req.body;
-  updateStatus(res, 'tbl_electrical_permits', applicationId, 'ready-for-pickup', schedule);
-};
+exports.electricalSetPickup = (req, res) =>
+  setPickupWithFile(req, res, {
+    table: "tbl_electrical_permits",
+    pkCol: "id",
+    idFieldName: "applicationId",
+    statusField: "status",
+    appType: "electrical",
+  });
+
+// CEDULA
+exports.cedulaSetPickup = (req, res) =>
+  setPickupWithFile(req, res, {
+    table: "tbl_cedula",
+    pkCol: "id",
+    idFieldName: "cedulaId",
+    statusField: "application_status",
+    appType: "cedula",
+  });
+
+// ELECTRICAL
+
 
 // CEDULA
 exports.moveCedulaToReadyForPickup = (req, res) => {
@@ -728,6 +961,223 @@ exports.addApplicationComment = async (req, res) => {
     console.error(e);
     res.status(500).json({ success: false, message: "Failed to add comment" });
   }
+};
+
+
+// this section is for comment
+// GET /application-comments?application_type=&application_id=
+// GET /application-comments?application_type=&application_id=
+exports.getApplicationComments = (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  const { application_type = "", application_id = "" } = req.query;
+
+  if (!application_type || !application_id) {
+    return res.status(400).json({
+      success: false,
+      message: "application_type and application_id are required."
+    });
+  }
+
+  const sql = `
+    SELECT
+      id,
+      app_uid,
+      application_type,
+      application_id,
+      comment,
+      author_user_id,
+      author_role,
+      created_at,
+      status_at_post
+    FROM application_comments
+    WHERE application_type = ? AND application_id = ?
+    ORDER BY created_at DESC
+  `;
+
+  db.query(sql, [application_type, application_id], (err, rows) => {
+    if (err) {
+      console.error("getApplicationComments error:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to load comments" });
+    }
+
+    const items = rows.map((r) => ({
+      id: r.id,
+      app_uid: r.app_uid,
+      application_type: r.application_type,
+      application_id: r.application_id,
+      comment: r.comment,
+      author_user_id: r.author_user_id,
+      author_role: r.author_role,
+      created_at: r.created_at,
+      status_at_post: r.status_at_post || null,
+    }));
+
+    res.json({ success: true, items });
+  });
+};
+// Normalize a status into a stable key, e.g. "In Review" → "in-review"
+function normalizeStatusKey(s) {
+  if (!s) return null;
+  return String(s)
+    .toLowerCase()
+    .trim()
+    .replace(/[\s_]+/g, "-");      // spaces/underscores → hyphen
+}
+
+// Look up the current status from the right table if frontend didn't send it
+function fetchCurrentStatus(appType, appId, cb) {
+  const map = {
+    business:         { table: "business_permits",        idCol: "BusinessP_id", statusCol: "status" },
+    renewal_business: { table: "business_permits",        idCol: "BusinessP_id", statusCol: "status" },
+    special_sales:    { table: "business_permits",        idCol: "BusinessP_id", statusCol: "status" },
+    electrical:       { table: "tbl_electrical_permits",  idCol: "id",          statusCol: "status" },
+    plumbing:         { table: "tbl_plumbing_permits",    idCol: "id",          statusCol: "status" },
+    electronics:      { table: "tbl_electronics_permits", idCol: "id",          statusCol: "status" },
+    building:         { table: "tbl_building_permits",    idCol: "id",          statusCol: "status" },
+    fencing:          { table: "tbl_fencing_permits",     idCol: "id",          statusCol: "status" },
+    // cedula uses "application_status" instead of "status"
+    cedula:           { table: "tbl_cedula",              idCol: "id",          statusCol: "application_status" },
+    // zoning / mayors can be added later if needed
+  };
+
+  const cfg = map[appType];
+  if (!cfg) return cb(null, null);
+
+  const sql = `SELECT ${cfg.statusCol} AS s FROM ${cfg.table} WHERE ${cfg.idCol} = ? LIMIT 1`;
+  db.query(sql, [appId], (err, rows) => {
+    if (err) return cb(err);
+    if (!rows || !rows.length) return cb(null, null);
+    cb(null, rows[0].s || null);
+  });
+}
+
+// POST /application-comments  body: { application_type, application_id, comment }
+exports.addApplicationComment = (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  const { application_type, application_id, comment, status_at_post } = req.body || {};
+
+  if (!application_type || !application_id || !comment) {
+    return res.status(400).json({
+      success: false,
+      message: "application_type, application_id and comment are required.",
+    });
+  }
+
+  const appType = String(application_type).toLowerCase();
+  const appId   = Number(application_id);
+
+  const idxSql = `
+    SELECT app_uid
+    FROM application_index
+    WHERE application_type = ? AND application_id = ?
+    LIMIT 1
+  `;
+
+  db.query(idxSql, [appType, appId], (idxErr, idxRows) => {
+    if (idxErr) {
+      console.error("addApplicationComment index lookup error:", idxErr);
+      return res
+        .status(500)
+        .json({ success: false, message: "Index lookup failed" });
+    }
+
+    const app_uid = idxRows?.[0]?.app_uid || null;
+    const userId  = req.session.user.user_id;
+
+    // Try to use status from body first
+    const bodyStatusKey = normalizeStatusKey(status_at_post);
+
+    // helper to actually insert the row
+    const insertComment = (finalStatusKey) => {
+      const ins = `
+        INSERT INTO application_comments
+          (app_uid, application_type, application_id, status_at_post, comment, author_user_id, author_role, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'employee', NOW())
+      `;
+
+      db.query(
+        ins,
+        [app_uid, appType, appId, finalStatusKey, comment, userId],
+        (insErr) => {
+          if (insErr) {
+            console.error("addApplicationComment insert error:", insErr);
+            return res
+              .status(500)
+              .json({ success: false, message: "Failed to save comment" });
+          }
+          res.json({ success: true });
+        }
+      );
+    };
+
+    if (bodyStatusKey) {
+      // Frontend sent a status → just normalize and use it
+      return insertComment(bodyStatusKey);
+    }
+
+    // Fallback: look up current status from DB (fixes Cedula / any missing cases)
+    fetchCurrentStatus(appType, appId, (stErr, currentStatus) => {
+      if (stErr) {
+        console.error("addApplicationComment status lookup error:", stErr);
+      }
+      const finalStatusKey = normalizeStatusKey(currentStatus);
+      insertComment(finalStatusKey);
+    });
+  });
+};
+
+
+// GET /user/comments?application_type=&application_id=
+exports.getUserComments = (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  const { application_type = "", application_id = "" } = req.query || {};
+  const appType = String(application_type || "").toLowerCase();
+  const appId = Number(application_id);
+
+  if (!appType || !Number.isFinite(appId) || appId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "application_type and application_id are required.",
+    });
+  }
+
+  const sql = `
+    SELECT 
+      id,
+      comment,
+      author_role,
+      created_at,
+      status_at_post        -- ✅ THIS WAS MISSING
+    FROM application_comments
+    WHERE application_type = ? AND application_id = ?
+    ORDER BY created_at ASC
+  `;
+
+  db.query(sql, [appType, appId], (err, rows) => {
+    if (err) {
+      console.error("getUserComments error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to load comments",
+      });
+    }
+
+    // Return full rows including status_at_post
+    const items = rows.map((r) => ({
+      id: r.id,
+      comment: r.comment,
+      author_role: r.author_role || "employee",
+      created_at: r.created_at,
+      status_at_post: r.status_at_post || null,  // ✅ ADDED
+    }));
+
+    res.json({ success: true, items });
+  });
 };
 
 // ========================= REQUIREMENTS LIBRARY (EMPLOYEE) =========================
@@ -1030,41 +1480,548 @@ exports.getAttachedRequirements = (req, res) => {
   });
 };
 
-
-// GET /application-comments?application_type=&application_id=
-exports.getApplicationComments = (req, res) => {
+exports.removeAttachedRequirement = (req, res) => {
   if (!requireAuth(req, res)) return;
-  const { application_type = "", application_id = "" } = req.query;
-  const sql = `
-    SELECT id, app_uid, application_type, application_id, comment, author_user_id, author_role, created_at
-    FROM application_comments
-    WHERE application_type = ? AND application_id = ?
-    ORDER BY created_at DESC
-  `;
-  db.query(sql, [application_type, application_id], (err, rows) => {
-    if (err) return res.status(500).json({ success:false, message:'Failed to load comments' });
-    res.json({ success:true, items: rows });
-  });
-};
 
-// POST /application-comments  body: { application_type, application_id, comment }
-exports.addApplicationComment = (req, res) => {
-  if (!requireAuth(req, res)) return;
-  const { application_type, application_id, comment } = req.body || {};
-  if (!application_type || !application_id || !comment) {
-    return res.status(400).json({ success:false, message:'Missing fields' });
+  const { requirement_id } = req.body || {};
+  const rid = Number(requirement_id);
+
+  if (!Number.isFinite(rid) || rid <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid requirement_id is required.",
+    });
   }
-  const idxSql = `SELECT app_uid FROM application_index WHERE application_type=? AND application_id=? LIMIT 1`;
-  db.query(idxSql, [application_type, application_id], (e, r) => {
-    if (e) return res.status(500).json({ success:false, message:'Index lookup failed' });
-    const app_uid = r?.[0]?.app_uid || null;
-    const ins = `
-      INSERT INTO application_comments (app_uid, application_type, application_id, comment, author_user_id, author_role, created_at)
-      VALUES (?, ?, ?, ?, ?, 'employee', NOW())
-    `;
-    db.query(ins, [app_uid, application_type, application_id, comment, req.session.user.user_id], (ie) => {
-      if (ie) return res.status(500).json({ success:false, message:'Failed to save comment' });
-      res.json({ success:true });
+
+  const sql = `
+    DELETE FROM tbl_application_requirements
+    WHERE requirement_id = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [rid], (err, result) => {
+    if (err) {
+      console.error("removeAttachedRequirement error:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to remove attached requirement." });
+    }
+
+    if (!result.affectedRows) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Attached requirement not found." });
+    }
+
+    return res.json({
+      success: true,
+      message: "Attached requirement removed.",
+      requirement_id: rid,
     });
   });
 };
+// auto pdf__________________________________________________________________________________________________________
+function normalizeCheck(val) {
+  const v = String(val || "").toLowerCase();
+  if (v === "yes" || v === "no" || v === "not_needed") return v;
+  if (v === "not needed" || v === "not-needed") return "not_needed";
+  return "not_needed";
+}
+
+/**
+ * Insert or update LGU verification (page 2) for a business permit.
+ * checks = {
+ *   occupancy_permit, zoning_clearance, barangay_clearance,
+ *   sanitary_clearance, environment_certificate, market_clearance,
+ *   fire_safety_certificate, river_floating_fish
+ * }
+ */
+function upsertBusinessPermitVerification(businessId, checks = {}) {
+  return new Promise((resolve, reject) => {
+    const values = {
+      occupancy_permit:        normalizeCheck(checks.occupancy_permit),
+      zoning_clearance:        normalizeCheck(checks.zoning_clearance),
+      barangay_clearance:      normalizeCheck(checks.barangay_clearance),
+      sanitary_clearance:      normalizeCheck(checks.sanitary_clearance),
+      environment_certificate: normalizeCheck(checks.environment_certificate),
+      market_clearance:        normalizeCheck(checks.market_clearance),
+      fire_safety_certificate: normalizeCheck(checks.fire_safety_certificate),
+      river_floating_fish:     normalizeCheck(checks.river_floating_fish),
+    };
+
+    const sel = `
+      SELECT id
+      FROM business_permit_doc_verification
+      WHERE BusinessP_id = ?
+      LIMIT 1
+    `;
+    db.query(sel, [businessId], (err, rows) => {
+      if (err) return reject(err);
+
+      const params = [
+        values.occupancy_permit,
+        values.zoning_clearance,
+        values.barangay_clearance,
+        values.sanitary_clearance,
+        values.environment_certificate,
+        values.market_clearance,
+        values.fire_safety_certificate,
+        values.river_floating_fish,
+      ];
+
+      if (rows.length) {
+        const upd = `
+          UPDATE business_permit_doc_verification
+          SET occupancy_permit = ?,
+              zoning_clearance = ?,
+              barangay_clearance = ?,
+              sanitary_clearance = ?,
+              environment_certificate = ?,
+              market_clearance = ?,
+              fire_safety_certificate = ?,
+              river_floating_fish = ?
+          WHERE BusinessP_id = ?
+        `;
+        db.query(upd, [...params, businessId], (uErr) => {
+          if (uErr) return reject(uErr);
+          resolve();
+        });
+      } else {
+        const ins = `
+          INSERT INTO business_permit_doc_verification (
+            BusinessP_id,
+            occupancy_permit,
+            zoning_clearance,
+            barangay_clearance,
+            sanitary_clearance,
+            environment_certificate,
+            market_clearance,
+            fire_safety_certificate,
+            river_floating_fish
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        db.query(ins, [businessId, ...params], (iErr) => {
+          if (iErr) return reject(iErr);
+          resolve();
+        });
+      }
+    });
+  });
+}
+
+/**
+ * Create 2-page PDF (page 1: applicant info, page 2: LGU verification)
+ * from the scanned template. Returns the **DB path** (e.g. "/uploads/requirements/....pdf").
+ */
+async function createBusinessPermitFilledPdf(businessRow, checks = {}) {
+  const templatePath = path.join(
+    __dirname,
+    "..",
+    "templates",
+    "business_permit_full_template.pdf" // overwrite old template with the good one
+  );
+
+  const templateBytes = fs.readFileSync(templatePath);
+  const pdfDoc = await PDFDocument.load(templateBytes);
+
+  const pages = pdfDoc.getPages();
+  const page1 = pages[0];
+  const page2 = pages[1];
+
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontSize = 9;
+
+  const { height } = page1.getSize();
+
+  const draw1 = (text, x, y) => {
+    if (text === undefined || text === null || text === "") return;
+    page1.drawText(String(text), {
+      x,
+      y,
+      size: fontSize,
+      font,
+    });
+  };
+
+  const draw2 = (text, x, y) => {
+    if (text === undefined || text === null || text === "") return;
+    page2.drawText(String(text), {
+      x,
+      y,
+      size: fontSize,
+      font,
+    });
+  };
+
+  // ---------- PAGE 1 Y-COORDS (based on real template scan) ----------
+  // (values are already converted to pdf-lib coordinates, origin bottom-left)
+
+  const Y_NEW_RENEWAL = 703;         // "NEW / RENEWAL  Mode of Payment"
+  const Y_DATE_APP     = 689;        // "Date of Application / TIN No."
+  const Y_DTI_REG      = 675;        // "DTI/SEC/CDA Registration / Date of Registration"
+  const Y_TYPE_BUS     = 661;        // "Type of Business"
+  const Y_AMEND        = 647;        // "Amendment: From / To"
+  const Y_TAX_INCENT   = 633;        // "Are enjoying tax incentive..."
+  const Y_NAME_LINE    = 571;        // "Last Name / First Name / Middle Name"
+  const Y_BUS_NAME     = 553;        // "Business Name"
+  const Y_TRADE_NAME   = 539;        // "Trade Name / Franchise"
+  const Y_BUS_ADDR     = 485;        // "Business Address"
+  const Y_BUS_POSTAL   = 473;        // "Postal Code / Email Address"
+  const Y_BUS_TEL      = 459;        // "Telephone No. / Mobile No."
+  const Y_OWNER_ADDR   = 441;        // "Owner's Address"
+  const Y_OWNER_POSTAL = 427;        // "Postal Code / Email Address" (owner)
+  const Y_OWNER_TEL    = 413;        // "Telephone No. / Mobile No." (owner)
+  const Y_EMERG_NAME   = 395;        // "In case of emergency..."
+  const Y_EMERG_CONTACT= 381;        // "Telephone / Mobile / Email" (emergency)
+  const Y_BUS_AREA     = 369;        // "Business Area (in sq.m.) / Total No. of Employees..."
+
+  // some X helpers
+  const X_COL1  = 150; // left field in a line
+  const X_COL2  = 390; // right field in a line
+  const X_NAME1 = 115; // Last Name
+  const X_NAME2 = 280; // First Name
+  const X_NAME3 = 445; // Middle Name
+
+  // ---------- PAGE 1: top (NEW / RENEWAL + payment) ----------
+  // We don’t try to hit the tiny checkboxes; just place text near them.
+
+  if (businessRow.application_type) {
+    draw1(
+      String(businessRow.application_type).toUpperCase(),
+      80,
+      Y_NEW_RENEWAL
+    );
+  }
+
+  if (businessRow.payment_mode) {
+    draw1(
+      String(businessRow.payment_mode).toLowerCase(), // e.g., "annually", "semi-annually"
+      260,
+      Y_NEW_RENEWAL
+    );
+  }
+
+  // Date of Application / TIN
+  if (businessRow.application_date) {
+    draw1(
+      new Date(businessRow.application_date).toLocaleDateString(),
+      X_COL1,
+      Y_DATE_APP
+    );
+  }
+  draw1(businessRow.tin_no || "", X_COL2, Y_DATE_APP);
+
+  // DTI/SEC/CDA Registration / Date of Registration
+  draw1(businessRow.registration_no || "", X_COL1, Y_DTI_REG);
+  if (businessRow.registration_date) {
+    draw1(
+      new Date(businessRow.registration_date).toLocaleDateString(),
+      X_COL2,
+      Y_DTI_REG
+    );
+  }
+
+  // Type of Business (simple text – user can still manually tick the checkboxes)
+  draw1(businessRow.type_of_business || "", X_COL1, Y_TYPE_BUS);
+
+  // Amendment (optional)
+  draw1(businessRow.amendment_from || "", X_COL1, Y_AMEND);
+  draw1(businessRow.amendment_to || "", X_COL2, Y_AMEND);
+
+  // Tax incentive
+  if (businessRow.tax_incentive) {
+    const label =
+      String(businessRow.tax_incentive).toLowerCase() === "yes" ? "Yes" : "No";
+    draw1(label, 470, Y_TAX_INCENT);
+  }
+
+  // ---------- PAGE 1: taxpayer name ----------
+  draw1(businessRow.last_name || "",  X_NAME1, Y_NAME_LINE);
+  draw1(businessRow.first_name || "", X_NAME2, Y_NAME_LINE);
+  draw1(businessRow.middle_name || "", X_NAME3, Y_NAME_LINE);
+
+  // ---------- PAGE 1: business names ----------
+  draw1(businessRow.business_name || "", X_COL1, Y_BUS_NAME);
+  draw1(businessRow.trade_name || "",   X_COL1, Y_TRADE_NAME);
+
+  // ---------- PAGE 1: business contact info ----------
+  draw1(businessRow.business_address || "", X_COL1, Y_BUS_ADDR);
+  draw1(businessRow.postal_code || "",      X_COL1, Y_BUS_POSTAL);
+  draw1(businessRow.business_email || "",   X_COL2, Y_BUS_POSTAL);
+  draw1(businessRow.business_telephone || "", X_COL1, Y_BUS_TEL);
+  // If you have a business mobile field, you can place it here:
+  // draw1(businessRow.business_mobile || "", X_COL2, Y_BUS_TEL);
+
+  // ---------- PAGE 1: owner info ----------
+  draw1(businessRow.owner_address || "",      X_COL1, Y_OWNER_ADDR);
+  draw1(businessRow.owner_postal || "",       X_COL1, Y_OWNER_POSTAL);
+  draw1(businessRow.owner_email || "",        X_COL2, Y_OWNER_POSTAL);
+  draw1(businessRow.owner_telephone || "",    X_COL1, Y_OWNER_TEL);
+  draw1(businessRow.owner_mobile || "",       X_COL2, Y_OWNER_TEL);
+
+  // ---------- PAGE 1: emergency contact ----------
+  draw1(businessRow.emergency_contact || "", X_COL1, Y_EMERG_NAME);
+  draw1(businessRow.emergency_phone || "",   X_COL1, Y_EMERG_CONTACT);
+  draw1(businessRow.emergency_email || "",   X_COL2, Y_EMERG_CONTACT);
+
+  // ---------- PAGE 1: business area & employees ----------
+  draw1(String(businessRow.business_area || ""),           X_COL1, Y_BUS_AREA);
+  draw1(String(businessRow.total_employees_male || ""),    300,    Y_BUS_AREA);
+  draw1(String(businessRow.total_employees_female || ""),  385,    Y_BUS_AREA);
+  draw1(String(businessRow.employees_within_lgu || ""),    500,    Y_BUS_AREA);
+
+  // ---------- PAGE 2: LGU verification (checkbox-like X marks) ----------
+  const norm = (val) => {
+    const v = String(val || "").toLowerCase();
+    if (v === "yes" || v === "no" || v === "not_needed") return v;
+    if (v === "not needed" || v === "not-needed") return "not_needed";
+    return "not_needed";
+  };
+
+  const normalizedChecks = {
+    occupancy_permit:        norm(checks.occupancy_permit),
+    zoning_clearance:        norm(checks.zoning_clearance),
+    barangay_clearance:      norm(checks.barangay_clearance),
+    sanitary_clearance:      norm(checks.sanitary_clearance),
+    environment_certificate: norm(checks.environment_certificate),
+    market_clearance:        norm(checks.market_clearance),
+    fire_safety_certificate: norm(checks.fire_safety_certificate),
+    river_floating_fish:     norm(checks.river_floating_fish),
+  };
+
+  // approximate centers of Yes / No / Not Needed boxes
+  const YES_X = 470;
+  const NO_X  = 500;
+  const NN_X  = 530;
+
+  function markCheck(rowY, status) {
+    let x;
+    if (status === "yes") x = YES_X;
+    else if (status === "no") x = NO_X;
+    else x = NN_X;
+
+    page2.drawText("X", {
+      x,
+      y: rowY,
+      size: 10,
+      font,
+    });
+  }
+
+  // real row Y’s based on template scan
+  const rowYs = [
+    707, // Occupancy Permit (For New)
+    689, // Zoning (New and Renewal)
+    671, // Barangay Clearance (For Renewal)
+    653, // Sanitary / Health
+    635, // Municipal Environmental Certificate
+    617, // Market Clearance
+    599, // Valid Fire Safety Inspection Certificate
+    581, // Registration / Floating Fish Cage
+  ];
+
+  markCheck(rowYs[0], normalizedChecks.occupancy_permit);
+  markCheck(rowYs[1], normalizedChecks.zoning_clearance);
+  markCheck(rowYs[2], normalizedChecks.barangay_clearance);
+  markCheck(rowYs[3], normalizedChecks.sanitary_clearance);
+  markCheck(rowYs[4], normalizedChecks.environment_certificate);
+  markCheck(rowYs[5], normalizedChecks.market_clearance);
+  markCheck(rowYs[6], normalizedChecks.fire_safety_certificate);
+  markCheck(rowYs[7], normalizedChecks.river_floating_fish);
+
+  // ---------- Save combined PDF ----------
+  const pdfBytes = await pdfDoc.save();
+
+  const outDir = path.join(__dirname, "..", "uploads", "requirements");
+  if (!fs.existsSync(outDir)) {
+    fs.mkdirSync(outDir, { recursive: true });
+  }
+
+  const fileName = `business_permit_${businessRow.BusinessP_id}_lgu_form.pdf`;
+  const absPath = path.join(outDir, fileName);
+  fs.writeFileSync(absPath, pdfBytes);
+
+  // path stored in DB (served via express.static('/uploads'))
+  const dbPath = `/uploads/requirements/${fileName}`;
+  return dbPath;
+}
+
+exports.generateBusinessPermitForm = (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  const { application_type, application_id, checks = {} } = req.body || {};
+
+  if (!application_type) {
+    return res
+      .status(400)
+      .json({ success: false, message: "application_type is required." });
+  }
+  if (!application_id) {
+    return res
+      .status(400)
+      .json({ success: false, message: "application_id is required." });
+  }
+
+  const appType = String(application_type).toLowerCase();
+  const appId = Number(application_id);
+
+  const SUPPORTED = new Set(["business", "renewal_business", "special_sales"]);
+  if (!SUPPORTED.has(appType)) {
+    return res.status(400).json({
+      success: false,
+      message: `generateBusinessPermitForm only supports business/renewal_business/special_sales (got: ${application_type})`,
+    });
+  }
+  if (!Number.isFinite(appId) || appId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "application_id must be a positive number.",
+    });
+  }
+
+  // 1) load business_permits row
+  const sql = `
+    SELECT *
+    FROM business_permits
+    WHERE BusinessP_id = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [appId], async (err, rows) => {
+    if (err) {
+      console.error("generateBusinessPermitForm: load business err:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Server error loading application." });
+    }
+    if (!rows.length) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Business permit not found." });
+    }
+
+    const businessRow = rows[0];
+
+    try {
+      // 2) save LGU verification selections
+      await upsertBusinessPermitVerification(appId, checks);
+
+      // 3) build PDF and get dbPath (e.g. /uploads/requirements/...)
+      const pdfDbPath = await createBusinessPermitFilledPdf(
+        businessRow,
+        checks
+      );
+
+      // 4) update original business_permits.filled_up_forms (so it shows under "Uploaded Requirements")
+      const upd = `
+        UPDATE business_permits
+        SET filled_up_forms = ?
+        WHERE BusinessP_id = ?
+      `;
+      await new Promise((resolve, reject) => {
+        db.query(upd, [pdfDbPath, appId], (uErr) =>
+          uErr ? reject(uErr) : resolve()
+        );
+      });
+
+      // 5) ensure application_index entry exists (reuse ensureAppIndexed)
+      const getAppUid = `
+        SELECT app_uid, user_id
+        FROM application_index
+        WHERE application_type = ? AND application_id = ?
+        LIMIT 1
+      `;
+
+      const { app_uid, user_id: applicantUserId } =
+        await new Promise((resolve, reject) => {
+          db.query(getAppUid, [appType, appId], (idxErr, idxRows) => {
+            if (idxErr) return reject(idxErr);
+            if (!idxRows.length) {
+              // auto-create
+              return ensureAppIndexed(appType, appId, (healErr) => {
+                if (healErr) return reject(healErr);
+                db.query(getAppUid, [appType, appId], (reErr, reRows) => {
+                  if (reErr) return reject(reErr);
+                  if (!reRows.length)
+                    return reject(
+                      new Error("Application not indexed after auto-heal.")
+                    );
+                  resolve(reRows[0]);
+                });
+              });
+            }
+            resolve(idxRows[0]);
+          });
+        });
+
+      // 6) attach into tbl_application_requirements (avoid duplicate by file_path)
+      const FILE_LABEL = "Business Permit LGU Form";
+
+      const dupeSql = `
+        SELECT requirement_id
+        FROM tbl_application_requirements
+        WHERE application_type = ? AND application_id = ? AND file_path = ?
+        LIMIT 1
+      `;
+
+      const existing = await new Promise((resolve, reject) => {
+        db.query(
+          dupeSql,
+          [appType, appId, FILE_LABEL],
+          (dErr, dRows) => (dErr ? reject(dErr) : resolve(dRows[0]))
+        );
+      });
+
+      if (existing) {
+        const updReq = `
+          UPDATE tbl_application_requirements
+          SET pdf_path = ?, uploaded_at = NOW()
+          WHERE requirement_id = ?
+        `;
+        await new Promise((resolve, reject) => {
+          db.query(
+            updReq,
+            [pdfDbPath, existing.requirement_id],
+            (uErr) => (uErr ? reject(uErr) : resolve())
+          );
+        });
+      } else {
+        const insReq = `
+          INSERT INTO tbl_application_requirements
+            (app_uid, user_id, file_path, application_type, application_id, pdf_path, uploaded_at)
+          VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `;
+        await new Promise((resolve, reject) => {
+          db.query(
+            insReq,
+            [
+              app_uid,
+              applicantUserId,
+              FILE_LABEL,
+              appType,
+              appId,
+              pdfDbPath,
+            ],
+            (iErr) => (iErr ? reject(iErr) : resolve())
+          );
+        });
+      }
+
+      const base = `${req.protocol}://${req.get("host")}`;
+
+      return res.json({
+        success: true,
+        message: "Business permit LGU form generated and attached.",
+        pdf_path: pdfDbPath,
+        file_url: `${base}${pdfDbPath}`,
+      });
+    } catch (e) {
+      console.error("generateBusinessPermitForm error:", e);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to generate LGU form.",
+      });
+    }
+  });
+};
+

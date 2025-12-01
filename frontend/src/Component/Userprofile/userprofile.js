@@ -33,21 +33,26 @@ export default function MunicipalUserProfileDashboard() {
     { label: 'Active Permits', value: '0', icon: Building, color: 'text-purple-600' }
   ]);
 
+  // ===== NEW: modal state for viewing documents =====
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewDocumentUrl, setViewDocumentUrl] = useState('');
+  const [viewDocumentTitle, setViewDocumentTitle] = useState('');
+
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:8081/api/profile", { 
+        const response = await fetch("http://localhost:8081/api/profile", {
           credentials: 'include'
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to fetch profile data');
         }
-        
+
         const data = await response.json();
         console.log('Profile data received:', data);
-        
+
         const { userInfo: fetchedUserInfo, permits, recentActivity: fetchedActivity, statistics } = data;
 
         // Set user info
@@ -65,30 +70,31 @@ export default function MunicipalUserProfileDashboard() {
         setUserInfo(userData);
         setTempUserInfo(userData);
 
-        // Process permit history
+        // Process permit history  (✅ includes pickupFileUrl from backend)
         const processedPermits = permits.map(p => ({
           permitType: p.permitType,
           applicationDate: p.application_date,
           status: p.status,
           expiryDate: p.expiry_date || '2025-12-31',
-          referenceNo: `${p.permit_category.toUpperCase()}-${String(p.referenceNo).padStart(6, '0')}`,
-          businessName: p.business_name
+          referenceNo: `${p.permit_category.toUpperCase()}-${String(p.referenceNo).toString().padStart(6, '0')}`,
+          businessName: p.business_name,
+          pickupFileUrl: p.pickup_file_url || null, // <— used for view/download
         }));
         setPermitHistory(processedPermits);
 
         // Process recent activity
         const processedActivity = fetchedActivity.map(a => ({
           action: a.action,
-          time: new Date(a.time).toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short', 
+          time: new Date(a.time).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
             day: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
           }),
           type: a.type,
           status: a.status,
-          referenceNo: a.referenceNo ? `REC-${String(a.referenceNo).padStart(6, '0')}` : null
+          referenceNo: a.referenceNo ? `REC-${String(a.referenceNo).toString().padStart(6, '0')}` : null
         }));
         setRecentActivity(processedActivity);
 
@@ -125,7 +131,7 @@ export default function MunicipalUserProfileDashboard() {
       //   headers: { 'Content-Type': 'application/json' },
       //   body: JSON.stringify(tempUserInfo)
       // });
-      
+
       setUserInfo(tempUserInfo);
       setIsEditing(false);
       alert('Profile updated successfully!');
@@ -142,6 +148,31 @@ export default function MunicipalUserProfileDashboard() {
 
   const handleInputChange = (field, value) => {
     setTempUserInfo(prev => ({ ...prev, [field]: value }));
+  };
+
+  // ===== NEW: view + download handlers =====
+  const handleViewPermit = (permit) => {
+    if (!permit.pickupFileUrl) {
+      alert('No final document is available yet for this application. It will appear here once the office uploads it.');
+      return;
+    }
+    setViewDocumentUrl(permit.pickupFileUrl);
+    setViewDocumentTitle(`${permit.permitType} – ${permit.referenceNo}`);
+    setViewModalOpen(true);
+  };
+
+  const handleDownloadPermit = (permitOrUrl) => {
+    const url = typeof permitOrUrl === 'string'
+      ? permitOrUrl
+      : permitOrUrl?.pickupFileUrl;
+
+    if (!url) {
+      alert('No downloadable document is available yet for this application.');
+      return;
+    }
+
+    // Simple: open in new tab; user can download from browser
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const getStatusColor = (status) => {
@@ -200,12 +231,12 @@ export default function MunicipalUserProfileDashboard() {
           </div>
         )}
       </div>
-      
+
       <div className="flex items-center gap-6">
         <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
           <User size={32} className="text-white" />
         </div>
-        
+
         <div className="flex-1">
           <h2 className="text-xl font-bold mb-1">{userInfo.name || 'Loading...'}</h2>
           {userInfo.memberSince && userInfo.memberSince !== 'N/A' && (
@@ -291,29 +322,29 @@ export default function MunicipalUserProfileDashboard() {
           )}
         </div>
       </div>
-      
+
       <div className="bg-white rounded-lg p-6 shadow-sm border">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <FileText className="text-blue-600" size={20} />
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 gap-3">
-          <a 
-            href="/Permits" 
+          <a
+            href="/Permits"
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg transition-all duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1 flex items-center justify-center gap-2"
           >
             <FileText size={20} />
             Apply for New Permit
           </a>
-          <a 
-            href="/Docutracker" 
+          <a
+            href="/Docutracker"
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg transition-all duration-200 text-center font-medium shadow-md hover:shadow-lg transform hover:-translate-y-1 flex items-center justify-center gap-2"
           >
             <Clock size={20} />
             Track Application Status
           </a>
         </div>
-        
+
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <h4 className="font-semibold text-blue-900 mb-2">Need Help?</h4>
           <p className="text-sm text-blue-700 mb-3">
@@ -333,7 +364,7 @@ export default function MunicipalUserProfileDashboard() {
       <div className="max-w-3xl mx-auto">
         <div className="space-y-6">
           <h4 className="font-medium text-gray-900 border-b pb-2">Personal Details</h4>
-          
+
           <div className="grid md:grid-cols-2 gap-4">
             {[
               { field: 'name', label: 'Full Name', type: 'text', icon: User },
@@ -454,15 +485,17 @@ export default function MunicipalUserProfileDashboard() {
                   <td className="py-4 px-4 text-sm text-gray-700">{permit.applicationDate}</td>
                   <td className="py-4 px-4">
                     <div className="flex gap-2 justify-center">
-                      <button 
-                        className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition-colors" 
+                      <button
+                        className="text-blue-600 hover:text-blue-800 p-2 hover:bg-blue-50 rounded transition-colors"
                         title="View Details"
+                        onClick={() => handleViewPermit(permit)}
                       >
                         <Eye size={18} />
                       </button>
-                      <button 
-                        className="text-green-600 hover:text-green-800 p-2 hover:bg-green-50 rounded transition-colors" 
+                      <button
+                        className="text-green-600 hover:text-green-800 p-2 hover:bg-green-50 rounded transition-colors"
                         title="Download"
+                        onClick={() => handleDownloadPermit(permit)}
                       >
                         <Download size={18} />
                       </button>
@@ -477,8 +510,8 @@ export default function MunicipalUserProfileDashboard() {
             <FileText className="mx-auto text-gray-300 mb-3" size={64} />
             <p className="text-gray-500 text-lg font-medium">No permits found</p>
             <p className="text-gray-400 text-sm mt-2">Apply for your first permit to get started</p>
-            <a 
-              href="/Permits" 
+            <a
+              href="/Permits"
               className="inline-block mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
             >
               Apply Now
@@ -509,7 +542,7 @@ export default function MunicipalUserProfileDashboard() {
               className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
           </label>
-          
+
           <label className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
             <div>
               <span className="text-gray-700 font-medium">Permit Renewal Reminders</span>
@@ -535,7 +568,7 @@ export default function MunicipalUserProfileDashboard() {
           </label>
         </div>
       </div>
-      
+
       <div className="bg-white rounded-lg p-6 shadow-sm border">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Shield size={20} className="text-blue-600" />
@@ -553,17 +586,17 @@ export default function MunicipalUserProfileDashboard() {
               <option value="private">Private - Only visible to you</option>
             </select>
           </div>
-          
+
           <button className="w-full bg-red-50 hover:bg-red-100 text-red-700 p-3 rounded-lg text-left transition-colors font-medium">
             🔒 Change Password
           </button>
-          
+
           <button className="w-full bg-yellow-50 hover:bg-yellow-100 text-yellow-700 p-3 rounded-lg text-left transition-colors font-medium">
             🔐 Enable Two-Factor Authentication
           </button>
         </div>
       </div>
-      
+
       <div className="bg-white rounded-lg p-6 shadow-sm border">
         <h3 className="text-lg font-semibold mb-4">Account Management</h3>
         <div className="space-y-3">
@@ -589,7 +622,7 @@ export default function MunicipalUserProfileDashboard() {
           <ProfileHeader />
           <StatsGrid />
           <TabNavigation />
-          
+
           <div className="transition-all duration-300">
             {activeTab === 'overview' && <OverviewTab />}
             {activeTab === 'personal' && <PersonalInfoTab />}
@@ -598,6 +631,61 @@ export default function MunicipalUserProfileDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ===== NEW: View Document Modal ===== */}
+      {viewModalOpen && viewDocumentUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <div>
+                <h4 className="font-semibold text-gray-900 text-sm md:text-base">
+                  {viewDocumentTitle || 'Permit Document'}
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Preview of your final document
+                </p>
+              </div>
+              <button
+                onClick={() => setViewModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700 rounded-full p-2 hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 bg-gray-100">
+              {viewDocumentUrl.toLowerCase().includes('.pdf') ? (
+                <iframe
+                  src={viewDocumentUrl}
+                  title="Permit Document"
+                  className="w-full h-[70vh]"
+                />
+              ) : (
+                <img
+                  src={viewDocumentUrl}
+                  alt="Permit Document"
+                  className="max-h-[70vh] w-full object-contain bg-black"
+                />
+              )}
+            </div>
+            <div className="px-4 py-3 border-t flex justify-end gap-2">
+              <button
+                onClick={() => handleDownloadPermit(viewDocumentUrl)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg"
+              >
+                <Download size={16} />
+                Download
+              </button>
+              <button
+                onClick={() => setViewModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <UFooter />
     </div>
   );

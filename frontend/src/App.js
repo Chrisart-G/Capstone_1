@@ -28,7 +28,8 @@ import BuildingPermitForm from './Component/Form/Buildingpermit/buildingpermit';
 import AdminNotificationPage from './Component/Adminnotification/adminnotification';
 import DocumentRequirementsManager from './Component/Admindocumentrequirments/admindocumentrequirments';
 import RenewalBusinessPermitForm from './Component/Form/RenewalBusinessPermit/renewalbusinesspermit';
-import Paymentverification from './Component/Employeedashboard/employeepaymentverification'
+import Paymentverification from './Component/Employeedashboard/employeepaymentverification';
+import Documentprice from './Component/admindocuprice/admindocumentprice'
 function App() {
   return (
     <div className="App">
@@ -177,6 +178,11 @@ function App() {
           <Route path="/BusinessPermitForm" element={
             <ProtectedRoute>
               <BusinessPermitForm />
+            </ProtectedRoute>
+             } />
+          <Route path="/Documentprice" element={
+            <ProtectedRoute>
+              <Documentprice />
             </ProtectedRoute>
              } />
           

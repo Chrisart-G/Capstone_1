@@ -42,14 +42,11 @@ export default function BuildingPermitForm() {
     groupF: ''
   });
 
-  // ⭐ NEW: auto-fill states
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
   const [autoFillError, setAutoFillError] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
-    // enforce 1 character for middleInitial
     const processedValue = name === 'middleInitial' ? value.slice(0, 1) : value;
 
     setFormData(prev => ({
@@ -58,7 +55,6 @@ export default function BuildingPermitForm() {
     }));
   };
 
-  // ⭐ NEW: fetch user info for building auto-fill
   useEffect(() => {
     const fetchUserInfoForBuilding = async () => {
       setIsLoadingUserInfo(true);
@@ -82,7 +78,7 @@ export default function BuildingPermitForm() {
               firstName: ui.firstName || prev.firstName,
               middleInitial: ui.middleInitial || prev.middleInitial,
               street: ui.street || prev.street,
-              barangay: ui.barangay || prev.barangay,
+              // barangay manual
               cityMunicipality: ui.cityMunicipality || prev.cityMunicipality,
               telephoneNo: ui.telephoneNo || prev.telephoneNo
             }));
@@ -96,7 +92,7 @@ export default function BuildingPermitForm() {
         }
       } catch (err) {
         console.error('Error fetching user info for building:', err);
-        setAutoFillError('Unable to auto-fill your information. You can still fill the form manually for other fields.');
+        setAutoFillError('Unable to auto-fill your information. You can still fill the form manually.');
       } finally {
         setIsLoadingUserInfo(false);
       }
@@ -108,7 +104,6 @@ export default function BuildingPermitForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
     if (!formData.lastName || !formData.firstName || !formData.scopeOfWork) {
       alert('Please fill in all required fields: Last Name, First Name, and Scope of Work');
       return;
@@ -130,7 +125,6 @@ export default function BuildingPermitForm() {
 
       if (response.ok && data.success) {
         alert(`Building permit application submitted successfully!\nApplication No: ${data.data.applicationNo}`);
-        // Redirect to document tracker
         navigate('/Docutracker');
       } else {
         alert(data.message || 'Failed to submit building permit application');
@@ -172,10 +166,8 @@ export default function BuildingPermitForm() {
     <div>
       <Uheader/>
       <div className="min-h-screen bg-gray-50">
-        {/* Main Content */}
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
-            {/* Logo and Title */}
             <div className="text-center mb-8">
               <div className="flex justify-center items-center">
                 <img src="img/logo.png" alt="" className="w-40 h-30"/>
@@ -183,7 +175,6 @@ export default function BuildingPermitForm() {
               <h1 className="text-3xl font-bold text-gray-800">BUILDING PERMIT FORM</h1>
             </div>
 
-            {/* Auto-fill status */}
             {(isLoadingUserInfo || autoFillError) && (
               <div className="mb-4">
                 {isLoadingUserInfo && (
@@ -227,7 +218,7 @@ export default function BuildingPermitForm() {
                 </div>
                 <div className="border border-gray-300 border-t-0 p-4 rounded-b-md">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    {/* LAST NAME (auto-filled, read-only) */}
+                    {/* LAST NAME (auto-fill, read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         LAST NAME <span className="text-red-500">*</span>
@@ -247,8 +238,7 @@ export default function BuildingPermitForm() {
                         * Auto-filled from your account information
                       </p>
                     </div>
-
-                    {/* FIRST NAME (auto-filled, read-only) */}
+                    {/* FIRST NAME (auto-fill, read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         FIRST NAME <span className="text-red-500">*</span>
@@ -268,8 +258,7 @@ export default function BuildingPermitForm() {
                         * Auto-filled from your account information
                       </p>
                     </div>
-
-                    {/* M.I (auto-filled, read-only, 1 char) */}
+                    {/* M.I (auto-fill, read-only) */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">M.I</label>
                       <input
@@ -287,8 +276,7 @@ export default function BuildingPermitForm() {
                         * Auto-filled from your account information
                       </p>
                     </div>
-
-                    {/* TIN (editable) */}
+                    {/* TIN */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">TIN</label>
                       <input
@@ -339,7 +327,7 @@ export default function BuildingPermitForm() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    {/* STREET (auto-filled, read-only) */}
+                    {/* STREET auto-filled */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">STREET</label>
                       <input
@@ -356,7 +344,7 @@ export default function BuildingPermitForm() {
                         * Auto-filled from your account information
                       </p>
                     </div>
-                    {/* BARANGAY (auto-filled, read-only) */}
+                    {/* BARANGAY manual again */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">BARANGAY</label>
                       <input
@@ -365,15 +353,10 @@ export default function BuildingPermitForm() {
                         value={formData.barangay}
                         onChange={handleInputChange}
                         placeholder="Barangay"
-                        readOnly
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
-                        title="Auto-filled from your account information"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        * Auto-filled from your account information
-                      </p>
                     </div>
-                    {/* CITY / MUNICIPALITY (auto-filled, read-only) */}
+                    {/* CITY auto-filled */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">CITY / MUNICIPALITY</label>
                       <input
@@ -748,7 +731,7 @@ export default function BuildingPermitForm() {
                   type="submit"
                   disabled={isSubmitting || isLoadingUserInfo}
                   className={`${
-                    isSubmitting || isLoadingUserInfo
+                    isSubmitting || isLoadingUserInfo 
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-green-600 hover:bg-green-700'
                   } text-white font-semibold px-8 py-3 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-green-500`}

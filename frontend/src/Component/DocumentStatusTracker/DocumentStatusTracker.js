@@ -30,6 +30,17 @@ function DocumentStatusTracker() {
   // ---------- NEW: requirements state + helpers ----------
   const [requirementsByApp, setRequirementsByApp] = useState({}); // { [application.id]: { loading, items } }
 
+  // ---------- NEW: comments state + helpers ----------
+  const [commentsByApp, setCommentsByApp] = useState({}); // { [application.id]: { loading, items } }
+
+  // ---------- NEW: user comment input + sending state ----------
+  const [userCommentText, setUserCommentText] = useState({}); // { [appId_stageKey]: string }
+  const [sendingComment, setSendingComment] = useState({}); // { [appId_stageKey]: boolean }
+
+  // ---------- NEW: notification flags (red dot) ----------
+  const [newFlags, setNewFlags] = useState({}); // { [application.id]: boolean }
+  const SEEN_STORAGE_KEY = 'docTrackerSeen_v1';
+
   const TYPE_TO_APP = {
     'Business Permit': 'business',
     'Electrical Permit': 'electrical',
@@ -46,25 +57,83 @@ function DocumentStatusTracker() {
     return Number.isFinite(n) ? n : null;
   }
 
-  async function loadRequirementsForApplication(application) {
-    const appType = TYPE_TO_APP[application.type] || application.applicationType || '';
-    const appId = parseAppId(application.id);
-    if (!appType || !appId) return;
+  // --- helpers for localStorage seen-map ---
+  function loadSeenMap() {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(SEEN_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
 
-    setRequirementsByApp(prev => ({ ...prev, [application.id]: { loading: true, items: prev[application.id]?.items || [] }}));
+  function saveSeenMap(map) {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(map));
+    } catch {
+      // ignore
+    }
+  }
+
+  async function loadRequirementsForApplication(application) {
+    const appType =
+      TYPE_TO_APP[application.type] || application.applicationType || '';
+    const appId = parseAppId(application.id);
+
+    // ❗ If we can't derive appType/appId, don't leave the UI stuck
+    if (!appType || !appId) {
+      console.warn('loadRequirementsForApplication: missing appType/appId', {
+        id: application.id,
+        type: application.type,
+        applicationType: application.applicationType,
+        appType,
+        appId,
+      });
+
+      // mark as "no requirements" so UI shows a proper message
+      setRequirementsByApp((prev) => ({
+        ...prev,
+        [application.id]: { loading: false, items: [] },
+      }));
+      return;
+    }
+
+    // normal case
+    setRequirementsByApp((prev) => ({
+      ...prev,
+      [application.id]: {
+        loading: true,
+        items: prev[application.id]?.items || [],
+      },
+    }));
 
     try {
-      const q = new URLSearchParams({ application_type: appType, application_id: String(appId) });
-      const r = await fetch(`http://localhost:8081/api/user/requirements?${q.toString()}`, { credentials: 'include' });
+      const q = new URLSearchParams({
+        application_type: appType,
+        application_id: String(appId),
+      });
+
+      const r = await fetch(
+        `http://localhost:8081/api/user/requirements?${q.toString()}`,
+        { credentials: 'include' }
+      );
       const j = await r.json();
-      if (j.success) {
-        setRequirementsByApp(prev => ({ ...prev, [application.id]: { loading: false, items: j.items }}));
-      } else {
-        setRequirementsByApp(prev => ({ ...prev, [application.id]: { loading: false, items: [] }}));
-      }
+
+      setRequirementsByApp((prev) => ({
+        ...prev,
+        [application.id]: {
+          loading: false,
+          items: j.success ? j.items : [],
+        },
+      }));
     } catch (e) {
-      console.error(e);
-      setRequirementsByApp(prev => ({ ...prev, [application.id]: { loading: false, items: [] }}));
+      console.error('loadRequirementsForApplication error:', e);
+      setRequirementsByApp((prev) => ({
+        ...prev,
+        [application.id]: { loading: false, items: [] },
+      }));
     }
   }
 
@@ -95,6 +164,121 @@ function DocumentStatusTracker() {
     } catch (e) {
       console.error(e);
       alert('Server error.');
+    }
+  }
+
+  function normalizeStageKey(s) {
+    return String(s || "")
+      .toLowerCase()
+      .replace(/\s+/g, "")  // remove spaces
+      .replace(/-/g, "");   // remove hyphens
+  }
+
+  // ---------- NEW: load comments for user side ----------
+  async function loadCommentsForApplication(application) {
+    const appType =
+      TYPE_TO_APP[application.type] || application.applicationType || '';
+    const appId = parseAppId(application.id);
+
+    if (!appType || !appId) {
+      console.warn('loadCommentsForApplication: missing appType/appId', {
+        id: application.id,
+        type: application.type,
+        applicationType: application.applicationType,
+        appType,
+        appId,
+      });
+
+      setCommentsByApp((prev) => ({
+        ...prev,
+        [application.id]: { loading: false, items: [] },
+      }));
+      return;
+    }
+
+    setCommentsByApp((prev) => ({
+      ...prev,
+      [application.id]: {
+        loading: true,
+        items: prev[application.id]?.items || [],
+      },
+    }));
+
+    try {
+      const q = new URLSearchParams({
+        application_type: appType,
+        application_id: String(appId),
+      });
+
+      const r = await fetch(
+        `http://localhost:8081/api/user/comments?${q.toString()}`,
+        { credentials: 'include' }
+      );
+      const j = await r.json();
+
+      setCommentsByApp((prev) => ({
+        ...prev,
+        [application.id]: {
+          loading: false,
+          items: j.success ? j.items : [],
+        },
+      }));
+    } catch (e) {
+      console.error('loadCommentsForApplication error:', e);
+      setCommentsByApp((prev) => ({
+        ...prev,
+        [application.id]: { loading: false, items: [] },
+      }));
+    }
+  }
+
+  // ---------- NEW: send user comment ----------
+  async function handleSendComment(application, stageKey, inputKey) {
+    const raw = (userCommentText[inputKey] || '').trim();
+    if (!raw) return;
+
+    const appType =
+      TYPE_TO_APP[application.type] || application.applicationType || '';
+    const appId = parseAppId(application.id);
+
+    if (!appType || !appId) {
+      alert('Unable to determine which application this message is for.');
+      return;
+    }
+
+    const payload = {
+      application_type: appType,
+      application_id: String(appId),
+      comment: raw,
+      status_at_post: application.status || stageKey || '',
+    };
+
+    try {
+      setSendingComment((prev) => ({ ...prev, [inputKey]: true }));
+
+      const r = await fetch('http://localhost:8081/api/user/comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const j = await r.json();
+      if (!j.success) {
+        alert(j.message || 'Failed to send message.');
+        return;
+      }
+
+      // Clear input & refresh comments
+      setUserCommentText((prev) => ({ ...prev, [inputKey]: '' }));
+      await loadCommentsForApplication(application);
+    } catch (e) {
+      console.error('handleSendComment error:', e);
+      alert('Server error while sending your message.');
+    } finally {
+      setSendingComment((prev) => ({ ...prev, [inputKey]: false }));
     }
   }
   // ---------- END NEW ----------
@@ -332,12 +516,40 @@ function DocumentStatusTracker() {
       // Sort all applications by creation date (most recent first)
       allApplications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+      // ---------- NEW: compute "new / updated" flags ----------
+      const seenMap = loadSeenMap();
+      const flags = {};
+      allApplications.forEach((app) => {
+        const prev = seenMap[app.id];
+        if (!prev) {
+          // brand new application/receipt
+          flags[app.id] = true;
+        } else if (prev.status !== app.status) {
+          // status changed since last time user opened it
+          flags[app.id] = true;
+        } else {
+          flags[app.id] = false;
+        }
+      });
+      setNewFlags(flags);
+      // -------------------------------------
+
       console.log('All applications:', allApplications);
       setApplications(allApplications);
 
       // Auto-expand the first (most recent) application
       if (allApplications.length > 0) {
         setExpandedCards({ [allApplications[0].id]: true });
+
+        // also mark latest as seen if it auto-opens
+        const latest = allApplications[0];
+        const updatedSeen = { ...seenMap, [latest.id]: { status: latest.status } };
+        saveSeenMap(updatedSeen);
+        setNewFlags((prev) => ({ ...prev, [latest.id]: false }));
+
+        // load requirements & comments for the first opened one
+        loadRequirementsForApplication(latest);
+        loadCommentsForApplication(latest);
       }
 
       setLoading(false);
@@ -350,7 +562,7 @@ function DocumentStatusTracker() {
 
   useEffect(() => {
     fetchAllPermitData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Function to handle form access
   const handleFormAccess = () => {
@@ -524,12 +736,32 @@ function DocumentStatusTracker() {
     setExpandedCards(prev => {
       const opening = !prev[applicationId];
       const next = { ...prev, [applicationId]: opening };
+
       if (opening) {
         const app = applications.find(a => a.id === applicationId);
-        if (app && !requirementsByApp[applicationId]) {
-          loadRequirementsForApplication(app);
+
+        // load requirements + comments on first open
+        if (app) {
+          if (!requirementsByApp[applicationId]) {
+            loadRequirementsForApplication(app);
+          }
+          if (!commentsByApp[applicationId]) {
+            loadCommentsForApplication(app);
+          }
+        }
+
+        // mark notification as seen
+        if (app) {
+          setNewFlags((prevFlags) => ({
+            ...prevFlags,
+            [applicationId]: false,
+          }));
+          const seen = loadSeenMap();
+          seen[applicationId] = { status: app.status };
+          saveSeenMap(seen);
         }
       }
+
       return next;
     });
   };
@@ -594,7 +826,35 @@ function DocumentStatusTracker() {
       </div>
     );
   }
+async function replaceUserRequirement(application, requirement_id, file) {
+  const appType = TYPE_TO_APP[application.type] || application.applicationType || '';
+  const appId = parseAppId(application.id);
+  if (!appType || !appId || !file) return;
 
+  const fd = new FormData();
+  fd.append('application_type', appType);
+  fd.append('application_id', String(appId));
+  fd.append('requirement_id', String(requirement_id));
+  fd.append('file', file);
+
+  try {
+    const r = await fetch('http://localhost:8081/api/user/requirements/replace-upload', {
+      method: 'POST',
+      body: fd,
+      credentials: 'include'
+    });
+    const j = await r.json();
+    if (j.success) {
+      await loadRequirementsForApplication(application);
+      alert('File replaced successfully.');
+    } else {
+      alert(j.message || 'Replace upload failed.');
+    }
+  } catch (e) {
+    console.error(e);
+    alert('Server error while replacing file.');
+  }
+}
   return (
     <div className="min-h-screen bg-gray-50">
       <Uheader />
@@ -656,7 +916,12 @@ function DocumentStatusTracker() {
                 onClick={() => toggleCard(application.id)}
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                  <div className="flex-1 relative">
+                    {/* NEW: tiny red dot notification (top-left of card content) */}
+                    {newFlags[application.id] && (
+                      <span className="absolute -left-3 -top-2 inline-flex h-3 w-3 rounded-full bg-red-500 shadow" />
+                    )}
+
                     <h2 className="text-xl font-bold text-gray-800 flex items-center">
                       {application.title}
                       {appIndex === 0 && (
@@ -739,47 +1004,76 @@ function DocumentStatusTracker() {
                         <div><span className="font-medium">Application Type:</span> {application.applicationType}</div>
                         <div><span className="font-medium">Payment Method:</span> {application.paymentMethod}</div>
 
-                        {/* Payment Breakdown */}
+                        {/* Payment Breakdown (updated for full payment) */}
                         <div className="col-span-2 bg-white p-3 rounded border">
-                          <h4 className="font-medium text-gray-800 mb-2 flex items-center">
+                          <h4 className="font-medium text-gray-800 mb-2 flex items:center">
                             <DollarSign className="h-4 w-4 mr-1" />
                             Payment Breakdown
                           </h4>
                           <div className="grid grid-cols-2 gap-3 text-sm">
+                            {/* Total price */}
                             <div>
                               <span className="text-gray-600">Total Document Price:</span>
                               <div className="font-semibold text-lg text-blue-600">
                                 ₱{parseFloat(application.totalDocumentPrice || 0).toLocaleString()}
                               </div>
                             </div>
+
+                            {/* Payment amount – show “Full Payment” when 100% */}
                             <div>
-                              <span className="text-gray-600">Payment Amount ({application.paymentPercentage}%):</span>
+                              <span className="text-gray-600">
+                                Payment Amount{" "}
+                                {application.paymentPercentage === 100
+                                  ? "(Full Payment)"
+                                  : `(${application.paymentPercentage}%)`}
+                                :
+                              </span>
                               <div className="font-semibold text-lg text-green-600">
                                 ₱{parseFloat(application.paymentAmount || 0).toLocaleString()}
                               </div>
                             </div>
-                            <div>
-                              <span className="text-gray-600">Remaining Balance:</span>
-                              <div className="font-semibold text-lg text-orange-600">
-                                ₱{parseFloat(application.remainingAmount || 0).toLocaleString()}
+
+                            {/* Remaining balance – only show if > 0 */}
+                            {parseFloat(application.remainingAmount || 0) > 0 && (
+                              <div>
+                                <span className="text-gray-600">Remaining Balance:</span>
+                                <div className="font-semibold text-lg text-orange-600">
+                                  ₱{parseFloat(application.remainingAmount || 0).toLocaleString()}
+                                </div>
                               </div>
-                            </div>
+                            )}
+
+                            {/* Progress bar + label */}
                             <div>
                               <span className="text-gray-600">Payment Progress:</span>
                               <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
                                 <div
                                   className="bg-green-600 h-2 rounded-full"
                                   style={{
-                                    width: `${((application.paymentAmount || 0) / (application.totalDocumentPrice || 1)) * 100}%`
+                                    width: `${Math.min(
+                                      ((application.paymentAmount || 0) /
+                                        (application.totalDocumentPrice || 1)) *
+                                        100,
+                                      100
+                                    )}%`,
                                   }}
                                 ></div>
                               </div>
                               <span className="text-xs text-gray-500">
-                                {((application.paymentAmount || 0) / (application.totalDocumentPrice || 1) * 100).toFixed(1)}% paid
+                                {(() => {
+                                  const percent =
+                                    ((application.paymentAmount || 0) /
+                                      (application.totalDocumentPrice || 1)) *
+                                    100;
+                                  return percent >= 100
+                                    ? "Fully paid"
+                                    : `${percent.toFixed(1)}% paid`;
+                                })()}
                               </span>
                             </div>
                           </div>
                         </div>
+
 
                         <div><span className="font-medium">Form Access:</span>
                           <span className={`ml-1 px-2 py-1 rounded text-xs ${application.formAccessGranted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
@@ -929,79 +1223,304 @@ function DocumentStatusTracker() {
                           {!step.completed && !step.current && !step.rejected && (
                             <p className="text-sm text-gray-400 mt-1">Pending</p>
                           )}
+
+                          {/* NEW: Requirements block moved under "In Progress" step (applications only) */}
+                          {step.name === 'InProgress' && application.type !== 'Payment Receipt' && (
+                            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                              <h3 className="font-medium text-gray-800 mb-3 flex items-center">
+                                <FileText className="h-4 w-4 mr-2" />
+                                Requirements
+                              </h3>
+                              {(() => {
+                                const reqState = requirementsByApp[application.id];
+
+                                // Might happen when opening first time
+                                if (!reqState) {
+                                  loadRequirementsForApplication(application);
+                                  return (
+                                    <div className="text-sm text-gray-500">
+                                      Loading requirements…
+                                    </div>
+                                  );
+                                }
+
+                                if (reqState.loading) {
+                                  return (
+                                    <div className="text-sm text-gray-500">
+                                      Loading requirements…
+                                    </div>
+                                  );
+                                }
+
+                                if (!reqState.items || reqState.items.length === 0) {
+                                  return (
+                                    <div className="text-sm text-gray-500">
+                                      No requirements have been attached yet.
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="bg-white border rounded">
+                                    <div className="grid grid-cols-12 bg-gray-100 text-xs text-gray-600 font-semibold px-3 py-2">
+                                      <div className="col-span-5">Name</div>
+                                      <div className="col-span-3">Template</div>
+                                      <div className="col-span-4">Your Upload</div>
+                                    </div>
+                                    <div className="max-h-72 overflow-y-auto">
+                                      {reqState.items.map((item) => (
+                                        <div
+                                          key={item.requirement_id}
+                                          className="grid grid-cols-12 items-center px-3 py-2 border-t text-sm"
+                                        >
+                                          <div className="col-span-5">
+                                            <div className="font-medium">{item.name}</div>
+                                            <div className="text-xs text-gray-500">
+                                              Attached{' '}
+                                              {item.uploaded_at
+                                                ? new Date(item.uploaded_at).toLocaleString()
+                                                : ''}
+                                            </div>
+                                          </div>
+                                          <div className="col-span-3">
+                                            {item.template_url ? (
+                                              <a
+                                                href={item.template_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:underline"
+                                              >
+                                                Download template
+                                              </a>
+                                            ) : (
+                                              <span className="text-gray-400">—</span>
+                                            )}
+                                          </div>
+                                          <div className="col-span-4">
+  {item.user_file_url ? (
+    <div className="flex flex-col gap-1">
+      {/* Existing view link + timestamp */}
+      <div className="flex items-center gap-2">
+        <a
+          href={item.user_file_url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-green-600 hover:underline"
+        >
+          View your file
+        </a>
+        <span className="text-xs text-gray-500">
+          (
+          {item.user_uploaded_at
+            ? new Date(item.user_uploaded_at).toLocaleString()
+            : ''}
+          )
+        </span>
+      </div>
+
+      {/* 🔥 NEW: Change / Re-upload button */}
+      <div className="flex items-center gap-2">
+        <label className="inline-flex items-center px-2 py-1 text-xs border rounded cursor-pointer text-indigo-600 hover:bg-indigo-50">
+          <input
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                replaceUserRequirement(
+                  application,
+                  item.requirement_id,
+                  file
+                );
+              }
+              e.target.value = '';
+            }}
+          />
+          <Pencil className="h-3 w-3 mr-1" />
+          Change / Re-upload file
+        </label>
+      </div>
+    </div>
+  ) : (
+    <div className="flex items-center gap-2">
+      <input
+        type="file"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            uploadUserRequirement(
+              application,
+              item.requirement_id,
+              file
+            );
+          }
+          e.target.value = '';
+        }}
+      />
+      <span className="text-xs text-gray-500">
+        PDF/JPG/PNG
+      </span>
+    </div>
+  )}
+</div>
+
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+
+                          {/* NEW: Comments block – show comments for THIS step + user replies */}
+                          {application.type !== 'Payment Receipt' && (
+                            <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
+                              <h3 className="font-medium text-indigo-800 mb-3 flex items-center">
+                                <User className="h-4 w-4 mr-2" />
+                                Messages from the Municipal Office
+                              </h3>
+
+                              {(() => {
+                                const cState = commentsByApp[application.id];
+
+                                if (!cState) {
+                                  loadCommentsForApplication(application);
+                                  return (
+                                    <div className="text-sm text-gray-500">Loading messages…</div>
+                                  );
+                                }
+
+                                if (cState.loading) {
+                                  return (
+                                    <div className="text-sm text-gray-500">Loading messages…</div>
+                                  );
+                                }
+
+                                // 🔥 FILTER COMMENTS MATCHING THE CURRENT STEP NAME
+                                const stepKey = normalizeStageKey(step.name);
+
+                                // figure out the "current" step for this application (fallback to first)
+                                const currentStep =
+                                  application.steps?.find((st) => st.current) || application.steps?.[0];
+                                const currentKey = currentStep ? normalizeStageKey(currentStep.name) : stepKey;
+
+                                const filtered = cState.items.filter((c) => {
+                                  const commentKey = normalizeStageKey(c.status_at_post);
+
+                                  // If no status was stored (older Cedula comments), show them on the CURRENT stage
+                                  if (!commentKey) {
+                                    return stepKey === currentKey;
+                                  }
+
+                                  // Normal case: match exact stage
+                                  return commentKey === stepKey;
+                                });
+
+                                const inputKey = `${application.id}_${currentKey}`;
+                                const textValue = userCommentText[inputKey] || "";
+                                const isCurrentStage = stepKey === currentKey;
+                                const sending = !!sendingComment[inputKey];
+
+                                if (!filtered.length && !isCurrentStage) {
+                                  return (
+                                    <div className="text-sm text-gray-500">
+                                      No messages for this stage of your application.
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <>
+                                    {filtered.length > 0 && (
+                                      <div className="space-y-3">
+                                        {filtered.map((c) => (
+                                          <div key={c.id} className="bg-white border rounded-md p-3">
+                                            <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                                              {c.comment}
+                                            </p>
+                                            <div className="mt-2 text-xs text-gray-500">
+                                              {c.author_role === 'employee'
+                                                ? 'Municipal staff'
+                                                : c.author_role === 'user'
+                                                  ? 'You'
+                                                  : (c.author_role || 'Staff')}
+                                              {' • '}
+                                              {c.created_at
+                                                ? new Date(c.created_at).toLocaleString()
+                                                : ''}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Comment composer – only on current stage */}
+                                    {isCurrentStage && (
+                                      <div className="mt-4 border-t border-indigo-100 pt-3">
+                                        <label className="block text-xs font-medium text-indigo-900 mb-1">
+                                          Ask a question or reply
+                                        </label>
+                                        <textarea
+                                          className="w-full border border-indigo-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 bg-white"
+                                          rows={3}
+                                          placeholder="Type your message here…"
+                                          value={textValue}
+                                          onChange={(e) =>
+                                            setUserCommentText((prev) => ({
+                                              ...prev,
+                                              [inputKey]: e.target.value,
+                                            }))
+                                          }
+                                        />
+                                        <div className="mt-2 flex justify-end">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSendComment(application, currentKey, inputKey)}
+                                            disabled={sending || !textValue.trim()}
+                                            className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                                              sending || !textValue.trim()
+                                                ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                            }`}
+                                          >
+                                            {sending && (
+                                              <RefreshCcw className="h-3 w-3 mr-1 animate-spin" />
+                                            )}
+                                            Send
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {!filtered.length && isCurrentStage && (
+                                      <div className="mt-1 text-xs text-gray-500">
+                                        No messages yet for this stage. You can send a message above.
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Requirements block */}
-                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                    <h3 className="font-medium text-gray-800 mb-3 flex items-center">
-                      <FileText className="h-4 w-4 mr-2" />
-                      Requirements
-                    </h3>
-                    {(() => {
-                      const reqState = requirementsByApp[application.id];
-                      if (!reqState || reqState.loading) {
-                        return <div className="text-sm text-gray-500">Loading requirements…</div>;
-                      }
-                      if (!reqState.items || reqState.items.length === 0) {
-                        return <div className="text-sm text-gray-500">No requirements have been attached yet.</div>;
-                      }
-                      return (
-                        <div className="bg-white border rounded">
-                          <div className="grid grid-cols-12 bg-gray-100 text-xs text-gray-600 font-semibold px-3 py-2">
-                            <div className="col-span-5">Name</div>
-                            <div className="col-span-3">Template</div>
-                            <div className="col-span-4">Your Upload</div>
-                          </div>
-                          <div className="max-h-72 overflow-y-auto">
-                            {reqState.items.map(item => (
-                              <div key={item.requirement_id} className="grid grid-cols-12 items-center px-3 py-2 border-t text-sm">
-                                <div className="col-span-5">
-                                  <div className="font-medium">{item.name}</div>
-                                  <div className="text-xs text-gray-500">Attached: {item.uploaded_at ? new Date(item.uploaded_at).toLocaleString() : ''}</div>
-                                </div>
-                                <div className="col-span-3">
-                                  {item.template_url ? (
-                                    <a href={item.template_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                                      Download template
-                                    </a>
-                                  ) : (
-                                    <span className="text-gray-400">—</span>
-                                  )}
-                                </div>
-                                <div className="col-span-4">
-                                  {item.user_file_url ? (
-                                    <div className="flex items-center gap-2">
-                                      <a href={item.user_file_url} target="_blank" rel="noreferrer" className="text-green-600 hover:underline">
-                                        View your file
-                                      </a>
-                                      <span className="text-xs text-gray-500">
-                                        ({item.user_uploaded_at ? new Date(item.user_uploaded_at).toLocaleString() : ''})
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="file"
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0];
-                                          if (file) uploadUserRequirement(application, item.requirement_id, file);
-                                          e.target.value = "";
-                                        }}
-                                      />
-                                      <span className="text-xs text-gray-500">PDF/JPG/PNG</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  {/* Requirements info for Payment Receipts (no uploads) */}
+                  {application.type === 'Payment Receipt' && (
+                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                      <h3 className="font-medium text-gray-800 mb-3 flex items-center">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Requirements
+                      </h3>
+                      <div className="text-sm text-gray-500">
+                        Payment receipts do not have document requirements.
+                      </div>
+                    </div>
+                  )}
 
                   {/* Additional Information Section */}
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">

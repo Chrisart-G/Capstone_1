@@ -2,79 +2,90 @@ const db = require('../db/dbconnect');
 const path = require('path');
 const fs = require('fs');
 
-// Document pricing configuration - can be easily modified in the future
-const DOCUMENT_PRICES = {
-  business: 500.00,
-  electrical: 300.00,
-  cedula: 100.00,
-  mayors: 150.00,
-  building: 800.00,
-  plumbing: 250.00,
-  fencing: 200.00,
-  electronics: 350.00,
-  renewal_business: 400.00
+
+const getDocumentPricing = (applicationType, callback) => {
+  const sql = `
+    SELECT 
+      application_type,
+      permit_name,
+      current_price,
+      payment_percentage
+    FROM tbl_document_prices
+    WHERE application_type = ? AND is_active = 1
+    LIMIT 1
+  `;
+
+  db.query(sql, [applicationType], (err, rows) => {
+    if (err) return callback(err);
+
+    if (!rows || rows.length === 0) {
+      const e = new Error(
+        'Pricing not found for application_type: ' + applicationType
+      );
+      e.code = 'PRICE_NOT_FOUND';
+      return callback(e);
+    }
+
+    const row = rows[0];
+    const totalPrice = parseFloat(row.current_price);
+    const percentage = parseFloat(row.payment_percentage || 100);
+    const paymentAmount = (totalPrice * percentage) / 100;
+
+    callback(null, {
+      application_type: row.application_type,
+      permit_name: row.permit_name,
+      total_price: totalPrice,
+      payment_percentage: percentage,
+      payment_amount: paymentAmount,
+    });
+  });
 };
 
-// Payment percentage (20% down payment)
-const PAYMENT_PERCENTAGE = 20.00;
+/* -------------------------------------------------------------------------- */
+/*  FILE HELPER                                                                */
+/* -------------------------------------------------------------------------- */
 
-// Helper function to get document price
-const getDocumentPrice = (applicationType) => {
-  return DOCUMENT_PRICES[applicationType] || 0.00;
-};
-
-// Helper function to calculate payment amount (20% of total)
-const calculatePaymentAmount = (applicationType) => {
-  const totalPrice = getDocumentPrice(applicationType);
-  return (totalPrice * PAYMENT_PERCENTAGE) / 100;
-};
-
-// Save file helper function (similar to your business permit controller)
 const saveReceiptFile = (file) => {
   if (!file) return null;
   const uploadPath = path.join(__dirname, '../uploads/receipts');
   if (!fs.existsSync(uploadPath)) {
     fs.mkdirSync(uploadPath, { recursive: true });
   }
-  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
   const filename = `receipt-${uniqueSuffix}${path.extname(file.name)}`;
   const filePath = path.join(uploadPath, filename);
   file.mv(filePath);
   return `/uploads/receipts/${filename}`;
 };
 
-// Submit payment receipt
+/* -------------------------------------------------------------------------- */
+/*  SUBMIT PAYMENT RECEIPT (NOW USING DB PRICES)                               */
+/* -------------------------------------------------------------------------- */
+
 exports.submitPaymentReceipt = async (req, res) => {
   try {
     console.log('Request body:', req.body);
     console.log('Request files:', req.files);
-    
+
     const { user_id, application_type, permit_name, payment_method } = req.body;
-    
+
     // Validate required fields
     if (!user_id || !application_type || !permit_name || !payment_method) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: user_id, application_type, permit_name, payment_method'
-      });
-    }
-
-    // Validate application type
-    if (!DOCUMENT_PRICES.hasOwnProperty(application_type)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid application type'
+        message:
+          'All fields are required: user_id, application_type, permit_name, payment_method',
       });
     }
 
     if (!req.files || !req.files.receipt_image) {
       return res.status(400).json({
         success: false,
-        message: 'Receipt image is required'
+        message: 'Receipt image is required',
       });
     }
 
-    // FIXED: Get user info with separate name fields
+    // Get user info
     const userInfoQuery = `
       SELECT 
         ui.*, 
@@ -84,169 +95,202 @@ exports.submitPaymentReceipt = async (req, res) => {
       JOIN tb_logins l ON ui.user_id = l.user_id 
       WHERE ui.user_id = ?
     `;
-    
+
     db.query(userInfoQuery, [user_id], async (err, userInfo) => {
       if (err) {
         console.error('Get user info error:', err);
         return res.status(500).json({
           success: false,
           message: 'Internal server error',
-          error: err.message
+          error: err.message,
         });
       }
 
       if (userInfo.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'User information not found'
+          message: 'User information not found',
         });
       }
 
-      // Check existing payments with proper logic
+      // Check existing payments
       const existingPaymentQuery = `
         SELECT * FROM tbl_payment_receipts 
         WHERE user_id = ? AND application_type = ?
         ORDER BY created_at DESC LIMIT 1
       `;
-      
-      db.query(existingPaymentQuery, [user_id, application_type], async (err2, existingPayments) => {
-        if (err2) {
-          console.error('Check existing payment error:', err2);
-          return res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: err2.message
-          });
-        }
 
-        // Check if user has existing payments and their status
-        if (existingPayments.length > 0) {
-          const latestPayment = existingPayments[0];
-          
-          // Case 1: User has pending payment
-          if (latestPayment.payment_status === 'pending') {
-            return res.status(400).json({
+      db.query(
+        existingPaymentQuery,
+        [user_id, application_type],
+        async (err2, existingPayments) => {
+          if (err2) {
+            console.error('Check existing payment error:', err2);
+            return res.status(500).json({
               success: false,
-              message: 'You have a pending payment submission for this application type. Please wait for admin approval before submitting a new payment.',
-              data: {
-                existing_payment: {
-                  receipt_id: latestPayment.receipt_id,
-                  status: latestPayment.payment_status,
-                  created_at: latestPayment.created_at,
-                  permit_name: latestPayment.permit_name
-                }
-              }
-            });
-          }
-          
-          // Case 2: User has approved payment but hasn't used form access yet
-          if (latestPayment.payment_status === 'approved' && 
-              latestPayment.form_access_granted === 1 && 
-              latestPayment.form_access_used === 0) {
-            return res.status(400).json({
-              success: false,
-              message: 'You have an approved payment for this application type. Please complete your application form before submitting a new payment.',
-              data: {
-                existing_payment: {
-                  receipt_id: latestPayment.receipt_id,
-                  status: latestPayment.payment_status,
-                  form_access_granted: latestPayment.form_access_granted,
-                  approved_at: latestPayment.approved_at,
-                  permit_name: latestPayment.permit_name
-                }
-              }
-            });
-          }
-          
-          // Case 3: User can submit new payment (previous was rejected or form access was used)
-          // This is allowed - user can proceed with new payment
-        }
-
-        try {
-          // Save receipt image file
-          const receiptImagePath = saveReceiptFile(req.files.receipt_image);
-          
-          if (!receiptImagePath) {
-            return res.status(400).json({
-              success: false,
-              message: 'Failed to save receipt image. Please check file format and size.'
+              message: 'Internal server error',
+              error: err2.message,
             });
           }
 
-          // Get document price
-          const totalAmount = getDocumentPrice(application_type);
-          const paymentAmount = calculatePaymentAmount(application_type);
+          // business rules for pending / approved etc.
+          if (existingPayments.length > 0) {
+            const latestPayment = existingPayments[0];
 
-          // Insert new payment receipt record
-          const insertQuery = `INSERT INTO tbl_payment_receipts (
-            user_id, application_type, permit_name, receipt_image, 
-            payment_method, payment_amount, payment_percentage, total_document_price
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-
-          db.query(insertQuery, [
-            user_id, 
-            application_type, 
-            permit_name, 
-            receiptImagePath, 
-            payment_method, 
-            paymentAmount, 
-            PAYMENT_PERCENTAGE,
-            totalAmount
-          ], (err3, result) => {
-            if (err3) {
-              console.error('Insert payment receipt error:', err3);
-              return res.status(500).json({
+            if (latestPayment.payment_status === 'pending') {
+              return res.status(400).json({
                 success: false,
-                message: 'Failed to save payment receipt. Please try again.',
-                error: err3.message
+                message:
+                  'You have a pending payment submission for this application type. Please wait for admin approval before submitting a new payment.',
+                data: {
+                  existing_payment: {
+                    receipt_id: latestPayment.receipt_id,
+                    status: latestPayment.payment_status,
+                    created_at: latestPayment.created_at,
+                    permit_name: latestPayment.permit_name,
+                  },
+                },
               });
             }
 
-            res.status(201).json({
-              success: true,
-              message: 'Payment receipt submitted successfully! Please wait for admin approval.',
-              data: {
-                receipt_id: result.insertId,
-                user_info: userInfo[0],
-                status: 'pending',
-                payment_details: {
-                  total_document_price: totalAmount,
-                  payment_amount: paymentAmount,
-                  payment_percentage: PAYMENT_PERCENTAGE,
-                  remaining_amount: totalAmount - paymentAmount
-                }
-              }
-            });
-          });
+            if (
+              latestPayment.payment_status === 'approved' &&
+              latestPayment.form_access_granted === 1 &&
+              latestPayment.form_access_used === 0
+            ) {
+              return res.status(400).json({
+                success: false,
+                message:
+                  'You have an approved payment for this application type. Please complete your application form before submitting a new payment.',
+                data: {
+                  existing_payment: {
+                    receipt_id: latestPayment.receipt_id,
+                    status: latestPayment.payment_status,
+                    form_access_granted: latestPayment.form_access_granted,
+                    approved_at: latestPayment.approved_at,
+                    permit_name: latestPayment.permit_name,
+                  },
+                },
+              });
+            }
+          }
 
-        } catch (fileError) {
-          console.error('File processing error:', fileError);
-          return res.status(500).json({
-            success: false,
-            message: 'Error processing receipt image',
-            error: fileError.message
+          // 🔹 Get price from tbl_document_prices
+          getDocumentPricing(application_type, (priceErr, pricing) => {
+            if (priceErr) {
+              console.error('Get document pricing error:', priceErr);
+
+              if (priceErr.code === 'PRICE_NOT_FOUND') {
+                return res.status(400).json({
+                  success: false,
+                  message:
+                    'Pricing is not configured for this application type. Please contact the administrator.',
+                });
+              }
+
+              return res.status(500).json({
+                success: false,
+                message: 'Failed to retrieve document pricing.',
+                error: priceErr.message,
+              });
+            }
+
+            try {
+              // Save receipt image file
+              const receiptImagePath = saveReceiptFile(
+                req.files.receipt_image
+              );
+
+              if (!receiptImagePath) {
+                return res.status(400).json({
+                  success: false,
+                  message:
+                    'Failed to save receipt image. Please check file format and size.',
+                });
+              }
+
+              const totalAmount = pricing.total_price;
+              const paymentAmount = pricing.payment_amount;
+              const paymentPercentage = pricing.payment_percentage;
+
+              const insertQuery = `INSERT INTO tbl_payment_receipts (
+                user_id, application_type, permit_name, receipt_image, 
+                payment_method, payment_amount, payment_percentage, total_document_price
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+
+              db.query(
+                insertQuery,
+                [
+                  user_id,
+                  application_type,
+                  // keep frontend permit_name; you can use pricing.permit_name if you prefer
+                  permit_name,
+                  receiptImagePath,
+                  payment_method,
+                  paymentAmount,
+                  paymentPercentage,
+                  totalAmount,
+                ],
+                (err3, result) => {
+                  if (err3) {
+                    console.error('Insert payment receipt error:', err3);
+                    return res.status(500).json({
+                      success: false,
+                      message:
+                        'Failed to save payment receipt. Please try again.',
+                      error: err3.message,
+                    });
+                  }
+
+                  res.status(201).json({
+                    success: true,
+                    message:
+                      'Payment receipt submitted successfully! Please wait for admin approval.',
+                    data: {
+                      receipt_id: result.insertId,
+                      user_info: userInfo[0],
+                      status: 'pending',
+                      payment_details: {
+                        total_document_price: totalAmount,
+                        payment_amount: paymentAmount,
+                        payment_percentage: paymentPercentage,
+                        remaining_amount: totalAmount - paymentAmount,
+                      },
+                    },
+                  });
+                }
+              );
+            } catch (fileError) {
+              console.error('File processing error:', fileError);
+              return res.status(500).json({
+                success: false,
+                message: 'Error processing receipt image',
+                error: fileError.message,
+              });
+            }
           });
         }
-      });
+      );
     });
-
   } catch (error) {
     console.error('Submit payment receipt error:', error);
     res.status(500).json({
       success: false,
       message: 'Unexpected server error. Please try again.',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// Get payment receipts for admin/employee review
+/* -------------------------------------------------------------------------- */
+/*  Get payment receipts for admin/employee review (unchanged shape)          */
+/* -------------------------------------------------------------------------- */
+
 exports.getPaymentReceipts = (req, res) => {
   try {
     const { status, application_type, page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
-    // FIXED: Use separate name fields and CONCAT them
     let query = `
       SELECT 
         pr.*,
@@ -283,12 +327,12 @@ exports.getPaymentReceipts = (req, res) => {
         return res.status(500).json({
           success: false,
           message: 'Internal server error',
-          error: err.message
+          error: err.message,
         });
       }
 
-      // Get total count
-      let countQuery = 'SELECT COUNT(*) as total FROM tbl_payment_receipts pr WHERE 1=1';
+      let countQuery =
+        'SELECT COUNT(*) as total FROM tbl_payment_receipts pr WHERE 1=1';
       const countParams = [];
 
       if (status) {
@@ -307,7 +351,7 @@ exports.getPaymentReceipts = (req, res) => {
           return res.status(500).json({
             success: false,
             message: 'Internal server error',
-            error: err2.message
+            error: err2.message,
           });
         }
 
@@ -320,28 +364,29 @@ exports.getPaymentReceipts = (req, res) => {
             current_page: parseInt(page),
             per_page: parseInt(limit),
             total: total,
-            total_pages: Math.ceil(total / limit)
-          }
+            total_pages: Math.ceil(total / limit),
+          },
         });
       });
     });
-
   } catch (error) {
     console.error('Get payment receipts error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// Get user's payment receipts
+/* -------------------------------------------------------------------------- */
+/*  Get user's payment receipts (unchanged)                                   */
+/* -------------------------------------------------------------------------- */
+
 exports.getUserPaymentReceipts = (req, res) => {
   try {
     const { user_id } = req.params;
 
-    // FIXED: Use separate name fields and CONCAT them
     const query = `
       SELECT 
         pr.*,
@@ -362,27 +407,29 @@ exports.getUserPaymentReceipts = (req, res) => {
         return res.status(500).json({
           success: false,
           message: 'Internal server error',
-          error: err.message
+          error: err.message,
         });
       }
 
       res.json({
         success: true,
-        data: receipts
+        data: receipts,
       });
     });
-
   } catch (error) {
     console.error('Get user payment receipts error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// Approve/Reject payment receipt
+/* -------------------------------------------------------------------------- */
+/*  Approve / Reject payment receipt (unchanged)                              */
+/* -------------------------------------------------------------------------- */
+
 exports.updatePaymentStatus = (req, res) => {
   try {
     const { receipt_id } = req.params;
@@ -391,7 +438,7 @@ exports.updatePaymentStatus = (req, res) => {
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Status must be either "approved" or "rejected"'
+        message: 'Status must be either "approved" or "rejected"',
       });
     }
 
@@ -404,13 +451,19 @@ exports.updatePaymentStatus = (req, res) => {
     }
 
     if (status === 'approved') {
-      updateFields.push('approved_by = ?', 'approved_at = CURRENT_TIMESTAMP', 'form_access_granted = 1');
+      updateFields.push(
+        'approved_by = ?',
+        'approved_at = CURRENT_TIMESTAMP',
+        'form_access_granted = 1'
+      );
       updateValues.push(approved_by);
     }
 
     updateValues.push(receipt_id);
 
-    const updateQuery = `UPDATE tbl_payment_receipts SET ${updateFields.join(', ')} WHERE receipt_id = ?`;
+    const updateQuery = `UPDATE tbl_payment_receipts SET ${updateFields.join(
+      ', '
+    )} WHERE receipt_id = ?`;
 
     db.query(updateQuery, updateValues, (err, result) => {
       if (err) {
@@ -418,18 +471,17 @@ exports.updatePaymentStatus = (req, res) => {
         return res.status(500).json({
           success: false,
           message: 'Internal server error',
-          error: err.message
+          error: err.message,
         });
       }
 
       if (result.affectedRows === 0) {
         return res.status(404).json({
           success: false,
-          message: 'Payment receipt not found'
+          message: 'Payment receipt not found',
         });
       }
 
-      // FIXED: Get updated receipt info with CONCAT for full name
       const getUpdatedQuery = `
         SELECT 
           pr.*,
@@ -448,29 +500,31 @@ exports.updatePaymentStatus = (req, res) => {
           return res.status(500).json({
             success: false,
             message: 'Internal server error',
-            error: err2.message
+            error: err2.message,
           });
         }
 
         res.json({
           success: true,
           message: `Payment receipt ${status} successfully`,
-          data: updatedReceipt[0]
+          data: updatedReceipt[0],
         });
       });
     });
-
   } catch (error) {
     console.error('Update payment status error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// Check form access permission
+/* -------------------------------------------------------------------------- */
+/*  Check form access permission (unchanged)                                  */
+/* -------------------------------------------------------------------------- */
+
 exports.checkFormAccess = (req, res) => {
   try {
     const { user_id, application_type } = req.params;
@@ -488,7 +542,7 @@ exports.checkFormAccess = (req, res) => {
         return res.status(500).json({
           success: false,
           message: 'Internal server error',
-          error: err.message
+          error: err.message,
         });
       }
 
@@ -496,7 +550,7 @@ exports.checkFormAccess = (req, res) => {
         return res.json({
           success: false,
           hasAccess: false,
-          message: 'No approved payment found for this application type'
+          message: 'No approved payment found for this application type',
         });
       }
 
@@ -506,28 +560,31 @@ exports.checkFormAccess = (req, res) => {
         success: true,
         hasAccess: !receipt.form_access_used,
         receipt_id: receipt.receipt_id,
-        message: receipt.form_access_used 
+        message: receipt.form_access_used
           ? 'Form access has already been used'
           : 'Form access granted',
         payment_details: {
           total_document_price: receipt.total_document_price,
           payment_amount: receipt.payment_amount,
-          remaining_amount: receipt.total_document_price - receipt.payment_amount
-        }
+          remaining_amount:
+            receipt.total_document_price - receipt.payment_amount,
+        },
       });
     });
-
   } catch (error) {
     console.error('Check form access error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// Get payment statistics
+/* -------------------------------------------------------------------------- */
+/*  Get payment statistics (now pulling prices from DB)                       */
+/* -------------------------------------------------------------------------- */
+
 exports.getPaymentStats = (req, res) => {
   try {
     const statsQuery = `
@@ -548,7 +605,7 @@ exports.getPaymentStats = (req, res) => {
         return res.status(500).json({
           success: false,
           message: 'Internal server error',
-          error: err.message
+          error: err.message,
         });
       }
 
@@ -569,93 +626,164 @@ exports.getPaymentStats = (req, res) => {
           return res.status(500).json({
             success: false,
             message: 'Internal server error',
-            error: err2.message
+            error: err2.message,
           });
         }
 
-        res.json({
-          success: true,
-          data: {
-            detailed_stats: stats,
-            summary: totalStats[0],
-            document_prices: DOCUMENT_PRICES,
-            payment_percentage: PAYMENT_PERCENTAGE
+        const docPriceQuery = `
+          SELECT 
+            application_type,
+            permit_name,
+            default_price,
+            current_price,
+            payment_percentage,
+            is_active
+          FROM tbl_document_prices
+        `;
+
+        db.query(docPriceQuery, (err3, docPrices) => {
+          if (err3) {
+            console.error('Get document prices error:', err3);
+            return res.status(500).json({
+              success: false,
+              message: 'Internal server error',
+              error: err3.message,
+            });
           }
+
+          res.json({
+            success: true,
+            data: {
+              detailed_stats: stats,
+              summary: totalStats[0],
+              document_prices: docPrices,
+            },
+          });
         });
       });
     });
-
   } catch (error) {
     console.error('Get payment stats error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// Get document pricing information
+/* -------------------------------------------------------------------------- */
+/*  Get document pricing information (DB only)                                */
+/* -------------------------------------------------------------------------- */
+
 exports.getDocumentPrices = (req, res) => {
   try {
     const { application_type } = req.query;
-    
+
     if (application_type) {
-      const price = getDocumentPrice(application_type);
-      const paymentAmount = calculatePaymentAmount(application_type);
-      
-      return res.json({
-        success: true,
-        data: {
-          application_type: application_type,
-          total_price: price,
-          payment_amount: paymentAmount,
-          payment_percentage: PAYMENT_PERCENTAGE,
-          remaining_amount: price - paymentAmount
+      // Single type
+      getDocumentPricing(application_type, (err, pricing) => {
+        if (err) {
+          console.error('Get document prices error:', err);
+
+          if (err.code === 'PRICE_NOT_FOUND') {
+            return res.status(404).json({
+              success: false,
+              message:
+                'No pricing configuration found for this application type.',
+            });
+          }
+
+          return res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: err.message,
+          });
         }
+
+        return res.json({
+          success: true,
+          data: {
+            application_type: pricing.application_type,
+            permit_name: pricing.permit_name,
+            total_price: pricing.total_price,
+            payment_amount: pricing.payment_amount,
+            payment_percentage: pricing.payment_percentage,
+            remaining_amount: pricing.total_price - pricing.payment_amount,
+          },
+        });
+      });
+    } else {
+      // All active types
+      const sql = `
+        SELECT 
+          application_type,
+          permit_name,
+          current_price,
+          payment_percentage
+        FROM tbl_document_prices
+        WHERE is_active = 1
+        ORDER BY id ASC
+      `;
+
+      db.query(sql, (err, rows) => {
+        if (err) {
+          console.error('Get all document prices error:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: err.message,
+          });
+        }
+
+        const data = rows.map((row) => {
+          const total = parseFloat(row.current_price);
+          const pct = parseFloat(row.payment_percentage || 100);
+          const pay = (total * pct) / 100;
+
+          return {
+            application_type: row.application_type,
+            permit_name: row.permit_name,
+            total_price: total,
+            payment_amount: pay,
+            payment_percentage: pct,
+            remaining_amount: total - pay,
+          };
+        });
+
+        res.json({
+          success: true,
+          data,
+        });
       });
     }
-    
-    // Return all prices
-    const allPrices = Object.keys(DOCUMENT_PRICES).map(type => ({
-      application_type: type,
-      total_price: DOCUMENT_PRICES[type],
-      payment_amount: calculatePaymentAmount(type),
-      payment_percentage: PAYMENT_PERCENTAGE,
-      remaining_amount: DOCUMENT_PRICES[type] - calculatePaymentAmount(type)
-    }));
-    
-    res.json({
-      success: true,
-      data: allPrices
-    });
-    
   } catch (error) {
     console.error('Get document prices error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// FIXED: Get payment receipts for tracking in user
+/* -------------------------------------------------------------------------- */
+/*  Get payment receipts for tracking in user (unchanged)                     */
+/* -------------------------------------------------------------------------- */
+
 exports.getPaymentReceiptsForTracking = async (req, res) => {
   try {
-    // Use session-based authentication
     if (!req.session?.user?.user_id) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Unauthorized. Please log in.",
-        data: []
+        message: 'Unauthorized. Please log in.',
+        data: [],
       });
     }
 
     const userId = req.session.user.user_id;
     console.log('Getting payment receipts for user:', userId);
 
-    // FIXED: Use CONCAT for full_name from separate fields and removed duplicate lines
     const query = `
       SELECT 
         pr.receipt_id,
@@ -699,7 +827,7 @@ exports.getPaymentReceiptsForTracking = async (req, res) => {
           success: false,
           message: 'Failed to retrieve payment receipts',
           error: err.message,
-          data: []
+          data: [],
         });
       }
 
@@ -708,38 +836,40 @@ exports.getPaymentReceiptsForTracking = async (req, res) => {
       res.status(200).json({
         success: true,
         data: receipts || [],
-        count: receipts ? receipts.length : 0
+        count: receipts ? receipts.length : 0,
       });
     });
-
   } catch (error) {
     console.error('Get payment receipts for tracking error:', error);
     res.status(500).json({
       success: false,
       message: 'Unexpected server error',
       error: error.message,
-      data: []
+      data: [],
     });
   }
 };
 
-// Use form access
+/* -------------------------------------------------------------------------- */
+/*  Use form access (unchanged)                                               */
+/* -------------------------------------------------------------------------- */
+
 exports.useFormAccess = async (req, res) => {
   try {
-    // Check if user is authenticated
     if (!req.session?.user?.user_id) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Unauthorized. Please log in."
+        message: 'Unauthorized. Please log in.',
       });
     }
 
     const userId = req.session.user.user_id;
     const receiptId = req.params.receiptId;
 
-    console.log(`User ${userId} attempting to use form access for receipt ${receiptId}`);
+    console.log(
+      `User ${userId} attempting to use form access for receipt ${receiptId}`
+    );
 
-    // First, verify the receipt belongs to the user and check current status
     const checkQuery = `
       SELECT 
         receipt_id,
@@ -758,45 +888,41 @@ exports.useFormAccess = async (req, res) => {
         console.error('Database error checking receipt:', err);
         return res.status(500).json({
           success: false,
-          message: 'Database error occurred'
+          message: 'Database error occurred',
         });
       }
 
       if (!results || results.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'Receipt not found or does not belong to you'
+          message: 'Receipt not found or does not belong to you',
         });
       }
 
       const receipt = results[0];
 
-      // Check if payment is approved
       if (receipt.payment_status !== 'approved') {
         return res.status(403).json({
           success: false,
-          message: 'Payment must be approved before accessing the form'
+          message: 'Payment must be approved before accessing the form',
         });
       }
 
-      // Check if form access is granted
       if (!receipt.form_access_granted) {
         return res.status(403).json({
           success: false,
-          message: 'Form access has not been granted yet'
+          message: 'Form access has not been granted yet',
         });
       }
 
-      // Check if form access has already been used
       if (receipt.form_access_used) {
         return res.status(403).json({
           success: false,
           message: 'Form access has already been used',
-          usedAt: receipt.form_access_used_at
+          usedAt: receipt.form_access_used_at,
         });
       }
 
-      // Update the record to mark form access as used
       const updateQuery = `
         UPDATE tbl_payment_receipts 
         SET 
@@ -811,49 +937,52 @@ exports.useFormAccess = async (req, res) => {
           console.error('Database error updating form access:', updateErr);
           return res.status(500).json({
             success: false,
-            message: 'Failed to update form access status'
+            message: 'Failed to update form access status',
           });
         }
 
         if (updateResults.affectedRows === 0) {
           return res.status(404).json({
             success: false,
-            message: 'Receipt not found or update failed'
+            message: 'Receipt not found or update failed',
           });
         }
 
-        console.log(`Form access successfully marked as used for receipt ${receiptId}`);
+        console.log(
+          `Form access successfully marked as used for receipt ${receiptId}`
+        );
 
-        // Return success response
         res.status(200).json({
           success: true,
           message: 'Form access granted successfully',
           data: {
             receiptId: receiptId,
             applicationType: receipt.application_type,
-            usedAt: new Date().toISOString()
-          }
+            usedAt: new Date().toISOString(),
+          },
         });
       });
     });
-
   } catch (error) {
     console.error('Error in useFormAccess:', error);
     res.status(500).json({
       success: false,
       message: 'Unexpected server error',
-      error: error.message
+      error: error.message,
     });
   }
 };
 
-// Get form access status
+/* -------------------------------------------------------------------------- */
+/*  Get form access status (unchanged)                                        */
+/* -------------------------------------------------------------------------- */
+
 exports.getFormAccessStatus = async (req, res) => {
   try {
     if (!req.session?.user?.user_id) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Unauthorized. Please log in."
+        message: 'Unauthorized. Please log in.',
       });
     }
 
@@ -877,28 +1006,27 @@ exports.getFormAccessStatus = async (req, res) => {
         console.error('Database error:', err);
         return res.status(500).json({
           success: false,
-          message: 'Database error occurred'
+          message: 'Database error occurred',
         });
       }
 
       if (!results || results.length === 0) {
         return res.status(404).json({
           success: false,
-          message: 'Receipt not found'
+          message: 'Receipt not found',
         });
       }
 
       res.status(200).json({
         success: true,
-        data: results[0]
+        data: results[0],
       });
     });
-
   } catch (error) {
     console.error('Error in getFormAccessStatus:', error);
     res.status(500).json({
       success: false,
-      message: 'Unexpected server error'
+      message: 'Unexpected server error',
     });
   }
 };

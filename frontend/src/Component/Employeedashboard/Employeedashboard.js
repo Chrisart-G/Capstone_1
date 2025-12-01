@@ -9,7 +9,6 @@ import {
   CedulaModalContent,
   ElectricalPermitModalContent,
   BusinessPermitModalContent,
-  // NEW:
   PlumbingPermitModalContent,
   ElectronicsPermitModalContent,
   BuildingPermitModalContent,
@@ -19,25 +18,27 @@ import AttachRequirementFromLibraryModal from '../modals/AttachRequirementFromLi
 
 const API_BASE_URL = "http://localhost:8081";
 
-export default function EmployeeDashboard() { 
+export default function EmployeeDashboard() {
   const [selectedTab, setSelectedTab] = useState('pending');
   const [expandedApplication, setExpandedApplication] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // Start with loading state
+  const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState(null);
   const [selectedApplication, setSelectedApplication] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [activeRowKey, setActiveRowKey] = useState(null);
 
   const [showPickupModal, setShowPickupModal] = useState(false);
+  const [pickupFile, setPickupFile] = useState(null);
   const [pickupTarget, setPickupTarget] = useState(null);
   const [pickupSchedule, setPickupSchedule] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
-const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicationId: null });
+  const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicationId: null });
+
   const [applications, setApplications] = useState({
     pending: [],
     inReview: [],
-    inProgress: [],              
-    requirementsCompleted: [],   
+    inProgress: [],
+    requirementsCompleted: [],
     approved: [],
     readyForPickup: [],
     rejected: []
@@ -46,8 +47,8 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
   const [electricalApplications, setElectricalApplications] = useState({
     pending: [],
     inReview: [],
-    inProgress: [],               
-    requirementsCompleted: [],    
+    inProgress: [],
+    requirementsCompleted: [],
     approved: [],
     readyForPickup: [],
     rejected: []
@@ -56,8 +57,8 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
   const [cedulaApplications, setCedulaApplications] = useState({
     pending: [],
     inReview: [],
-    inProgress: [],              
-    requirementsCompleted: [],   
+    inProgress: [],
+    requirementsCompleted: [],
     approved: [],
     readyForPickup: [],
     rejected: []
@@ -78,9 +79,17 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
   });
 
   const navigate = useNavigate();
-  
+
   const toggleExpandApplication = (id) => {
     setExpandedApplication(prev => (prev === id ? null : id));
+  };
+
+  const getApplicationKey = (app) => {
+    const type = (app.type || "Electrical Permit")
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+    const id = app.id || app.cedula_id;
+    return `${type}-${id}`;
   };
 
   const fetchUserData = async () => {
@@ -98,20 +107,20 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
     }
   };
 
-  // Fetch business applications (existing)
+  // Fetch business applications
   const fetchApplications = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/applications`, {
         withCredentials: true
       });
-      
+
       if (response.data.success) {
         const organizedData = {
           pending: [], inReview: [], inProgress: [], requirementsCompleted: [], approved: [], readyForPickup: [], rejected: []
         };
-        
+
         response.data.applications.forEach(app => {
-          switch(app.status) {
+          switch (app.status) {
             case 'pending': organizedData.pending.push(app); break;
             case 'in-review': organizedData.inReview.push(app); break;
             case 'in-progress': organizedData.inProgress.push(app); break;
@@ -167,7 +176,7 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
     } finally {
       setIsLoading(false);
     }
-  }; 
+  };
 
   const handleNavigate = (tab) => {
     setSelectedTab(tab);
@@ -178,13 +187,11 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
   }, []);
   //-----------------------------------
 
-  //this part for fetching the application row records
   const getCurrentApplications = () => {
     return [
       ...applications[selectedTab],
       ...electricalApplications[selectedTab],
       ...cedulaApplications[selectedTab],
-      // NEW merges:
       ...plumbingApplications[selectedTab],
       ...electronicsApplications[selectedTab],
       ...buildingApplications[selectedTab],
@@ -198,12 +205,12 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
       const response = await axios.get(`${API_BASE_URL}/api/electrical-applications`, {
         withCredentials: true
       });
-      
+
       if (response.data.success) {
         const organizedElectricalData = {
           pending: [], inReview: [], inProgress: [], requirementsCompleted: [], approved: [], readyForPickup: [], rejected: []
         };
-        
+
         response.data.applications.forEach(app => {
           const appWithType = { ...app, type: 'Electrical Permit' };
           switch (app.status) {
@@ -366,9 +373,8 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
   };
 
   //-----------------------------------------
-
-  // this section for open modal fetch data for the application 
-  // for business permits
+  // VIEW handlers – set selectedApplication (no modal)
+  // business permits
   const handleViewApplication = async (id) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/applications/${id}`, {
@@ -377,7 +383,6 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
 
       if (response.data.success) {
         setSelectedApplication(response.data.application);
-        setModalVisible(true);
       } else {
         alert("Application not found.");
       }
@@ -386,7 +391,7 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
     }
   };
 
-  //for electrical permits
+  // electrical
   const handleViewElectricalApplication = async (id) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/electrical-applications/${id}`, {
@@ -395,7 +400,6 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
 
       if (response.data.success) {
         setSelectedApplication({ ...response.data.application, type: 'Electrical Permit' });
-        setModalVisible(true);
       } else {
         alert("Electrical permit application not found.");
       }
@@ -404,7 +408,7 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
     }
   };
 
-  // for cedula
+  // cedula
   const handleViewCedulaApplication = async (id) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/cedula-applications/${id}`, {
@@ -435,7 +439,6 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
         };
 
         setSelectedApplication(applicationData);
-        setModalVisible(true);
       } else {
         alert("Cedula application not found.");
       }
@@ -450,7 +453,6 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
       const res = await axios.get(`${API_BASE_URL}/api/plumbing-applications/${id}`, { withCredentials: true });
       if (res.data.success) {
         setSelectedApplication({ ...res.data.application, type: 'Plumbing Permit' });
-        setModalVisible(true);
       } else {
         alert('Plumbing permit not found.');
       }
@@ -462,7 +464,6 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
       const res = await axios.get(`${API_BASE_URL}/api/electronics-applications/${id}`, { withCredentials: true });
       if (res.data.success) {
         setSelectedApplication({ ...res.data.application, type: 'Electronics Permit' });
-        setModalVisible(true);
       } else {
         alert('Electronics permit not found.');
       }
@@ -474,7 +475,6 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
       const res = await axios.get(`${API_BASE_URL}/api/building-applications/${id}`, { withCredentials: true });
       if (res.data.success) {
         setSelectedApplication({ ...res.data.application, type: 'Building Permit' });
-        setModalVisible(true);
       } else {
         alert('Building permit not found.');
       }
@@ -486,7 +486,6 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
       const res = await axios.get(`${API_BASE_URL}/api/fencing-applications/${id}`, { withCredentials: true });
       if (res.data.success) {
         setSelectedApplication({ ...res.data.application, type: 'Fencing Permit' });
-        setModalVisible(true);
       } else {
         alert('Fencing permit not found.');
       }
@@ -494,10 +493,11 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
   };
 
   //----------------------------------------------------------
-  // this section for action on the application 
+  // ACTION handlers (from old code)
+
   const handleAcceptElectricalApplication = async (id) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/electrical-applications/${id}/accept`, 
+      const response = await axios.put(`${API_BASE_URL}/api/electrical-applications/${id}/accept`,
         { status: 'in-review' },
         { withCredentials: true }
       );
@@ -572,12 +572,21 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
     } catch (e) { console.error(e); }
   };
 
-  const handlePickupScheduleBusiness = async (applicationId, schedule) => {
+  const handlePickupScheduleBusiness = async (applicationId, schedule, file) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/applications/set-pickup`, {
-        applicationId,
-        schedule
-      }, { withCredentials: true });
+      const form = new FormData();
+      form.append("applicationId", applicationId);
+      form.append("schedule", schedule);
+      if (file) form.append("pickup_file", file);
+
+      const response = await axios.put(
+        `${API_BASE_URL}/api/applications/set-pickup`,
+        form,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       if (response.data.success) {
         await fetchApplications();
@@ -587,15 +596,25 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
       }
     } catch (err) {
       console.error("Business Pickup Error:", err);
+      alert("Server error while scheduling pickup.");
     }
   };
 
-  const handlePickupScheduleElectrical = async (applicationId, schedule) => {
+  const handlePickupScheduleElectrical = async (applicationId, schedule, file) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/electrical-applications/set-pickup`, {
-        applicationId,
-        schedule
-      }, { withCredentials: true });
+      const form = new FormData();
+      form.append("applicationId", applicationId);
+      form.append("schedule", schedule);
+      if (file) form.append("pickup_file", file);
+
+      const response = await axios.put(
+        `${API_BASE_URL}/api/electrical-applications/set-pickup`,
+        form,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       if (response.data.success) {
         await fetchElectricalApplications();
@@ -605,15 +624,25 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
       }
     } catch (err) {
       console.error("Electrical Pickup Error:", err);
+      alert("Server error while scheduling pickup.");
     }
   };
 
-  const handlePickupScheduleCedula = async (cedulaId, schedule) => {
+  const handlePickupScheduleCedula = async (cedulaId, schedule, file) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/cedula/set-pickup`, {
-        cedulaId,
-        schedule
-      }, { withCredentials: true });
+      const form = new FormData();
+      form.append("cedulaId", cedulaId);
+      form.append("schedule", schedule);
+      if (file) form.append("pickup_file", file);
+
+      const response = await axios.put(
+        `${API_BASE_URL}/api/cedula/set-pickup`,
+        form,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       if (response.data.success) {
         await fetchCedulaApplications();
@@ -623,524 +652,776 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
       }
     } catch (err) {
       console.error("Cedula Pickup Error:", err);
+      alert("Server error while scheduling pickup.");
     }
   };
 
   // NEW pickup schedulers
-  const handlePickupSchedulePlumbing = async (applicationId, schedule) => {
+  const handlePickupSchedulePlumbing = async (applicationId, schedule, file) => {
     try {
-      const r = await axios.put(`${API_BASE_URL}/api/plumbing-applications/set-pickup`, { applicationId, schedule }, { withCredentials: true });
-      if (r.data.success) { await fetchPlumbingApplications(); alert('Plumbing Permit moved to Ready for Pickup.'); } else alert('Failed to schedule pickup.');
-    } catch (e) { console.error(e); }
-  };
-  const handlePickupScheduleElectronics = async (applicationId, schedule) => {
-    try {
-      const r = await axios.put(`${API_BASE_URL}/api/electronics-applications/set-pickup`, { applicationId, schedule }, { withCredentials: true });
-      if (r.data.success) { await fetchElectronicsApplications(); alert('Electronics Permit moved to Ready for Pickup.'); } else alert('Failed to schedule pickup.');
-    } catch (e) { console.error(e); }
-  };
-  const handlePickupScheduleBuilding = async (applicationId, schedule) => {
-    try {
-      const r = await axios.put(`${API_BASE_URL}/api/building-applications/set-pickup`, { applicationId, schedule }, { withCredentials: true });
-      if (r.data.success) { await fetchBuildingApplications(); alert('Building Permit moved to Ready for Pickup.'); } else alert('Failed to schedule pickup.');
-    } catch (e) { console.error(e); }
-  };
-  const handlePickupScheduleFencing = async (applicationId, schedule) => {
-    try {
-      const r = await axios.put(`${API_BASE_URL}/api/fencing-applications/set-pickup`, { applicationId, schedule }, { withCredentials: true });
-      if (r.data.success) { await fetchFencingApplications(); alert('Fencing Permit moved to Ready for Pickup.'); } else alert('Failed to schedule pickup.');
-    } catch (e) { console.error(e); }
+      const form = new FormData();
+      form.append("applicationId", applicationId);
+      form.append("schedule", schedule);
+      if (file) form.append("pickup_file", file);
+
+      const r = await axios.put(
+        `${API_BASE_URL}/api/plumbing-applications/set-pickup`,
+        form,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (r.data.success) {
+        await fetchPlumbingApplications();
+        alert("Plumbing Permit moved to Ready for Pickup.");
+      } else {
+        alert("Failed to schedule pickup.");
+      }
+    } catch (e) {
+      console.error("Plumbing Pickup Error:", e);
+      alert("Server error while scheduling pickup.");
+    }
   };
 
-  return (
-  <div className="flex h-screen bg-gray-100">
-    {/* Sidebar Component */}
-    <Sidebar 
-      userData={userData} 
-      onLogout={handleLogout} 
-      isLoading={isLoading}
-      onNavigate={handleNavigate}
-    />
+  const handlePickupScheduleElectronics = async (applicationId, schedule, file) => {
+    try {
+      const form = new FormData();
+      form.append("applicationId", applicationId);
+      form.append("schedule", schedule);
+      if (file) form.append("pickup_file", file);
 
-    {/* Main Content */}
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-medium">Application Dashboard</h2>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search applications..."
-                className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+      const r = await axios.put(
+        `${API_BASE_URL}/api/electronics-applications/set-pickup`,
+        form,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (r.data.success) {
+        await fetchElectronicsApplications();
+        alert("Electronics Permit moved to Ready for Pickup.");
+      } else {
+        alert("Failed to schedule pickup.");
+      }
+    } catch (e) {
+      console.error("Electronics Pickup Error:", e);
+      alert("Server error while scheduling pickup.");
+    }
+  };
+
+  const handlePickupScheduleBuilding = async (applicationId, schedule, file) => {
+    try {
+      const form = new FormData();
+      form.append("applicationId", applicationId);
+      form.append("schedule", schedule);
+      if (file) form.append("pickup_file", file);
+
+      const r = await axios.put(
+        `${API_BASE_URL}/api/building-applications/set-pickup`,
+        form,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (r.data.success) {
+        await fetchBuildingApplications();
+        alert("Building Permit moved to Ready for Pickup.");
+      } else {
+        alert("Failed to schedule pickup.");
+      }
+    } catch (e) {
+      console.error("Building Pickup Error:", e);
+      alert("Server error while scheduling pickup.");
+    }
+  };
+
+  const handlePickupScheduleFencing = async (applicationId, schedule, file) => {
+    try {
+      const form = new FormData();
+      form.append("applicationId", applicationId);
+      form.append("schedule", schedule);
+      if (file) form.append("pickup_file", file);
+
+      const r = await axios.put(
+        `${API_BASE_URL}/api/fencing-applications/set-pickup`,
+        form,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (r.data.success) {
+        await fetchFencingApplications();
+        alert("Fencing Permit moved to Ready for Pickup.");
+      } else {
+        alert("Failed to schedule pickup.");
+      }
+    } catch (e) {
+      console.error("Fencing Pickup Error:", e);
+      alert("Server error while scheduling pickup.");
+    }
+  };
+
+  // ---------- DETAIL PANEL RENDERER ----------
+  const renderSelectedDetails = () => {
+    if (!selectedApplication) {
+      return (
+        <div className="h-full flex items-center justify-center text-gray-400 text-sm px-4 py-8">
+          Select an application from the left to view its full details here.
+        </div>
+      );
+    }
+
+    const rawStatus =
+      selectedApplication.status ||
+      selectedApplication.application_status ||
+      'pending';
+
+    const statusClass =
+      rawStatus === 'pending'
+        ? 'bg-yellow-100 text-yellow-800'
+        : rawStatus === 'approved'
+        ? 'bg-green-100 text-green-800'
+        : rawStatus === 'rejected'
+        ? 'bg-red-100 text-red-800'
+        : 'bg-blue-100 text-blue-800';
+
+    const headerTitle =
+      selectedApplication.type === 'Electrical Permit'
+        ? 'Electrical Permit Application'
+        : selectedApplication.type === 'Cedula'
+        ? 'Cedula Application'
+        : selectedApplication.type === 'Plumbing Permit'
+        ? 'Plumbing Permit Application'
+        : selectedApplication.type === 'Electronics Permit'
+        ? 'Electronics Permit Application'
+        : selectedApplication.type === 'Building Permit'
+        ? 'Building Permit Application'
+        : selectedApplication.type === 'Fencing Permit'
+        ? 'Fencing Permit Application'
+        : 'Business Permit Application';
+
+    return (
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
+          <div className="flex items-center space-x-3">
+            <div className="bg-white bg-opacity-20 p-3 rounded-lg">
+              <FileText size={22} />
             </div>
-            <div className="relative">
-              <Bell size={20} className="text-gray-600 cursor-pointer" />
-              <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">3</span>
+            <div>
+              <h2 className="text-xl font-bold">{headerTitle}</h2>
+              <p className="text-blue-100 text-sm">
+                Application Details &amp; Information
+              </p>
             </div>
-            <a 
-              href="/Employeeprofile" 
-              className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition-colors"
-            >
-              <User size={16} />
-              </a>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="px-6 border-t flex">
-          {['pending', 'inReview', 'inProgress', 'requirementsCompleted', 'approved','readyForPickup', 'rejected'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setSelectedTab(tab)}
-              className={`px-4 py-3 font-medium text-sm focus:outline-none ${
-                selectedTab === tab
-                  ? 'text-indigo-600 border-b-2 border-indigo-600'
-                  : 'text-gray-600 hover:text-indigo-600'
-              }`}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
+          <div className="flex justify-center">
+            <span
+              className={`px-4 py-2 rounded-full text-xs font-semibold ${statusClass}`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                tab === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                tab === 'inReview' ? 'bg-blue-100 text-blue-800' :
-                tab === 'inProgress' ? 'bg-orange-100 text-orange-800' :
-                tab === 'requirementsCompleted' ? 'bg-purple-100 text-purple-800' :
-                tab === 'approved' ? 'bg-green-100 text-green-800' :
-                tab === 'readyForPickup' ? 'bg-pink-100 text-pink-800' : 
-                'bg-red-100 text-red-800'
-              }`}>
-                {applications[tab].length 
-                  + electricalApplications[tab].length 
-                  + cedulaApplications[tab].length
-                  + plumbingApplications[tab].length
-                  + electronicsApplications[tab].length
-                  + buildingApplications[tab].length
-                  + fencingApplications[tab].length}
-              </span>
+              Status: {String(rawStatus).toUpperCase()}
+            </span>
+          </div>
 
-            </button>
-          ))}
-        </div>
-      </header>
-
-      {/* Application Cards */}
-      <main className="flex-1 overflow-y-auto p-6 bg-gray-50">
-        <div className="grid grid-cols-1 gap-4">
-          {getCurrentApplications().length > 0 ? (
-            getCurrentApplications().map((application) => (
-              <div key={`${(application.type || 'Electrical Permit').toLowerCase().replace(/\s+/g,'-')}-${application.id}`} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                <div className="p-4 flex items-center justify-between">
-                  <div className="flex items-center cursor-pointer" onClick={() => toggleExpandApplication(application.id)}>
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center">
-                      <FileText size={20} />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="font-medium">{application.name || application.applicant_name}</h3>
-                      <p className="text-sm text-gray-500">
-                        {application.type || 'Electrical Permit'} • Submitted on {new Date(application.submitted || application.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-x-2">
-                    <button
-                      onClick={() => {
-                        const appId = application.id || application.cedula_id;
-                        if (application.type === 'Electrical Permit') {
-                          handleViewElectricalApplication(appId);
-                        } else if (application.type === 'Cedula') {
-                          handleViewCedulaApplication(appId); 
-                        } else if (application.type === 'Plumbing Permit') {
-                          handleViewPlumbingApplication(appId);
-                        } else if (application.type === 'Electronics Permit') {
-                          handleViewElectronicsApplication(appId);
-                        } else if (application.type === 'Building Permit') {
-                          handleViewBuildingApplication(appId);
-                        } else if (application.type === 'Fencing Permit') {
-                          handleViewFencingApplication(appId);
-                        } else {
-                          handleViewApplication(appId);
-                        }
-                      }}
-                      className="text-blue-600 hover:underline"
-                    >
-                      View Info
-                    </button>
-
-                    {(application.status === "pending" || application.application_status === "pending") && (
-                      <button
-                        onClick={() => {
-                          if (application.type === 'Electrical Permit') {
-                            handleAcceptElectricalApplication(application.id);
-                          } else if (application.type === 'Cedula') {
-                            handleAcceptCedulaApplication(application.id);
-                          } else if (application.type === 'Plumbing Permit') {
-                            handleAcceptPlumbing(application.id);
-                          } else if (application.type === 'Electronics Permit') {
-                            handleAcceptElectronics(application.id);
-                          } else if (application.type === 'Building Permit') {
-                            handleAcceptBuilding(application.id);
-                          } else if (application.type === 'Fencing Permit') {
-                            handleAcceptFencing(application.id);
-                          } else {
-                            handleAcceptApplication(application.id);
-                          }
-                        }}
-                        className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
-                      >
-                        Accept
-                      </button>
-                    )}
-
-                    {/* Attach Requirements - only for in-review */}
-                    {(application.status === "in-review" || application.application_status === "in-review") && (
-  <button
-    onClick={() => {
-      const appId = application.id || application.cedula_id;
-      setAttachTarget({
-        applicationType: application.type || 'Electrical Permit',
-        applicationId: appId
-      });
-      setAttachOpen(true);
-    }}
-    className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
-  >
-    Attach Requirements
-  </button>
-)}
-
-
-                    {(application.status === "in-review" || application.application_status === "in-review") && (
-                      <button
-                        onClick={async () => {
-                          const appId = application.id || application.cedula_id;
-
-                          try {
-                            let response;
-                            if (application.type === 'Electrical Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/electrical-applications/move-to-inprogress`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Cedula') {
-                              response = await axios.put(`${API_BASE_URL}/api/cedula/move-to-inprogress`, {
-                                id: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Plumbing Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/plumbing-applications/move-to-inprogress`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Electronics Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/electronics-applications/move-to-inprogress`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Building Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/building-applications/move-to-inprogress`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Fencing Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/fencing-applications/move-to-inprogress`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else {
-                              response = await axios.put(`${API_BASE_URL}/api/applications/move-to-inprogress`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            }
-
-                            if (response.data.success) {
-                              await fetchApplications();
-                              await fetchElectricalApplications();
-                              await fetchCedulaApplications();
-                              await fetchPlumbingApplications();
-                              await fetchElectronicsApplications();
-                              await fetchBuildingApplications();
-                              await fetchFencingApplications();
-                              alert("Moved to in-progress successfully.");
-                            } else {
-                              alert("Failed to update status.");
-                            }
-                          } catch (err) {
-                            console.error("Error:", err);
-                            alert("Server error.");
-                          }
-                        }}
-                        className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
-                      >
-                        Done Attached Requirements
-                      </button>
-                    )}
-
-                    {(application.status === "in-progress" || application.application_status === "in-progress") && (
-                      <button
-                        onClick={async () => {
-                          const appId = application.id || application.cedula_id;
-
-                          try {
-                            let response;
-                            if (application.type === 'Electrical Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/electrical-applications/move-to-requirements-completed`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Cedula') {
-                              response = await axios.put(`${API_BASE_URL}/api/cedula/move-to-requirements-completed`, {
-                                id: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Plumbing Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/plumbing-applications/move-to-requirements-completed`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Electronics Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/electronics-applications/move-to-requirements-completed`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Building Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/building-applications/move-to-requirements-completed`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Fencing Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/fencing-applications/move-to-requirements-completed`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else {
-                              response = await axios.put(`${API_BASE_URL}/api/applications/move-to-requirements-completed`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            }
-
-                            if (response.data.success) {
-                              await fetchApplications();
-                              await fetchElectricalApplications();
-                              await fetchCedulaApplications();
-                              await fetchPlumbingApplications();
-                              await fetchElectronicsApplications();
-                              await fetchBuildingApplications();
-                              await fetchFencingApplications();
-                              alert("Moved to requirements-completed successfully.");
-                            } else {
-                              alert("Failed to update status.");
-                            }
-                          } catch (err) {
-                            console.error("Error:", err);
-                            alert("Server error.");
-                          }
-                        }}
-                        className="text-sm px-3 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
-                      >
-                        Complete Requirements
-                      </button>
-                    )}
-
-                    {(application.status === "requirements-completed" || application.application_status === "requirements-completed") && (
-                      <button
-                        onClick={async () => {
-                          const appId = application.id || application.cedula_id;
-
-                          try {
-                            let response;
-                            if (application.type === 'Electrical Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/electrical-applications/move-to-approved`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Cedula') {
-                              response = await axios.put(`${API_BASE_URL}/api/cedula/move-to-approved`, {
-                                id: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Plumbing Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/plumbing-applications/move-to-approved`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Electronics Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/electronics-applications/move-to-approved`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Building Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/building-applications/move-to-approved`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else if (application.type === 'Fencing Permit') {
-                              response = await axios.put(`${API_BASE_URL}/api/fencing-applications/move-to-approved`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            } else {
-                              response = await axios.put(`${API_BASE_URL}/api/applications/move-to-approved`, {
-                                applicationId: appId
-                              }, { withCredentials: true });
-                            }
-
-                            if (response.data.success) {
-                              await fetchApplications();
-                              await fetchElectricalApplications();
-                              await fetchCedulaApplications();
-                              await fetchPlumbingApplications();
-                              await fetchElectronicsApplications();
-                              await fetchBuildingApplications();
-                              await fetchFencingApplications();
-                              alert("Application approved successfully.");
-                            } else {
-                              alert("Failed to approve application.");
-                            }
-                          } catch (err) {
-                            console.error("Error approving application:", err);
-                            alert("Server error.");
-                          }
-                        }}
-                        className="text-sm px-3 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"
-                      >
-                        Approve
-                      </button>
-                    )}
-
-                    {(application.status === "approved" || application.application_status === "approved") && (
-                      <button
-                        onClick={() => {
-                          setPickupTarget(application);
-                          setShowPickupModal(true);
-                        }}
-                        className="text-sm px-3 py-1 bg-pink-100 text-pink-600 rounded hover:bg-pink-200"
-                      >
-                        Set Pickup Schedule
-                      </button>
-                    )}
-
-                  </div>
-                </div>
-                {expandedApplication === application.id && (
-                  <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600">
-                    <p><strong>Type:</strong> {application.type || 'Electrical Permit'}</p>
-                    <p><strong>Submitted:</strong> {new Date(application.submitted || application.created_at).toLocaleDateString()}</p>
-                    <p><strong>Status:</strong> {application.status}</p>
-                  </div>
-                )}
-              </div>
-            ))
+          {selectedApplication.type === 'Cedula' ? (
+            <CedulaModalContent selectedApplication={selectedApplication} />
+          ) : selectedApplication.type === 'Electrical Permit' ? (
+            <ElectricalPermitModalContent selectedApplication={selectedApplication} />
+          ) : selectedApplication.type === 'Plumbing Permit' ? (
+            <PlumbingPermitModalContent selectedApplication={selectedApplication} />
+          ) : selectedApplication.type === 'Electronics Permit' ? (
+            <ElectronicsPermitModalContent selectedApplication={selectedApplication} />
+          ) : selectedApplication.type === 'Building Permit' ? (
+            <BuildingPermitModalContent selectedApplication={selectedApplication} />
+          ) : selectedApplication.type === 'Fencing Permit' ? (
+            <FencingPermitModalContent selectedApplication={selectedApplication} />
           ) : (
-            <div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-500">
-              No applications found in this category.
-            </div>
+            <BusinessPermitModalContent selectedApplication={selectedApplication} />
           )}
-          
-          {/* Improved Modal */}
-          {modalVisible && selectedApplication && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 relative">
-                  <button
-                    className="absolute top-4 right-4 text-white hover:text-red-300 text-2xl font-bold transition-colors"
-                    onClick={() => setModalVisible(false)}
-                  >
-                    ×
-                  </button>
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-white bg-opacity-20 p-3 rounded-lg">
-                      <FileText size={24} />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">
-                        {selectedApplication?.type === 'Electrical Permit' ? 'Electrical Permit Application' : 
-                         selectedApplication?.type === 'Cedula' ? 'Cedula Application' : 
-                         selectedApplication?.type === 'Plumbing Permit' ? 'Plumbing Permit Application' :
-                         selectedApplication?.type === 'Electronics Permit' ? 'Electronics Permit Application' :
-                         selectedApplication?.type === 'Building Permit' ? 'Building Permit Application' :
-                         selectedApplication?.type === 'Fencing Permit' ? 'Fencing Permit Application' :
-                         'Business Permit Application'}
-                      </h2>
-                      <p className="text-blue-100">Application Details & Information</p>
-                    </div>
-                  </div>
-                </div>
+        </div>
+      </div>
+    );
+  };
 
-                {/* Modal Body */}
-                <div className="overflow-y-auto max-h-[calc(90vh-120px)] p-6 space-y-6">
-                  {/* Status Badge */}
-                  <div className="flex justify-center">
-                    <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                      selectedApplication.status === "pending"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : selectedApplication.status === "approved"
-                        ? "bg-green-100 text-green-800"
-                        : selectedApplication.status === "rejected"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}>
-                      Status: {selectedApplication.status?.toUpperCase() || "PENDING"}
-                    </span>
-                  </div>
+  // ------------------------------- JSX -------------------------------
+  return (
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar Component */}
+      <Sidebar
+        userData={userData}
+        onLogout={handleLogout}
+        isLoading={isLoading}
+        onNavigate={handleNavigate}
+      />
 
-                  {/* Dynamic Content */}
-                  {selectedApplication?.type === "Cedula" ? (
-                    <CedulaModalContent selectedApplication={selectedApplication} />
-                  ) : selectedApplication?.type === "Electrical Permit" ? (
-                    <ElectricalPermitModalContent selectedApplication={selectedApplication} />
-                  ) : selectedApplication?.type === "Plumbing Permit" ? (
-                    <PlumbingPermitModalContent selectedApplication={selectedApplication} />
-                  ) : selectedApplication?.type === "Electronics Permit" ? (
-                    <ElectronicsPermitModalContent selectedApplication={selectedApplication} />
-                  ) : selectedApplication?.type === "Building Permit" ? (
-                    <BuildingPermitModalContent selectedApplication={selectedApplication} />
-                  ) : selectedApplication?.type === "Fencing Permit" ? (
-                    <FencingPermitModalContent selectedApplication={selectedApplication} />
-                  ) : (
-                    <BusinessPermitModalContent selectedApplication={selectedApplication} />
-                  )}
-                </div>
-
-                {/* Footer */}
-                <div className="bg-gray-50 px-6 py-4 flex justify-end">
-                  <button
-                    onClick={() => setModalVisible(false)}
-                    className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
-                  >
-                    Close
-                  </button>
-                </div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-white shadow-sm">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <h2 className="text-lg font-medium">Application Dashboard</h2>
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search applications..."
+                  className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
+              <div className="relative">
+                <Bell size={20} className="text-gray-600 cursor-pointer" />
+                <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">3</span>
+              </div>
+              <a
+                href="/Employeeprofile"
+                className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 transition-colors"
+              >
+                <User size={16} />
+              </a>
             </div>
-          )}
+          </div>
 
+          {/* Tabs */}
+          <div className="px-6 border-t flex">
+            {['pending', 'inReview', 'inProgress', 'requirementsCompleted', 'approved', 'readyForPickup', 'rejected'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setSelectedTab(tab)}
+                className={`px-4 py-3 font-medium text-sm focus:outline-none ${
+                  selectedTab === tab
+                    ? 'text-indigo-600 border-b-2 border-indigo-600'
+                    : 'text-gray-600 hover:text-indigo-600'
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
+                  tab === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  tab === 'inReview' ? 'bg-blue-100 text-blue-800' :
+                  tab === 'inProgress' ? 'bg-orange-100 text-orange-800' :
+                  tab === 'requirementsCompleted' ? 'bg-purple-100 text-purple-800' :
+                  tab === 'approved' ? 'bg-green-100 text-green-800' :
+                  tab === 'readyForPickup' ? 'bg-pink-100 text-pink-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {applications[tab].length
+                    + electricalApplications[tab].length
+                    + cedulaApplications[tab].length
+                    + plumbingApplications[tab].length
+                    + electronicsApplications[tab].length
+                    + buildingApplications[tab].length
+                    + fencingApplications[tab].length}
+                </span>
+
+              </button>
+            ))}
+          </div>
+        </header>
+
+        {/* Main body: list + details */}
+        <main className="flex-1 overflow-hidden p-6 bg-gray-50">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
+            {/* LEFT: application cards */}
+            <div className="space-y-4 overflow-y-auto pr-1">
+              {getCurrentApplications().length > 0 ? (
+                getCurrentApplications().map((application) => {
+                  const rowKey = getApplicationKey(application);
+
+                  return (
+                    <div
+                      key={rowKey}
+                      className={`rounded-lg shadow-sm overflow-hidden border transition-colors ${
+                        activeRowKey === rowKey
+                          ? "bg-indigo-50 border-indigo-400"
+                          : "bg-white border-transparent hover:bg-indigo-50"
+                      }`}
+                    >
+                      <div className="p-4 flex items-center justify-between">
+                        <div
+                          className="flex items-center cursor-pointer"
+                          onClick={() => toggleExpandApplication(application.id)}
+                        >
+                          <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-500 flex items-center justify-center">
+                            <FileText size={20} />
+                          </div>
+                          <div className="ml-4">
+                            <h3 className="font-medium">
+                              {application.name || application.applicant_name}
+                            </h3>
+                            <p className="text-sm text-gray-500">
+                              {application.type || "Electrical Permit"} • Submitted on{" "}
+                              {new Date(
+                                application.submitted || application.created_at
+                              ).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-x-2">
+                          {/* View Info button */}
+                          <button
+                            onClick={() => {
+                              const appId = application.id || application.cedula_id;
+                              setActiveRowKey(rowKey);
+
+                              if (application.type === "Electrical Permit") {
+                                handleViewElectricalApplication(appId);
+                              } else if (application.type === "Cedula") {
+                                handleViewCedulaApplication(appId);
+                              } else if (application.type === "Plumbing Permit") {
+                                handleViewPlumbingApplication(appId);
+                              } else if (application.type === "Electronics Permit") {
+                                handleViewElectronicsApplication(appId);
+                              } else if (application.type === "Building Permit") {
+                                handleViewBuildingApplication(appId);
+                              } else if (application.type === "Fencing Permit") {
+                                handleViewFencingApplication(appId);
+                              } else {
+                                handleViewApplication(appId);
+                              }
+                            }}
+                            className="text-blue-600 hover:underline"
+                          >
+                            View Info
+                          </button>
+
+                          {/* PENDING → IN-REVIEW (ACCEPT) */}
+                          {(application.status === "pending" ||
+                            application.application_status === "pending") && (
+                            <button
+                              onClick={() => {
+                                if (application.type === "Electrical Permit") {
+                                  handleAcceptElectricalApplication(application.id);
+                                } else if (application.type === "Cedula") {
+                                  handleAcceptCedulaApplication(application.id);
+                                } else if (application.type === "Plumbing Permit") {
+                                  handleAcceptPlumbing(application.id);
+                                } else if (application.type === "Electronics Permit") {
+                                  handleAcceptElectronics(application.id);
+                                } else if (application.type === "Building Permit") {
+                                  handleAcceptBuilding(application.id);
+                                } else if (application.type === "Fencing Permit") {
+                                  handleAcceptFencing(application.id);
+                                } else {
+                                  handleAcceptApplication(application.id);
+                                }
+                              }}
+                              className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
+                            >
+                              Accept
+                            </button>
+                          )}
+
+                          {/* Attach Requirements – only for IN-REVIEW (same as old code) */}
+                          {(application.status === "in-review" ||
+                            application.application_status === "in-review") && (
+                            <button
+                              onClick={() => {
+                                const appId = application.id || application.cedula_id;
+                                setAttachTarget({
+                                  applicationType: application.type || "Electrical Permit",
+                                  applicationId: appId,
+                                });
+                                setAttachOpen(true);
+                              }}
+                              className="text-sm px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                            >
+                              Attach Requirements
+                            </button>
+                          )}
+
+                          {/* IN-REVIEW → IN-PROGRESS (DONE ATTACHED REQUIREMENTS) */}
+                          {(application.status === "in-review" ||
+                            application.application_status === "in-review") && (
+                            <button
+                              onClick={async () => {
+                                const appId = application.id || application.cedula_id;
+
+                                try {
+                                  let response;
+                                  if (application.type === "Electrical Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/electrical-applications/move-to-inprogress`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Cedula") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/cedula/move-to-inprogress`,
+                                      { id: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Plumbing Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/plumbing-applications/move-to-inprogress`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Electronics Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/electronics-applications/move-to-inprogress`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Building Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/building-applications/move-to-inprogress`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Fencing Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/fencing-applications/move-to-inprogress`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/applications/move-to-inprogress`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  }
+
+                                  if (response.data.success) {
+                                    await fetchApplications();
+                                    await fetchElectricalApplications();
+                                    await fetchCedulaApplications();
+                                    await fetchPlumbingApplications();
+                                    await fetchElectronicsApplications();
+                                    await fetchBuildingApplications();
+                                    await fetchFencingApplications();
+                                    alert("Moved to in-progress successfully.");
+                                  } else {
+                                    alert("Failed to update status.");
+                                  }
+                                } catch (err) {
+                                  console.error("Error:", err);
+                                  alert("Server error.");
+                                }
+                              }}
+                              className="text-sm px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
+                            >
+                              Done Attached Requirements
+                            </button>
+                          )}
+
+                          {/* IN-PROGRESS → REQUIREMENTS-COMPLETED */}
+                          {(application.status === "in-progress" ||
+                            application.application_status === "in-progress") && (
+                            <button
+                              onClick={async () => {
+                                const appId = application.id || application.cedula_id;
+
+                                try {
+                                  let response;
+                                  if (application.type === "Electrical Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/electrical-applications/move-to-requirements-completed`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Cedula") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/cedula/move-to-requirements-completed`,
+                                      { id: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Plumbing Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/plumbing-applications/move-to-requirements-completed`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Electronics Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/electronics-applications/move-to-requirements-completed`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Building Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/building-applications/move-to-requirements-completed`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Fencing Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/fencing-applications/move-to-requirements-completed`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/applications/move-to-requirements-completed`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  }
+
+                                  if (response.data.success) {
+                                    await fetchApplications();
+                                    await fetchElectricalApplications();
+                                    await fetchCedulaApplications();
+                                    await fetchPlumbingApplications();
+                                    await fetchElectronicsApplications();
+                                    await fetchBuildingApplications();
+                                    await fetchFencingApplications();
+                                    alert("Moved to requirements-completed successfully.");
+                                  } else {
+                                    alert("Failed to update status.");
+                                  }
+                                } catch (err) {
+                                  console.error("Error:", err);
+                                  alert("Server error.");
+                                }
+                              }}
+                              className="text-sm px-3 py-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200"
+                            >
+                              Complete Requirements
+                            </button>
+                          )}
+
+                          {/* REQUIREMENTS-COMPLETED → APPROVED */}
+                          {(application.status === "requirements-completed" ||
+                            application.application_status === "requirements-completed") && (
+                            <button
+                              onClick={async () => {
+                                const appId = application.id || application.cedula_id;
+
+                                try {
+                                  let response;
+                                  if (application.type === "Electrical Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/electrical-applications/move-to-approved`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Cedula") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/cedula/move-to-approved`,
+                                      { id: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Plumbing Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/plumbing-applications/move-to-approved`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Electronics Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/electronics-applications/move-to-approved`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Building Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/building-applications/move-to-approved`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else if (application.type === "Fencing Permit") {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/fencing-applications/move-to-approved`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  } else {
+                                    response = await axios.put(
+                                      `${API_BASE_URL}/api/applications/move-to-approved`,
+                                      { applicationId: appId },
+                                      { withCredentials: true }
+                                    );
+                                  }
+
+                                  if (response.data.success) {
+                                    await fetchApplications();
+                                    await fetchElectricalApplications();
+                                    await fetchCedulaApplications();
+                                    await fetchPlumbingApplications();
+                                    await fetchElectronicsApplications();
+                                    await fetchBuildingApplications();
+                                    await fetchFencingApplications();
+                                    alert("Application approved successfully.");
+                                  } else {
+                                    alert("Failed to approve application.");
+                                  }
+                                } catch (err) {
+                                  console.error("Error approving application:", err);
+                                  alert("Server error.");
+                                }
+                              }}
+                              className="text-sm px-3 py-1 bg-green-200 text-green-800 rounded hover:bg-green-300"
+                            >
+                              Approve
+                            </button>
+                          )}
+
+                          {/* APPROVED → SET PICKUP SCHEDULE */}
+                          {(application.status === "approved" ||
+                            application.application_status === "approved") && (
+                            <button
+                              onClick={() => {
+                                setPickupTarget(application);
+                                setShowPickupModal(true);
+                              }}
+                              className="text-sm px-3 py-1 bg-pink-100 text-pink-600 rounded hover:bg-pink-200"
+                            >
+                              Set Pickup Schedule
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {expandedApplication === application.id && (
+                        <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600">
+                          <p>
+                            <strong>Type:</strong>{" "}
+                            {application.type || "Electrical Permit"}
+                          </p>
+                          <p>
+                            <strong>Submitted:</strong>{" "}
+                            {new Date(
+                              application.submitted || application.created_at
+                            ).toLocaleDateString()}
+                          </p>
+                          <p>
+                            <strong>Status:</strong> {application.status}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-500">
+                  No applications found in this category.
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT: details panel (desktop) */}
+            <div className="hidden lg:flex flex-col bg-white rounded-lg shadow-sm overflow-hidden">
+              {renderSelectedDetails()}
+            </div>
+          </div>
+
+          {/* Details panel for mobile (below list) */}
+          <div className="mt-4 lg:hidden bg-white rounded-lg shadow-sm overflow-hidden">
+            {renderSelectedDetails()}
+          </div>
+
+          {/* Pickup Schedule Modal */}
           {showPickupModal && (
             <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
               <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
                 <h2 className="text-lg font-semibold mb-4">Set Pickup Schedule</h2>
+
+                <label className="block text-sm font-medium mb-1">
+                  Pickup Date &amp; Time
+                </label>
                 <input
                   type="datetime-local"
                   value={pickupSchedule}
                   onChange={(e) => setPickupSchedule(e.target.value)}
                   className="w-full border p-2 rounded mb-4"
                 />
+
+                <label className="block text-sm font-medium mb-1">
+                  Attach Final Document (PDF / Image)
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => {
+                    const file = e.target.files && e.target.files[0];
+                    setPickupFile(file || null);
+                  }}
+                  className="w-full border p-2 rounded mb-4"
+                />
+
                 <div className="flex justify-end space-x-2">
-                  <button onClick={() => {
-                    setShowPickupModal(false);
-                    setPickupTarget(null);
-                    setPickupSchedule("");
-                  }} className="px-4 py-2 bg-gray-300 rounded">
+                  <button
+                    onClick={() => {
+                      setShowPickupModal(false);
+                      setPickupTarget(null);
+                      setPickupSchedule("");
+                      setPickupFile(null);
+                    }}
+                    className="px-4 py-2 bg-gray-300 rounded"
+                  >
                     Cancel
                   </button>
-                  <button onClick={async () => {
-                    if (!pickupSchedule) return alert("Please select a schedule");
+                  <button
+                    onClick={async () => {
+                      if (!pickupSchedule) return alert("Please select a schedule");
 
-                    if (pickupTarget.type === 'Electrical Permit') {
-                      await handlePickupScheduleElectrical(pickupTarget.id, pickupSchedule);
-                    } else if (pickupTarget.type === 'Cedula') {
-                      await handlePickupScheduleCedula(pickupTarget.id, pickupSchedule);
-                    } else if (pickupTarget.type === 'Plumbing Permit') {
-                      await handlePickupSchedulePlumbing(pickupTarget.id, pickupSchedule);
-                    } else if (pickupTarget.type === 'Electronics Permit') {
-                      await handlePickupScheduleElectronics(pickupTarget.id, pickupSchedule);
-                    } else if (pickupTarget.type === 'Building Permit') {
-                      await handlePickupScheduleBuilding(pickupTarget.id, pickupSchedule);
-                    } else if (pickupTarget.type === 'Fencing Permit') {
-                      await handlePickupScheduleFencing(pickupTarget.id, pickupSchedule);
-                    } else {
-                      await handlePickupScheduleBusiness(pickupTarget.id, pickupSchedule);
-                    }
+                      try {
+                        if (pickupTarget.type === "Electrical Permit") {
+                          await handlePickupScheduleElectrical(
+                            pickupTarget.id,
+                            pickupSchedule,
+                            pickupFile
+                          );
+                        } else if (pickupTarget.type === "Cedula") {
+                          await handlePickupScheduleCedula(
+                            pickupTarget.id,
+                            pickupSchedule,
+                            pickupFile
+                          );
+                        } else if (pickupTarget.type === "Plumbing Permit") {
+                          await handlePickupSchedulePlumbing(
+                            pickupTarget.id,
+                            pickupSchedule,
+                            pickupFile
+                          );
+                        } else if (pickupTarget.type === "Electronics Permit") {
+                          await handlePickupScheduleElectronics(
+                            pickupTarget.id,
+                            pickupSchedule,
+                            pickupFile
+                          );
+                        } else if (pickupTarget.type === "Building Permit") {
+                          await handlePickupScheduleBuilding(
+                            pickupTarget.id,
+                            pickupSchedule,
+                            pickupFile
+                          );
+                        } else if (pickupTarget.type === "Fencing Permit") {
+                          await handlePickupScheduleFencing(
+                            pickupTarget.id,
+                            pickupSchedule,
+                            pickupFile
+                          );
+                        } else {
+                          // Business Permit (default)
+                          await handlePickupScheduleBusiness(
+                            pickupTarget.id,
+                            pickupSchedule,
+                            pickupFile
+                          );
+                        }
 
-                    setShowPickupModal(false);
-                    setPickupTarget(null);
-                    setPickupSchedule("");
-                  }} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        setShowPickupModal(false);
+                        setPickupTarget(null);
+                        setPickupSchedule("");
+                        setPickupFile(null);
+                      } catch (err) {
+                        console.error("Pickup confirm error:", err);
+                        alert("Failed to schedule pickup.");
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
                     Confirm
                   </button>
                 </div>
@@ -1148,26 +1429,25 @@ const [attachTarget, setAttachTarget] = useState({ applicationType: "", applicat
             </div>
           )}
 
+          {/* Attach-from-library modal */}
           <AttachRequirementFromLibraryModal
-  open={attachOpen}
-  onClose={() => setAttachOpen(false)}
-  applicationType={attachTarget.applicationType}
-  applicationId={attachTarget.applicationId}
-  onAttached={() => {
-    // after attach, refresh lists if you want
-    fetchApplications();
-    fetchElectricalApplications();
-    fetchCedulaApplications();
-    fetchPlumbingApplications();
-    fetchElectronicsApplications();
-    fetchBuildingApplications();
-    fetchFencingApplications();
-  }}
-/>
-
-        </div>
-      </main>
+            open={attachOpen}
+            onClose={() => setAttachOpen(false)}
+            applicationType={attachTarget.applicationType}
+            applicationId={attachTarget.applicationId}
+            onAttached={() => {
+              // after attach, refresh lists
+              fetchApplications();
+              fetchElectricalApplications();
+              fetchCedulaApplications();
+              fetchPlumbingApplications();
+              fetchElectronicsApplications();
+              fetchBuildingApplications();
+              fetchFencingApplications();
+            }}
+          />
+        </main>
+      </div>
     </div>
-  </div>
   );
 }

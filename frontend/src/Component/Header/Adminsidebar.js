@@ -139,6 +139,11 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
                     Manage Document Requirements
                   </div>
                 </Link>
+                <Link to="/Documentprice" className="block">
+                  <div className="p-2 rounded-lg cursor-pointer hover:bg-gray-700">
+                    Manage Document Prices
+                  </div>
+                </Link>
               </div>
             )}
           </div>

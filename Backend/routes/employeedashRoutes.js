@@ -58,11 +58,20 @@ router.put('/fencing-applications/set-pickup', isAuthenticated, C.fencingSetPick
 router.put('/electrical-applications/set-pickup', isAuthenticated, C.electricalSetPickup);
 
 
+
 /* ================ REQUIREMENTS LIBRARY / COMMENTS ================ */
 router.get('/requirements-library', isAuthenticated, C.listRequirementLibrary);
 router.post('/attach-requirement', isAuthenticated, C.attachRequirementFromLibrary);
 router.get('/attached-requirements', isAuthenticated, C.getAttachedRequirements);
 router.get('/application-comments', isAuthenticated, C.getApplicationComments);
 router.post('/application-comments', isAuthenticated, C.addApplicationComment);
+router.post('/attached-requirements/remove', isAuthenticated, C.removeAttachedRequirement);
+// *** NEW: user-side comments for tracking page ***
+router.get('/user/comments', isAuthenticated, C.getUserComments);
 
+router.post(
+  '/business-permit/generate-form',
+  isAuthenticated,
+  C.generateBusinessPermitForm
+);
 module.exports = router;
