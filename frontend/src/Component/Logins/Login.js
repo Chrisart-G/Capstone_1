@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Eye, EyeOff, LogIn, Mail, Lock, LogOut } from "lucide-react";
+import { Eye, EyeOff, LogIn, Mail, Lock, LogOut, KeyRound, Phone } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -16,33 +16,35 @@ const Login = () => {
   const videoRef = useRef(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.load();
-    }
+  // ----- Forgot Password state -----
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [fpStep, setFpStep] = useState(1);           // 1=request, 2=verify, 3=reset
+  const [fpIdentifier, setFpIdentifier] = useState(""); // email or phone
+  const [fpUserId, setFpUserId] = useState(null);
+  const [fpOtp, setFpOtp] = useState("");
+  const [fpNewPass, setFpNewPass] = useState("");
+  const [fpNewPass2, setFpNewPass2] = useState("");
+  const [fpMsg, setFpMsg] = useState("");
+  const [cooldown, setCooldown] = useState(0);
 
-    // Check if the user is already logged in on mount
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.load();
+
     const checkSession = async () => {
       try {
         setIsLoading(true);
         const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
           withCredentials: true,
         });
-
         if (response.data.loggedIn) {
           setIsLoggedIn(true);
           const role = response.data.user.role;
-
-          if (role === "admin") {
-            navigate("/AdminDash");
-          } else if (role === "employee") {
-            navigate("/EmployeeDash");
-          } else {
-            navigate("/Chome"); // Default citizen page
-          }
+          if (role === "admin") navigate("/AdminDash");
+          else if (role === "employee") navigate("/EmployeeDash");
+          else navigate("/Chome");
         }
-      } catch (error) {
-        console.error("Session check error:", error);
+      } catch (e) {
+        console.error("Session check error:", e);
         setError("Failed to check login status. Please refresh the page.");
       } finally {
         setIsLoading(false);
@@ -51,6 +53,12 @@ const Login = () => {
 
     checkSession();
   }, [navigate]);
+
+  useEffect(() => {
+    if (!forgotOpen || cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [forgotOpen, cooldown]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,26 +71,19 @@ const Login = () => {
         { email, password },
         { withCredentials: true }
       );
-
       setIsLoggedIn(true);
       const role = res.data.user.role;
-
-      if (role === "admin") {
-        navigate("/AdminDash");
-      } else if (role === "employee") {
-        navigate("/EmployDash");
-      } else {
-        navigate("/Chome");
-      }
-    } catch (error) {
-      if (error.response) {
-        if (error.response.status === 401) {
+      if (role === "admin") navigate("/AdminDash");
+      else if (role === "employee") navigate("/EmployDash");
+      else navigate("/Chome");
+    } catch (err) {
+      if (err.response) {
+        if (err.response.status === 401) {
           setError("Invalid email or password.");
         } else {
-          setError(`Error: ${error.response.data.message || "Something went wrong"}`);
+          setError(`Error: ${err.response.data.message || "Something went wrong"}`);
         }
       } else {
-        console.error("Login error:", error);
         setError("Failed to connect to the server. Please try again.");
       }
     } finally {
@@ -96,11 +97,95 @@ const Login = () => {
       await axios.post(`${API_BASE_URL}/api/logout`, {}, { withCredentials: true });
       setIsLoggedIn(false);
       navigate("/");
-    } catch (error) {
-      console.error("Logout error:", error);
+    } catch (e) {
+      console.error("Logout error:", e);
       setError("Failed to logout. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ====== Forgot Password handlers ======
+  const fpRequest = async () => {
+    setFpMsg("");
+    try {
+      const { data } = await axios.post(
+        `${API_BASE_URL}/api/auth/forgot/request`,
+        { identifier: fpIdentifier },
+        { withCredentials: true }
+      );
+      // kick off actual OTP send (server logs will show it)
+      await axios.post(
+        `${API_BASE_URL}/api/auth/forgot/resend`,
+        { userId: data.userId },
+        { withCredentials: true }
+      );
+
+      setFpUserId(data.userId);
+      setFpStep(2);
+      setFpMsg("Code sent via SMS (or dev_otp if SMS disabled).");
+      if (data.dev_otp) setFpOtp(data.dev_otp); // when SMS disabled
+      setCooldown(30);
+    } catch (err) {
+      setFpMsg(err.response?.data?.message || "Unable to start reset.");
+    }
+  };
+
+  const fpResend = async () => {
+    if (!fpUserId) return;
+    try {
+      const { data } = await axios.post(
+        `${API_BASE_URL}/api/auth/forgot/resend`,
+        { userId: fpUserId },
+        { withCredentials: true }
+      );
+      setFpMsg("Code re-sent.");
+      if (data.dev_otp) setFpOtp(data.dev_otp);
+      setCooldown(30);
+    } catch (err) {
+      setFpMsg(err.response?.data?.message || "Resend failed.");
+    }
+  };
+
+  const fpVerify = async () => {
+    setFpMsg("");
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/auth/forgot/verify`,
+        { userId: fpUserId, code: fpOtp },
+        { withCredentials: true }
+      );
+      setFpStep(3);
+      setFpMsg("Verified. Set a new password.");
+    } catch (err) {
+      setFpMsg(err.response?.data?.message || "Invalid code.");
+    }
+  };
+
+  const fpReset = async () => {
+    setFpMsg("");
+    if (fpNewPass !== fpNewPass2) {
+      setFpMsg("Passwords do not match.");
+      return;
+    }
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/auth/forgot/reset`,
+        { userId: fpUserId, newPassword: fpNewPass },
+        { withCredentials: true }
+      );
+      setFpMsg("Password updated. You can now log in.");
+      // cleanup + close
+      setTimeout(() => {
+        setForgotOpen(false);
+        setFpStep(1);
+        setFpIdentifier("");
+        setFpOtp("");
+        setFpNewPass("");
+        setFpNewPass2("");
+      }, 600);
+    } catch (err) {
+      setFpMsg(err.response?.data?.message || "Reset failed.");
     }
   };
 
@@ -139,7 +224,6 @@ const Login = () => {
             Account Login
           </h2>
           
-          {/* Display errors */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg mb-4">
               {error}
@@ -194,23 +278,34 @@ const Login = () => {
                   </button>
                 </div>
               </div>
-              
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-white ${
-                  isLoading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                } focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              >
-                {isLoading ? (
-                  "Signing in..."
-                ) : (
-                  <>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Sign in
-                  </>
-                )}
-              </button>
+
+              <div className="flex items-center justify-between">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`flex-1 mr-2 flex justify-center items-center py-2 px-4 rounded-lg text-white ${
+                    isLoading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
+                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                >
+                  {isLoading ? (
+                    "Signing in..."
+                  ) : (
+                    <>
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Sign in
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setForgotOpen(true); setFpStep(1); setFpMsg(""); }}
+                  className="ml-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+                >
+                  <KeyRound className="h-4 w-4 mr-1" />
+                  Forgot password?
+                </button>
+              </div>
             </form>
           ) : (
             <div className="text-center">
@@ -218,7 +313,7 @@ const Login = () => {
               <button
                 onClick={handleLogout}
                 disabled={isLoading}
-                className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-white ${
+                className={`w-full flex justify-center items-center py-2 px-4 rounded-lg text-white ${
                   isLoading ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
                 } focus:outline-none focus:ring-2 focus:ring-red-500`}
               >
@@ -235,11 +330,100 @@ const Login = () => {
           )}
           
           <p className="mt-4 text-center text-sm text-gray-600">
-            Don't have an account? {" "}
+            Don't have an account?{" "}
             <a href="/sign-up" className="font-medium text-blue-600 hover:text-blue-500">
               Sign up now
             </a>
           </p>
+
+          {/* Forgot Password Modal */}
+          {forgotOpen && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-xl p-4 w-full max-w-md">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <KeyRound className="h-4 w-4 mr-2" /> Reset Password
+                  </h3>
+                  <button className="text-gray-500" onClick={() => setForgotOpen(false)}>✕</button>
+                </div>
+
+                {fpMsg && <div className="text-sm mb-2">{fpMsg}</div>}
+
+                {fpStep === 1 && (
+                  <>
+                    <label className="text-sm">Email or Phone</label>
+                    <div className="relative mt-1">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="email@example.com or +63xxxxxxxxxx"
+                        value={fpIdentifier}
+                        onChange={(e) => setFpIdentifier(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      onClick={fpRequest}
+                      className="w-full mt-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Send Code
+                    </button>
+                  </>
+                )}
+
+                {fpStep === 2 && (
+                  <>
+                    <label className="text-sm">Enter the 6-digit code</label>
+                    <input
+                      className="w-full mt-1 px-3 py-2 border rounded-lg tracking-widest text-center"
+                      maxLength={6}
+                      value={fpOtp}
+                      onChange={(e) => setFpOtp(e.target.value)}
+                    />
+                    <div className="flex items-center justify-between mt-3">
+                      <button
+                        onClick={fpVerify}
+                        className="py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        Verify
+                      </button>
+                      <button
+                        onClick={fpResend}
+                        disabled={cooldown > 0}
+                        className="text-sm text-blue-600 hover:underline disabled:text-gray-400"
+                      >
+                        {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend"}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {fpStep === 3 && (
+                  <>
+                    <label className="text-sm">New Password</label>
+                    <input
+                      className="w-full mt-1 px-3 py-2 border rounded-lg"
+                      type="password"
+                      value={fpNewPass}
+                      onChange={(e) => setFpNewPass(e.target.value)}
+                    />
+                    <label className="text-sm mt-2 block">Confirm Password</label>
+                    <input
+                      className="w-full mt-1 px-3 py-2 border rounded-lg"
+                      type="password"
+                      value={fpNewPass2}
+                      onChange={(e) => setFpNewPass2(e.target.value)}
+                    />
+                    <button
+                      onClick={fpReset}
+                      className="w-full mt-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Update Password
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

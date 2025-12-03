@@ -1,5 +1,7 @@
 // src/modals/ModalContents.jsx
-import { useEffect, useMemo, useState } from "react";
+// src/modals/ModalContents.jsx
+import React, { useEffect, useMemo, useState, useId, memo } from "react";
+
 import axios from "axios";
 import AttachRequirementFromLibraryModal from "./AttachRequirementFromLibraryModal";
 import { FileText } from "lucide-react";
@@ -41,6 +43,36 @@ function niceStatusLabel(raw = "") {
     .replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
+/* ───────────────────── radio-row (safe grouping) ───────────────────── */
+const RadioRow = function RadioRow({ appId, fieldKey, label, value, onChange }) {
+  // stable group name so only 1 of the 3 can be selected in this row
+  const groupName = `lgu-${appId ?? "app"}-${fieldKey}`;
+
+  return (
+    <tr>
+      <td className="px-2 py-1 border align-top">{label}</td>
+
+      {["yes", "no", "not_needed"].map((option) => (
+        <td key={option} className="px-2 py-1 border text-center">
+          <label className="flex items-center justify-center w-full h-full cursor-pointer select-none">
+            <input
+              type="radio"
+              name={groupName}
+              value={option}
+              checked={value === option}
+              onChange={() => onChange(fieldKey, option)}
+              className="cursor-pointer"
+            />
+          </label>
+        </td>
+      ))}
+    </tr>
+  );
+};
+
+
+/* ------------------ shared panel: attached requirements ------------------ */
+
 /* ------------------ shared panel: attached requirements ------------------ */
 
 function AttachedRequirementsPanel({ selectedApplication }) {
@@ -63,42 +95,133 @@ function AttachedRequirementsPanel({ selectedApplication }) {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
-  const [commentFilter, setCommentFilter] = useState("all"); // filter by status
+  const [commentFilter, setCommentFilter] = useState("all");
 
-  // NEW: LGU verification state (page 2) – only used for business permits
+  // Only used for business permits
   const isBusinessApp =
     applicationType === "business" ||
     applicationType === "renewal_business" ||
     applicationType === "special_sales";
 
-  const [checks, setChecks] = useState({
-    occupancy_permit: "not_needed",
-    zoning_clearance: "not_needed",
-    barangay_clearance: "not_needed",
-    sanitary_clearance: "not_needed",
-    environment_certificate: "not_needed",
-    market_clearance: "not_needed",
-    fire_safety_certificate: "not_needed",
-    river_floating_fish: "not_needed",
-  });
+  // LGU verification rows
+  const LGU_ROWS = [
+    ["occupancy_permit", "Occupancy Permit (For New)"],
+    ["zoning_clearance", "Zoning (New and Renewal)"],
+    ["barangay_clearance", "Barangay Clearance (For Renewal)"],
+    ["sanitary_clearance", "Sanitary Permit / Health Clearance"],
+    ["environment_certificate", "Municipal Environmental Certificate"],
+    ["market_clearance", "Market Clearance (For Stall Holders)"],
+    ["fire_safety_certificate", "Valid Fire Safety Inspection Certificate"],
+    [
+      "river_floating_fish",
+      "Registration/Verification (River Tanab, Oyster Culture, Floating Fish Cage Operator)",
+    ],
+  ];
+
+  const [checks, setChecks] = useState(() =>
+    Object.fromEntries(LGU_ROWS.map(([k]) => [k, "not_needed"]))
+  );
+
+  const updateCheck = (key, value) =>
+    setChecks((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }));
 
   const [generating, setGenerating] = useState(false);
 
-  const updateCheck = (key, value) =>
-    setChecks((prev) => ({ ...prev, [key]: value }));
+  // =========================
+  // NEW: Assessment state/UI
+  // =========================
+  const ASSESS_ROWS = [
+    { code: "gross_sales_tax",              label: "Gross Sales Tax" },
+    { code: "delivery_vans_trucks_tax",     label: "Tax on Delivery Vans/Trucks" },
+    { code: "combustible_storage_tax",      label: "Tax on Storage for Combustible/Flammable or Explosive Substances" },
+    { code: "signboard_billboards_tax",     label: "Tax on Signboard/Billboards" },
 
+    { code: "mayors_permit_fee",            label: "Mayor’s Permit Fee" },
+    { code: "garbage_charges",              label: "Garbage Charges" },
+    { code: "trucks_vans_permit_fee",       label: "Delivery Trucks/Vans Permit Fee" },
+    { code: "sanitary_inspection_fee",      label: "Sanitary Inspection Fee" },
+    { code: "building_inspection_fee",      label: "Building Inspection Fee" },
+    { code: "electrical_inspection_fee",    label: "Electrical Inspection Fee" },
+    { code: "mechanical_inspection_fee",    label: "Mechanical Inspection Fee" },
+    { code: "plumbing_inspection_fee",      label: "Plumbing Inspection Fee" },
+    { code: "signboard_renewal_fee",        label: "Signboard/Billboard Renewal Fee" },
+    { code: "combustible_sale_storage_fee", label: "Storage & Sale of Combustible/Flammable or Explosive Substance" },
+    { code: "others_fee",                   label: "Others" },
+  ];
+
+  const sanitizeNum = (v) => String(v || "").replace(/[^\d.]/g, "");
+
+  const [assessment, setAssessment] = useState(() =>
+    Object.fromEntries(ASSESS_ROWS.map(r => [r.code, { amount: "", penalty: "" }]))
+  );
+
+  const setAssessCell = (code, field, val) =>
+    setAssessment(prev => ({ ...prev, [code]: { ...prev[code], [field]: sanitizeNum(val) } }));
+
+  const computedAssessment = useMemo(() => {
+    let lgu = 0;
+    const rows = {};
+    for (const r of ASSESS_ROWS) {
+      const amt = Number(assessment[r.code]?.amount || 0);
+      const pen = Number(assessment[r.code]?.penalty || 0);
+      const tot = +(amt + pen).toFixed(2);
+      rows[r.code] = { amount: amt, penalty: pen, total: tot };
+      lgu += tot;
+    }
+    const fsif15 = +(lgu * 0.15).toFixed(2);
+    return { rows, totalFeesLgu: +lgu.toFixed(2), fsif15 };
+  }, [assessment]);
+
+  const handleSaveAssessment = async () => {
+    if (!applicationId) return;
+    await axios.post(
+      `${API_BASE_URL}/api/business-permit/assessment/save`,
+      { application_id: applicationId, items: computedAssessment.rows },
+      { withCredentials: true }
+    );
+    alert("Assessment saved.");
+  };
+
+  const handleGenerateWithAssessment = async () => {
+    if (!applicationType || !applicationId) return;
+    const ok = window.confirm("Generate the LGU form including Assessment values?");
+    if (!ok) return;
+    try {
+      setGenerating(true);
+      // save first to keep DB in sync
+      await handleSaveAssessment();
+      // then generate with assessment
+      const { data } = await axios.post(
+        `${API_BASE_URL}/api/business-permit/generate-form-with-assessment`,
+        {
+          application_type: applicationType,
+          application_id: applicationId,
+          checks,
+          assessment: computedAssessment.rows,
+        },
+        { withCredentials: true }
+      );
+      if (data?.success) {
+        alert("LGU form (with Assessment) generated and attached.");
+        setRefreshTick((n) => n + 1);
+      } else {
+        alert(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to generate with Assessment.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+  // =========================
+  // /NEW: Assessment section
+  // =========================
+
+  // reset checks & assessment whenever app changes
   useEffect(() => {
-    // reset checks whenever we switch to a different application
-    setChecks({
-      occupancy_permit: "not_needed",
-      zoning_clearance: "not_needed",
-      barangay_clearance: "not_needed",
-      sanitary_clearance: "not_needed",
-      environment_certificate: "not_needed",
-      market_clearance: "not_needed",
-      fire_safety_certificate: "not_needed",
-      river_floating_fish: "not_needed",
-    });
+    setChecks(Object.fromEntries(LGU_ROWS.map(([k]) => [k, "not_needed"])));
+    setAssessment(Object.fromEntries(ASSESS_ROWS.map(r => [r.code, { amount: "", penalty: "" }])));
   }, [applicationType, applicationId]);
 
   useEffect(() => {
@@ -108,29 +231,15 @@ function AttachedRequirementsPanel({ selectedApplication }) {
       if (!applicationType || !applicationId) return;
       setLoading(true);
       try {
-        // requirements
-        const r = await axios.get(
-          `${API_BASE_URL}/api/attached-requirements`,
-          {
-            withCredentials: true,
-            params: {
-              application_type: applicationType,
-              application_id: applicationId,
-            },
-          }
-        );
+        const r = await axios.get(`${API_BASE_URL}/api/attached-requirements`, {
+          withCredentials: true,
+          params: { application_type: applicationType, application_id: applicationId },
+        });
 
-        // comments
-        const c = await axios.get(
-          `${API_BASE_URL}/api/application-comments`,
-          {
-            withCredentials: true,
-            params: {
-              application_type: applicationType,
-              application_id: applicationId,
-            },
-          }
-        );
+        const c = await axios.get(`${API_BASE_URL}/api/application-comments`, {
+          withCredentials: true,
+          params: { application_type: applicationType, application_id: applicationId },
+        });
 
         if (!mounted) return;
         setItems(r.data?.items || []);
@@ -138,43 +247,32 @@ function AttachedRequirementsPanel({ selectedApplication }) {
       } catch (e) {
         console.error("Load attachments/comments failed:", e);
       } finally {
-        if (mounted) setLoading(false);
+        mounted && setLoading(false);
       }
     }
 
-    if (applicationType && applicationId) load();
+    load();
     return () => {
       mounted = false;
     };
   }, [applicationType, applicationId, refreshTick]);
 
-  const hasItems = items && items.length > 0;
+  const hasItems = items?.length > 0;
 
-  // distinct statuses present in comments (for filter dropdown)
   const commentStatusOptions = useMemo(() => {
     const set = new Set();
-    comments.forEach((c) => {
-      if (c.status_at_post) set.add(c.status_at_post);
-    });
-    return Array.from(set);
+    comments.forEach((c) => c.status_at_post && set.add(c.status_at_post));
+    return [...set];
   }, [comments]);
 
-  // comments filtered by currently selected status
   const filteredComments = useMemo(() => {
     if (commentFilter === "all") return comments;
-    return comments.filter(
-      (c) => (c.status_at_post || "") === commentFilter
-    );
+    return comments.filter((c) => (c.status_at_post || "") === commentFilter);
   }, [comments, commentFilter]);
 
-  // remove/undo an attached requirement
   const handleRemoveRequirement = async (requirementId) => {
     if (!requirementId) return;
-    const ok = window.confirm(
-      "Remove this attached requirement from the application?"
-    );
-    if (!ok) return;
-
+    if (!window.confirm("Remove this attached requirement from the application?")) return;
     try {
       await axios.post(
         `${API_BASE_URL}/api/attached-requirements/remove`,
@@ -188,34 +286,27 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     }
   };
 
-  // NEW: generate applicant requirements (2-page PDF) and attach
   const handleGenerateRequirements = async () => {
     if (!applicationType || !applicationId) return;
-
-    const ok = window.confirm(
-      "Generate the 2-page Business Permit form (with applicant info + LGU verification) and attach it to this application?"
-    );
-    if (!ok) return;
+    if (
+      !window.confirm(
+        "Generate the 2-page Business Permit form (with applicant info + LGU verification) and attach it to this application?"
+      )
+    )
+      return;
 
     try {
       setGenerating(true);
       const res = await axios.post(
         `${API_BASE_URL}/api/business-permit/generate-form`,
-        {
-          application_type: applicationType,
-          application_id: applicationId,
-          checks,
-        },
+        { application_type: applicationType, application_id: applicationId, checks },
         { withCredentials: true }
       );
-
       if (res.data?.success) {
         alert("LGU form generated and attached successfully.");
         setRefreshTick((n) => n + 1);
       } else {
-        alert(
-          "Generation failed: " + (res.data?.message || "Unknown error")
-        );
+        alert("Generation failed: " + (res.data?.message || "Unknown error"));
       }
     } catch (e) {
       console.error("Generate form failed:", e);
@@ -225,8 +316,40 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     }
   };
 
+  // A bullet-proof radio row (no id/htmlFor; input inside label; unique name)
+  const RadioRow = ({ fieldKey, label }) => {
+    const groupName = `lgu-${applicationId ?? "app"}-${fieldKey}`;
+    const value = checks[fieldKey];
+
+    return (
+      <tr>
+        <td className="px-2 py-1 border align-top">{label}</td>
+
+        {["yes", "no", "not_needed"].map((option) => (
+          <td key={option} className="px-2 py-1 border text-center">
+            <label
+              className="flex items-center justify-center w-full h-full cursor-pointer select-none"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="radio"
+                name={groupName}
+                value={option}
+                checked={value === option}
+                onChange={() => updateCheck(fieldKey, option)}
+                className="cursor-pointer"
+              />
+            </label>
+          </td>
+        ))}
+      </tr>
+    );
+  };
+
+  // isolation stops any invisible overlay from another panel capturing clicks
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" key={`arp-${applicationId}`} style={{ isolation: "isolate" }}>
       {/* Attached Requirements (User + System) */}
       <div className="bg-white border rounded-md p-4">
         <div className="flex items-center justify-between">
@@ -241,9 +364,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                 disabled={generating}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
               >
-                {generating
-                  ? "Generating..."
-                  : "Generate Applicant Requirements"}
+                {generating ? "Generating..." : "Generate Applicant Requirements"}
               </button>
             )}
             <button
@@ -262,9 +383,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-500 mt-3">
-            Loading attached requirements…
-          </p>
+          <p className="text-sm text-gray-500 mt-3">Loading attached requirements…</p>
         ) : hasItems ? (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
             {items.map((it) => (
@@ -273,21 +392,13 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                 className="bg-gray-50 border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between"
               >
                 <div className="pr-3 mb-2 md:mb-0">
-                  <p className="text-sm font-medium text-gray-800">
-                    {it.file_path || "Requirement"}
-                  </p>
+                  <p className="text-sm font-medium text-gray-800">{it.file_path || "Requirement"}</p>
                   <p className="text-xs text-gray-500">
-                    System attached:{" "}
-                    {it.uploaded_at
-                      ? new Date(it.uploaded_at).toLocaleString()
-                      : "N/A"}
+                    System attached: {it.uploaded_at ? new Date(it.uploaded_at).toLocaleString() : "N/A"}
                   </p>
                   {it.user_uploaded_at && (
                     <p className="text-xs text-gray-500">
-                      User uploaded:{" "}
-                      {new Date(
-                        it.user_uploaded_at
-                      ).toLocaleString()}
+                      User uploaded: {new Date(it.user_uploaded_at).toLocaleString()}
                     </p>
                   )}
                 </div>
@@ -314,16 +425,12 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                     </a>
                   )}
                   {!it.file_url && !it.user_file_url && (
-                    <span className="text-xs text-gray-400 italic">
-                      No file
-                    </span>
+                    <span className="text-xs text-gray-400 italic">No file</span>
                   )}
 
                   <button
                     type="button"
-                    onClick={() =>
-                      handleRemoveRequirement(it.requirement_id)
-                    }
+                    onClick={() => handleRemoveRequirement(it.requirement_id)}
                     className="text-xs md:text-sm text-red-600 hover:text-red-700 hover:underline ml-1"
                   >
                     Remove
@@ -333,21 +440,18 @@ function AttachedRequirementsPanel({ selectedApplication }) {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500 mt-3">
-            No requirements attached yet.
-          </p>
+          <p className="text-sm text-gray-500 mt-3">No requirements attached yet.</p>
         )}
 
-        {/* NEW: LGU verification mini-form for Business permits */}
+        {/* LGU verification mini-form for Business permits */}
         {isBusinessApp && (
           <div className="mt-5 border-t pt-4">
             <h5 className="text-sm font-semibold text-gray-700 mb-2">
               LGU Verification of Documents (will appear on Page 2)
             </h5>
             <p className="text-xs text-gray-500 mb-3">
-              Set which documents are required for this application.
-              These choices will be checked/encoded on the second page
-              of the generated PDF.
+              Set which documents are required for this application. These choices will be
+              checked/encoded on the second page of the generated PDF.
             </p>
 
             <div className="overflow-x-auto">
@@ -361,65 +465,95 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    ["occupancy_permit", "Occupancy Permit (For New)"],
-                    ["zoning_clearance", "Zoning (New and Renewal)"],
-                    ["barangay_clearance", "Barangay Clearance (For Renewal)"],
-                    [
-                      "sanitary_clearance",
-                      "Sanitary Permit / Health Clearance",
-                    ],
-                    [
-                      "environment_certificate",
-                      "Municipal Environmental Certificate",
-                    ],
-                    ["market_clearance", "Market Clearance (For Stall Holders)"],
-                    [
-                      "fire_safety_certificate",
-                      "Valid Fire Safety Inspection Certificate",
-                    ],
-                    [
-                      "river_floating_fish",
-                      "Registration/Verification (River Tanab, Oyster Culture, Floating Fish Cage Operator)",
-                    ],
-                  ].map(([key, label]) => (
-                    <tr key={key}>
-                      <td className="px-2 py-1 border align-top">
-                        {label}
-                      </td>
-                      {["yes", "no", "not_needed"].map((val) => (
-                        <td
-                          key={val}
-                          className="px-2 py-1 border text-center"
-                        >
-                          <input
-                            type="radio"
-                            name={key}
-                            value={val}
-                            checked={checks[key] === val}
-                            onChange={(e) =>
-                              updateCheck(key, e.target.value)
-                            }
-                          />
-                        </td>
-                      ))}
-                    </tr>
+                  {LGU_ROWS.map(([fieldKey, label]) => (
+                    <RadioRow key={fieldKey} fieldKey={fieldKey} label={label} />
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* =========================
+                NEW: Assessment panel
+                ========================= */}
+            <div className="bg-white border rounded-md p-4 mt-5">
+              <h5 className="text-sm font-semibold text-gray-700 mb-3">
+                Assessment of Applicable Fees
+              </h5>
+
+              <div className="grid grid-cols-[1fr_140px_160px_160px] gap-2 text-sm">
+                <div className="text-gray-500">Description</div>
+                <div className="text-gray-500">Amount</div>
+                <div className="text-gray-500">Penalty/Surcharge</div>
+                <div className="text-gray-500">Total</div>
+
+                {ASSESS_ROWS.map((r) => (
+                  <React.Fragment key={r.code}>
+                    <div className="py-1">{r.label}</div>
+                    <input
+                      inputMode="decimal"
+                      className="border rounded px-2 py-1"
+                      value={assessment[r.code].amount}
+                      onChange={(e) => setAssessCell(r.code, "amount", e.target.value)}
+                      placeholder="0.00"
+                    />
+                    <input
+                      inputMode="decimal"
+                      className="border rounded px-2 py-1"
+                      value={assessment[r.code].penalty}
+                      onChange={(e) => setAssessCell(r.code, "penalty", e.target.value)}
+                      placeholder="0.00"
+                    />
+                    <div className="py-1 font-medium">
+                      {computedAssessment.rows[r.code].total
+                        ? computedAssessment.rows[r.code].total.toLocaleString(undefined, { minimumFractionDigits: 2 })
+                        : "—"}
+                    </div>
+                  </React.Fragment>
+                ))}
+
+                {/* Totals */}
+                <div className="py-2 font-semibold text-right col-span-3">TOTAL FEES for LGU</div>
+                <div className="py-2 font-semibold">
+                  {computedAssessment.totalFeesLgu.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+
+                <div className="py-2 font-semibold text-right col-span-3">
+                  FIRE SAFETY INSPECTION FEE (15%)
+                </div>
+                <div className="py-2 font-semibold">
+                  {computedAssessment.fsif15.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2 justify-end">
+                <button
+                  onClick={handleSaveAssessment}
+                  className="px-3 py-2 text-sm bg-gray-100 rounded hover:bg-gray-200"
+                >
+                  Save Assessment
+                </button>
+                <button
+                  disabled={generating}
+                  onClick={handleGenerateWithAssessment}
+                  className={`px-4 py-2 rounded text-white ${
+                    generating ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
+                  }`}
+                >
+                  {generating ? "Generating…" : "Generate LGU Form (with Assessment)"}
+                </button>
+              </div>
+            </div>
+            {/* /Assessment panel */}
           </div>
         )}
       </div>
 
-      {/* Comments – unchanged from your version */}
+      {/* Comments */}
       <div className="bg-white border rounded-md p-4">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-md font-semibold text-gray-700">
-            Comments
-          </h4>
+          <h4 className="text-md font-semibold text-gray-700">Comments</h4>
 
-          <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2">
             <span className="text-xs text-gray-500">Filter:</span>
             <select
               value={commentFilter}
@@ -440,15 +574,11 @@ function AttachedRequirementsPanel({ selectedApplication }) {
           <div className="space-y-3 mb-4">
             {filteredComments.map((c) => (
               <div key={c.id} className="bg-gray-50 border rounded p-3">
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">
-                  {c.comment}
-                </p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{c.comment}</p>
                 <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
                   <div>
                     {c.author_role ? `${c.author_role} • ` : ""}
-                    {c.created_at
-                      ? new Date(c.created_at).toLocaleString()
-                      : ""}
+                    {c.created_at ? new Date(c.created_at).toLocaleString() : ""}
                   </div>
                   {c.status_at_post && (
                     <span className="ml-2 inline-flex px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
@@ -482,20 +612,16 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                     selectedApplication.application_status ??
                     selectedApplication.status ??
                     "";
-
                   await axios.post(
                     `${API_BASE_URL}/api/application-comments`,
                     {
                       application_type: applicationType,
                       application_id: applicationId,
                       comment: commentText,
-                      status_at_post: String(rawStatus)
-                        .toLowerCase()
-                        .replace(/\s+/g, "-"), // "In Review" → "in-review"
+                      status_at_post: String(rawStatus).toLowerCase().replace(/\s+/g, "-"),
                     },
                     { withCredentials: true }
                   );
-
                   setCommentText("");
                   setRefreshTick((n) => n + 1);
                 } catch (e) {
@@ -1200,7 +1326,7 @@ export function ElectronicsPermitModalContent({ selectedApplication }) {
         Electronics Permit Information
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md-grid-cols-2 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <p>
             <strong>Application No:</strong>{" "}

@@ -68,6 +68,9 @@ router.post('/application-comments', isAuthenticated, C.addApplicationComment);
 router.post('/attached-requirements/remove', isAuthenticated, C.removeAttachedRequirement);
 // *** NEW: user-side comments for tracking page ***
 router.get('/user/comments', isAuthenticated, C.getUserComments);
+// ===== Section 2: Assessment (add-only) =====
+router.post('/business-permit/assessment/save', isAuthenticated, C.saveBusinessPermitAssessment);
+router.post('/business-permit/generate-form-with-assessment', isAuthenticated, C.generateBusinessPermitFormWithAssessment);
 
 router.post(
   '/business-permit/generate-form',

@@ -1520,6 +1520,12 @@ exports.removeAttachedRequirement = (req, res) => {
     });
   });
 };
+
+
+
+
+
+
 // auto pdf__________________________________________________________________________________________________________
 function normalizeCheck(val) {
   const v = String(val || "").toLowerCase();
@@ -1608,7 +1614,274 @@ function upsertBusinessPermitVerification(businessId, checks = {}) {
     });
   });
 }
+function _bp_calcAssessment(items = {}) {
+  const rows = {};
+  let lguTotal = 0;
+  for (const [code, v] of Object.entries(items || {})) {
+    const amt = Number(v?.amount || 0);
+    const pen = Number(v?.penalty || 0);
+    const tot = +(amt + pen).toFixed(2);
+    rows[code] = { amount: amt, penalty: pen, total: tot };
+    lguTotal += tot;
+  }
+  const fsif15 = +(lguTotal * 0.15).toFixed(2);
+  return { rows, totalFeesLgu: +lguTotal.toFixed(2), fsif15 };
+}
+function _bp_upsertAssessment(businessId, items = {}) {
+  const { rows, totalFeesLgu, fsif15 } = _bp_calcAssessment(items);
 
+  return new Promise((resolve, reject) => {
+    const sel = `
+      SELECT id FROM business_permit_assessment
+      WHERE BusinessP_id = ? LIMIT 1
+    `;
+    db.query(sel, [businessId], (err, srows) => {
+      if (err) return reject(err);
+
+      if (srows.length) {
+        const upd = `
+          UPDATE business_permit_assessment
+             SET items_json = ?, total_fees_lgu = ?, fsif_15 = ?
+           WHERE BusinessP_id = ?
+        `;
+        db.query(
+          upd,
+          [JSON.stringify(rows), totalFeesLgu, fsif15, businessId],
+          (e) => (e ? reject(e) : resolve({ rows, totalFeesLgu, fsif15 }))
+        );
+      } else {
+        const ins = `
+          INSERT INTO business_permit_assessment
+            (BusinessP_id, items_json, total_fees_lgu, fsif_15)
+          VALUES (?, ?, ?, ?)
+        `;
+        db.query(
+          ins,
+          [businessId, JSON.stringify(rows), totalFeesLgu, fsif15],
+          (e) => (e ? reject(e) : resolve({ rows, totalFeesLgu, fsif15 }))
+        );
+      }
+    });
+  });
+}
+async function _bp_createPdf_WithAssessment(businessRow, checks = {}, assessment = {}) {
+  const templatePath = path.join(
+    __dirname, "..", "templates", "business_permit_full_template.pdf"
+  );
+  const templateBytes = fs.readFileSync(templatePath);
+  const pdfDoc = await PDFDocument.load(templateBytes);
+
+  const pages = pdfDoc.getPages();
+  const page1 = pages[0];
+  const page2 = pages[1];
+
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontSize = 9;
+
+  // ——— helpers that DO NOT alter your existing positions ———
+  const draw1 = (text, x, y) => {
+    if (text === undefined || text === null || text === "") return;
+    page1.drawText(String(text), { x, y, size: fontSize, font });
+  };
+  const draw2 = (text, x, y) => {
+    if (text === undefined || text === null || text === "") return;
+    page2.drawText(String(text), { x, y, size: fontSize, font });
+  };
+  const drawMoney2 = (val, x, y) => {
+    const n = Number(val || 0);
+    if (!n) return;
+    page2.drawText(
+      n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      { x, y, size: fontSize, font }
+    );
+  };
+
+  /* ========= YOUR EXISTING PAGE 1 FIELDS =========
+     We will reuse your already working coordinates by calling
+     your existing createBusinessPermitFilledPdf path to draw page 1.
+     Since we must not edit that function, we replicate *only* the
+     necessary subset that draws page 1 text, keeping coordinates intact.
+     (All the X_/Y_ constants are the same as your working copy.)
+  */
+  // -------------- PAGE 1 CONSTANTS (copied 1:1 from your working function) --------------
+  const X_BUSINESS_TYPE=74,Y_BUSINESS_TYPE=912,X_MODE_OF_PAYMENT=299,Y_MODE_OF_PAYMENT=912,
+        X_DATE_APPLICATION=85,Y_DATE_APPLICATION=892,X_DTI_REG_NO=344,Y_DTI_REG_NO=892,
+        X_TIN_NO=46,Y_TIN_NO=871,X_DATE_REGISTRATION=306,Y_DATE_REGISTRATION=871,
+        X_TYPE_OF_BUSINESS=80,Y_TYPE_OF_BUSINESS=842,X_AMENDMENT_FROM=117,Y_AMENDMENT_FROM=821,
+        X_AMENDMENT_TO=107,Y_AMENDMENT_TO=812,X_TAX_INCENTIVE=213,Y_TAX_INCENTIVE=791,
+        X_LAST_NAME=65,Y_LAST_NAME=735,X_FIRST_NAME=255,Y_FIRST_NAME=735,
+        X_MIDDLE_NAME=455,Y_MIDDLE_NAME=735,X_BUSINESS_NAME=81,Y_BUSINESS_NAME=704,
+        X_TRADE_NAME=109,Y_TRADE_NAME=684,X_BUSINESS_ADDRESS=89,Y_BUSINESS_ADDRESS=634,
+        X_BUSINESS_POSTAL=69,Y_BUSINESS_POSTAL=603,X_BUSINESS_EMAIL=364,Y_BUSINESS_EMAIL=603,
+        X_BUSINESS_TELEPHONE=65,Y_BUSINESS_TELEPHONE=583,X_BUSINESS_MOBILE=348,Y_BUSINESS_MOBILE=583,
+        X_OWNER_ADDRESS=90,Y_OWNER_ADDRESS=552,X_OWNER_POSTAL=69,Y_OWNER_POSTAL=513,
+        X_OWNER_EMAIL=364,Y_OWNER_EMAIL=513,X_OWNER_TELEPHONE=66,Y_OWNER_TELEPHONE=492,
+        X_OWNER_MOBILE=349,Y_OWNER_MOBILE=492,X_EMERGENCY_CONTACT=212,Y_EMERGENCY_CONTACT=477,
+        X_EMERGENCY_PHONE=92,Y_EMERGENCY_PHONE=462,X_EMERGENCY_EMAIL=365,Y_EMERGENCY_EMAIL=462,
+        X_BUSINESS_AREA=113,Y_BUSINESS_AREA=432,X_EMPLOYEES_MALE=225,Y_EMPLOYEES_MALE=423,
+        X_EMPLOYEES_FEMALE=307,Y_EMPLOYEES_FEMALE=423,X_EMPLOYEES_WITHIN_LGU=551,Y_EMPLOYEES_WITHIN_LGU=432,
+        X_LESSOR_NAME=95,Y_LESSOR_NAME=372,X_LESSOR_ADDRESS=102,Y_LESSOR_ADDRESS=351,
+        X_LESSOR_PHONE=153,Y_LESSOR_PHONE=330,X_LESSOR_EMAIL=112,Y_LESSOR_EMAIL=310,
+        X_MONTHLY_RENTAL=78,Y_MONTHLY_RENTAL=291;
+
+  // -------------- Draw page 1 (same logic as yours) --------------
+  if (businessRow.application_type) draw1(String(businessRow.application_type).toUpperCase(), X_BUSINESS_TYPE, Y_BUSINESS_TYPE);
+  if (businessRow.payment_mode)     draw1(String(businessRow.payment_mode).toLowerCase(),     X_MODE_OF_PAYMENT, Y_MODE_OF_PAYMENT);
+  if (businessRow.application_date) draw1(new Date(businessRow.application_date).toLocaleDateString(), X_DATE_APPLICATION, Y_DATE_APPLICATION);
+  draw1(businessRow.registration_no || "", X_DTI_REG_NO, Y_DTI_REG_NO);
+  draw1(businessRow.tin_no || "", X_TIN_NO, Y_TIN_NO);
+  if (businessRow.registration_date) draw1(new Date(businessRow.registration_date).toLocaleDateString(), X_DATE_REGISTRATION, Y_DATE_REGISTRATION);
+  draw1(businessRow.business_type || "", X_TYPE_OF_BUSINESS, Y_TYPE_OF_BUSINESS);
+  draw1(businessRow.amendment_from || "", X_AMENDMENT_FROM, Y_AMENDMENT_FROM);
+  draw1(businessRow.amendment_to   || "", X_AMENDMENT_TO,   Y_AMENDMENT_TO);
+
+  if (businessRow.tax_incentive) {
+    const label = String(businessRow.tax_incentive).toLowerCase() === "yes" ? "Yes" : "No";
+    draw1(label, X_TAX_INCENTIVE, Y_TAX_INCENTIVE);
+  }
+
+  draw1(businessRow.last_name || "",   X_LAST_NAME,   Y_LAST_NAME);
+  draw1(businessRow.first_name || "",  X_FIRST_NAME,  Y_FIRST_NAME);
+  draw1(businessRow.middle_name || "", X_MIDDLE_NAME, Y_MIDDLE_NAME);
+  draw1(businessRow.business_name || "", X_BUSINESS_NAME, Y_BUSINESS_NAME);
+  draw1(businessRow.trade_name || "",    X_TRADE_NAME,    Y_TRADE_NAME);
+  draw1(businessRow.business_address || "",     X_BUSINESS_ADDRESS,   Y_BUSINESS_ADDRESS);
+  draw1(businessRow.business_postal_code || "", X_BUSINESS_POSTAL,    Y_BUSINESS_POSTAL);
+  draw1(businessRow.business_email || "",       X_BUSINESS_EMAIL,     Y_BUSINESS_EMAIL);
+  draw1(businessRow.business_telephone || "",   X_BUSINESS_TELEPHONE, Y_BUSINESS_TELEPHONE);
+  draw1(businessRow.business_mobile || "",      X_BUSINESS_MOBILE,    Y_BUSINESS_MOBILE);
+  draw1(businessRow.owner_address || "",     X_OWNER_ADDRESS,   Y_OWNER_ADDRESS);
+  draw1(businessRow.owner_postal_code || "",X_OWNER_POSTAL,    Y_OWNER_POSTAL);
+  draw1(businessRow.owner_email || "",      X_OWNER_EMAIL,     Y_OWNER_EMAIL);
+  draw1(businessRow.owner_telephone || "",  X_OWNER_TELEPHONE, Y_OWNER_TELEPHONE);
+  draw1(businessRow.owner_mobile || "",     X_OWNER_MOBILE,    Y_OWNER_MOBILE);
+  draw1(businessRow.emergency_contact || "", X_EMERGENCY_CONTACT, Y_EMERGENCY_CONTACT);
+  draw1(businessRow.emergency_phone || "",   X_EMERGENCY_PHONE,   Y_EMERGENCY_PHONE);
+  draw1(businessRow.emergency_email || "",   X_EMERGENCY_EMAIL,   Y_EMERGENCY_EMAIL);
+  draw1(String(businessRow.business_area || ""),      X_BUSINESS_AREA,        Y_BUSINESS_AREA);
+  draw1(String(businessRow.male_employees || ""),     X_EMPLOYEES_MALE,       Y_EMPLOYEES_MALE);
+  draw1(String(businessRow.female_employees || ""),   X_EMPLOYEES_FEMALE,     Y_EMPLOYEES_FEMALE);
+  draw1(String(businessRow.local_employees || ""),    X_EMPLOYEES_WITHIN_LGU, Y_EMPLOYEES_WITHIN_LGU);
+  draw1(businessRow.lessor_name || "",    X_LESSOR_NAME,    Y_LESSOR_NAME);
+  draw1(businessRow.lessor_address || "", X_LESSOR_ADDRESS, Y_LESSOR_ADDRESS);
+  draw1(businessRow.lessor_phone || "",   X_LESSOR_PHONE,   Y_LESSOR_PHONE);
+  draw1(businessRow.lessor_email || "",   X_LESSOR_EMAIL,   Y_LESSOR_EMAIL);
+  if (businessRow.monthly_rental != null) draw1(String(businessRow.monthly_rental), X_MONTHLY_RENTAL, Y_MONTHLY_RENTAL);
+
+  /* ========= PAGE 2 – your existing LGU verification X’s =========
+     We keep their X/Y as in your working copy. (No change)
+  */
+  const norm = (val) => {
+    const v = String(val || "").toLowerCase();
+    if (v === "yes" || v === "no" || v === "not_needed") return v;
+    if (v === "not needed" || v === "not-needed") return "not_needed";
+    return "not_needed";
+  };
+  const normalizedChecks = {
+    occupancy_permit:        norm(checks.occupancy_permit),
+    zoning_clearance:        norm(checks.zoning_clearance),
+    barangay_clearance:      norm(checks.barangay_clearance),
+    sanitary_clearance:      norm(checks.sanitary_clearance),
+    environment_certificate: norm(checks.environment_certificate),
+    market_clearance:        norm(checks.market_clearance),
+    fire_safety_certificate: norm(checks.fire_safety_certificate),
+    river_floating_fish:     norm(checks.river_floating_fish),
+  };
+
+  // keep your final fixed X positions
+  const X_CHECK_YES=355, X_CHECK_NO=420, X_CHECK_NOT_NEEDED=530;
+  const Y_OCCUPANCY_PERMIT=896, Y_ZONING_CLEARANCE=877, Y_BARANGAY_CLEARANCE=858,
+        Y_SANITARY=835, Y_ENV_CERT=815, Y_MARKET_CLEARANCE=794,
+        Y_FIRE_SAFETY=773, Y_RIVER_FLOATING=744;
+
+  function markCheck(rowY, status) {
+    page2.drawText("X", {
+      x: status === "yes" ? X_CHECK_YES : status === "no" ? X_CHECK_NO : X_CHECK_NOT_NEEDED,
+      y: rowY, size: 10, font
+    });
+  }
+  markCheck(Y_OCCUPANCY_PERMIT,   normalizedChecks.occupancy_permit);
+  markCheck(Y_ZONING_CLEARANCE,   normalizedChecks.zoning_clearance);
+  markCheck(Y_BARANGAY_CLEARANCE, normalizedChecks.barangay_clearance);
+  markCheck(Y_SANITARY,           normalizedChecks.sanitary_clearance);
+  markCheck(Y_ENV_CERT,           normalizedChecks.environment_certificate);
+  markCheck(Y_MARKET_CLEARANCE,   normalizedChecks.market_clearance);
+  markCheck(Y_FIRE_SAFETY,        normalizedChecks.fire_safety_certificate);
+  markCheck(Y_RIVER_FLOATING,     normalizedChecks.river_floating_fish);
+
+  /* ========= PAGE 2 – ASSESSMENT GRID (NEW; independent coords) ========= */
+  const X_ASSESS_AMOUNT  = 225; // Amount column
+  const X_ASSESS_PENALTY = 323; // Penalty/Surcharge column
+  const X_ASSESS_TOTAL   = 470; // Total column
+
+  const Y_ROWS = {
+    gross_sales_tax:                           618,
+    delivery_vans_trucks_tax:                  597,
+    combustible_storage_tax:                   572,
+    signboard_billboards_tax:                  547,
+    mayors_permit_fee:                         518,
+    garbage_charges:                           495,
+    trucks_vans_permit_fee:                    475,
+    sanitary_inspection_fee:                   455,
+    building_inspection_fee:                   435,
+    electrical_inspection_fee:                 416,
+    mechanical_inspection_fee:                 395,
+    plumbing_inspection_fee:                   374,
+    signboard_renewal_fee:                     353,
+    combustible_sale_storage_fee:              330,
+    others_fee:                                304,
+    total_fees_lgu_row:                        283,
+    fsif_row:                                  262
+  };
+
+  const A = assessment || {};
+  const get = (row, f) => Number((row && row[f]) || 0);
+
+  // line items
+  Object.entries({
+    gross_sales_tax:                A.gross_sales_tax,
+    delivery_vans_trucks_tax:       A.delivery_vans_trucks_tax,
+    combustible_storage_tax:        A.combustible_storage_tax,
+    signboard_billboards_tax:       A.signboard_billboards_tax,
+    mayors_permit_fee:              A.mayors_permit_fee,
+    garbage_charges:                A.garbage_charges,
+    trucks_vans_permit_fee:         A.trucks_vans_permit_fee,
+    sanitary_inspection_fee:        A.sanitary_inspection_fee,
+    building_inspection_fee:        A.building_inspection_fee,
+    electrical_inspection_fee:      A.electrical_inspection_fee,
+    mechanical_inspection_fee:      A.mechanical_inspection_fee,
+    plumbing_inspection_fee:        A.plumbing_inspection_fee,
+    signboard_renewal_fee:          A.signboard_renewal_fee,
+    combustible_sale_storage_fee:   A.combustible_sale_storage_fee,
+    others_fee:                     A.others_fee
+  }).forEach(([code, row]) => {
+    const y = Y_ROWS[code];
+    if (!y) return;
+    const amt = get(row, "amount");
+    const pen = get(row, "penalty");
+    const tot = +(amt + pen).toFixed(2);
+    drawMoney2(amt, X_ASSESS_AMOUNT,  y);
+    drawMoney2(pen, X_ASSESS_PENALTY, y);
+    drawMoney2(tot, X_ASSESS_TOTAL,   y);
+  });
+
+  // totals
+  const lguTotal = Object.values(A).reduce((s, r) => s + Number(r?.amount||0) + Number(r?.penalty||0), 0);
+  const fsif15   = +(lguTotal * 0.15).toFixed(2);
+  drawMoney2(+lguTotal.toFixed(2), X_ASSESS_TOTAL, Y_ROWS.total_fees_lgu_row);
+  drawMoney2(fsif15,               X_ASSESS_TOTAL, Y_ROWS.fsif_row);
+
+  // save combined
+  const pdfBytes = await pdfDoc.save();
+  const outDir = path.join(__dirname, "..", "uploads", "requirements");
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+  const fileName = `business_permit_${businessRow.BusinessP_id}_lgu_form.pdf`;
+  const absPath = path.join(outDir, fileName);
+  fs.writeFileSync(absPath, pdfBytes);
+  const dbPath = `/uploads/requirements/${fileName}`;
+  return dbPath;
+}
 /**
  * Create 2-page PDF (page 1: applicant info, page 2: LGU verification)
  * from the scanned template. Returns the **DB path** (e.g. "/uploads/requirements/....pdf").
@@ -1618,7 +1891,7 @@ async function createBusinessPermitFilledPdf(businessRow, checks = {}) {
     __dirname,
     "..",
     "templates",
-    "business_permit_full_template.pdf" // overwrite old template with the good one
+    "business_permit_full_template.pdf"
   );
 
   const templateBytes = fs.readFileSync(templatePath);
@@ -1631,146 +1904,247 @@ async function createBusinessPermitFilledPdf(businessRow, checks = {}) {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontSize = 9;
 
-  const { height } = page1.getSize();
-
   const draw1 = (text, x, y) => {
     if (text === undefined || text === null || text === "") return;
-    page1.drawText(String(text), {
-      x,
-      y,
-      size: fontSize,
-      font,
-    });
+    page1.drawText(String(text), { x, y, size: fontSize, font });
   };
 
   const draw2 = (text, x, y) => {
     if (text === undefined || text === null || text === "") return;
-    page2.drawText(String(text), {
-      x,
-      y,
-      size: fontSize,
-      font,
-    });
+    page2.drawText(String(text), { x, y, size: fontSize, font });
   };
 
-  // ---------- PAGE 1 Y-COORDS (based on real template scan) ----------
-  // (values are already converted to pdf-lib coordinates, origin bottom-left)
+  // ========== PAGE 1 COORDS (LONG BOND, ONE PAIR PER FIELD) ==========
 
-  const Y_NEW_RENEWAL = 703;         // "NEW / RENEWAL  Mode of Payment"
-  const Y_DATE_APP     = 689;        // "Date of Application / TIN No."
-  const Y_DTI_REG      = 675;        // "DTI/SEC/CDA Registration / Date of Registration"
-  const Y_TYPE_BUS     = 661;        // "Type of Business"
-  const Y_AMEND        = 647;        // "Amendment: From / To"
-  const Y_TAX_INCENT   = 633;        // "Are enjoying tax incentive..."
-  const Y_NAME_LINE    = 571;        // "Last Name / First Name / Middle Name"
-  const Y_BUS_NAME     = 553;        // "Business Name"
-  const Y_TRADE_NAME   = 539;        // "Trade Name / Franchise"
-  const Y_BUS_ADDR     = 485;        // "Business Address"
-  const Y_BUS_POSTAL   = 473;        // "Postal Code / Email Address"
-  const Y_BUS_TEL      = 459;        // "Telephone No. / Mobile No."
-  const Y_OWNER_ADDR   = 441;        // "Owner's Address"
-  const Y_OWNER_POSTAL = 427;        // "Postal Code / Email Address" (owner)
-  const Y_OWNER_TEL    = 413;        // "Telephone No. / Mobile No." (owner)
-  const Y_EMERG_NAME   = 395;        // "In case of emergency..."
-  const Y_EMERG_CONTACT= 381;        // "Telephone / Mobile / Email" (emergency)
-  const Y_BUS_AREA     = 369;        // "Business Area (in sq.m.) / Total No. of Employees..."
+  // Top row: Business Type / Mode of Payment
+  const X_BUSINESS_TYPE        = 74;
+  const Y_BUSINESS_TYPE        = 912;
 
-  // some X helpers
-  const X_COL1  = 150; // left field in a line
-  const X_COL2  = 390; // right field in a line
-  const X_NAME1 = 115; // Last Name
-  const X_NAME2 = 280; // First Name
-  const X_NAME3 = 445; // Middle Name
+  const X_MODE_OF_PAYMENT      = 299;
+  const Y_MODE_OF_PAYMENT      = 912;
 
-  // ---------- PAGE 1: top (NEW / RENEWAL + payment) ----------
-  // We don’t try to hit the tiny checkboxes; just place text near them.
+  // Row 2: Date of Application / DTI-SEC-CDA Reg. No.
+  const X_DATE_APPLICATION     = 85;
+  const Y_DATE_APPLICATION     = 892;
 
+  const X_DTI_REG_NO           = 344;
+  const Y_DTI_REG_NO           = 892;
+
+  // Row 3: TIN No. / Date of Registration
+  const X_TIN_NO               = 46;
+  const Y_TIN_NO               = 871;
+
+  const X_DATE_REGISTRATION    = 306;
+  const Y_DATE_REGISTRATION    = 871;
+
+  // Row 4: Type of Business
+  const X_TYPE_OF_BUSINESS     = 80;
+  const Y_TYPE_OF_BUSINESS     = 842;
+
+  // Row 5: Amendment From / To
+  const X_AMENDMENT_FROM       = 117;
+  const Y_AMENDMENT_FROM       = 821;
+
+  const X_AMENDMENT_TO         = 107;
+  const Y_AMENDMENT_TO         = 812;
+
+  // Row 6: Tax Incentive (Yes/No)
+  const X_TAX_INCENTIVE        = 213;
+  const Y_TAX_INCENTIVE        = 791;
+
+  // Taxpayer Name row
+  const X_LAST_NAME            = 65;
+  const Y_LAST_NAME            = 735;
+
+  const X_FIRST_NAME           = 255;
+  const Y_FIRST_NAME           = 735;
+
+  const X_MIDDLE_NAME          = 455;
+  const Y_MIDDLE_NAME          = 735;
+
+  // Business Name row
+  const X_BUSINESS_NAME        = 81;
+  const Y_BUSINESS_NAME        = 704;
+
+  // Trade Name / Franchise row
+  const X_TRADE_NAME           = 109;
+  const Y_TRADE_NAME           = 684;
+
+  // Business Address row
+  const X_BUSINESS_ADDRESS     = 89;
+  const Y_BUSINESS_ADDRESS     = 634;
+
+  // Business Postal Code / Email
+  const X_BUSINESS_POSTAL      = 69;
+  const Y_BUSINESS_POSTAL      = 603;
+
+  const X_BUSINESS_EMAIL       = 364;
+  const Y_BUSINESS_EMAIL       = 603;
+
+  // Business Telephone / Mobile
+  const X_BUSINESS_TELEPHONE   = 65;
+  const Y_BUSINESS_TELEPHONE   = 583;
+
+  const X_BUSINESS_MOBILE      = 348;
+  const Y_BUSINESS_MOBILE      = 583;
+
+  // Owner’s Address row
+  const X_OWNER_ADDRESS        = 90;
+  const Y_OWNER_ADDRESS        = 552;
+
+  // Owner’s Postal / Email 
+  const X_OWNER_POSTAL         = 69;
+  const Y_OWNER_POSTAL         = 513;
+
+  const X_OWNER_EMAIL          = 364;
+  const Y_OWNER_EMAIL          = 513;
+
+  // Owner’s Telephone / Mobile 
+  const X_OWNER_TELEPHONE      = 66;
+  const Y_OWNER_TELEPHONE      = 492;
+
+  const X_OWNER_MOBILE         = 349;
+  const Y_OWNER_MOBILE         = 492;
+
+  // Emergency contact: name & contact details 
+  const X_EMERGENCY_CONTACT    = 212;
+  const Y_EMERGENCY_CONTACT    = 477;
+
+  const X_EMERGENCY_PHONE      = 92;
+  const Y_EMERGENCY_PHONE      = 462;
+
+  const X_EMERGENCY_EMAIL      = 365;
+  const Y_EMERGENCY_EMAIL      = 462;
+
+  // Business Area / Employees 
+  const X_BUSINESS_AREA        = 113;
+  const Y_BUSINESS_AREA        = 432;
+
+  const X_EMPLOYEES_MALE       = 225;
+  const Y_EMPLOYEES_MALE       = 423;
+
+  const X_EMPLOYEES_FEMALE     = 307;
+  const Y_EMPLOYEES_FEMALE     = 423;
+
+  const X_EMPLOYEES_WITHIN_LGU = 551;
+  const Y_EMPLOYEES_WITHIN_LGU = 432;
+
+  // Lessor info (rented business place) diri naku ha !!!!
+  const X_LESSOR_NAME          = 95;
+  const Y_LESSOR_NAME          = 372;
+
+  const X_LESSOR_ADDRESS       = 102;
+  const Y_LESSOR_ADDRESS       = 351;
+
+  const X_LESSOR_PHONE         = 153;
+  const Y_LESSOR_PHONE         = 330;
+
+  const X_LESSOR_EMAIL         = 112;
+  const Y_LESSOR_EMAIL         = 310;
+
+  const X_MONTHLY_RENTAL       = 78;
+  const Y_MONTHLY_RENTAL       = 291;
+
+  // ========== DRAW PAGE 1 ==========
+
+  // Business Type / Mode of Payment
   if (businessRow.application_type) {
     draw1(
       String(businessRow.application_type).toUpperCase(),
-      80,
-      Y_NEW_RENEWAL
+      X_BUSINESS_TYPE,
+      Y_BUSINESS_TYPE
     );
   }
 
   if (businessRow.payment_mode) {
     draw1(
-      String(businessRow.payment_mode).toLowerCase(), // e.g., "annually", "semi-annually"
-      260,
-      Y_NEW_RENEWAL
+      String(businessRow.payment_mode).toLowerCase(),
+      X_MODE_OF_PAYMENT,
+      Y_MODE_OF_PAYMENT
     );
   }
 
-  // Date of Application / TIN
+  // Date of Application / DTI Reg No.
   if (businessRow.application_date) {
     draw1(
       new Date(businessRow.application_date).toLocaleDateString(),
-      X_COL1,
-      Y_DATE_APP
+      X_DATE_APPLICATION,
+      Y_DATE_APPLICATION
     );
   }
-  draw1(businessRow.tin_no || "", X_COL2, Y_DATE_APP);
 
-  // DTI/SEC/CDA Registration / Date of Registration
-  draw1(businessRow.registration_no || "", X_COL1, Y_DTI_REG);
+  draw1(businessRow.registration_no || "", X_DTI_REG_NO, Y_DTI_REG_NO);
+
+  // TIN No. / Date of Registration
+  draw1(businessRow.tin_no || "", X_TIN_NO, Y_TIN_NO);
+
   if (businessRow.registration_date) {
     draw1(
       new Date(businessRow.registration_date).toLocaleDateString(),
-      X_COL2,
-      Y_DTI_REG
+      X_DATE_REGISTRATION,
+      Y_DATE_REGISTRATION
     );
   }
 
-  // Type of Business (simple text – user can still manually tick the checkboxes)
-  draw1(businessRow.type_of_business || "", X_COL1, Y_TYPE_BUS);
+  // Type of Business  (uses business_type column)
+  draw1(businessRow.business_type || "", X_TYPE_OF_BUSINESS, Y_TYPE_OF_BUSINESS);
 
-  // Amendment (optional)
-  draw1(businessRow.amendment_from || "", X_COL1, Y_AMEND);
-  draw1(businessRow.amendment_to || "", X_COL2, Y_AMEND);
+  // Amendment From / To
+  draw1(businessRow.amendment_from || "", X_AMENDMENT_FROM, Y_AMENDMENT_FROM);
+  draw1(businessRow.amendment_to || "",   X_AMENDMENT_TO,   Y_AMENDMENT_TO);
 
-  // Tax incentive
+  // Tax Incentive
   if (businessRow.tax_incentive) {
     const label =
       String(businessRow.tax_incentive).toLowerCase() === "yes" ? "Yes" : "No";
-    draw1(label, 470, Y_TAX_INCENT);
+    draw1(label, X_TAX_INCENTIVE, Y_TAX_INCENTIVE);
   }
 
-  // ---------- PAGE 1: taxpayer name ----------
-  draw1(businessRow.last_name || "",  X_NAME1, Y_NAME_LINE);
-  draw1(businessRow.first_name || "", X_NAME2, Y_NAME_LINE);
-  draw1(businessRow.middle_name || "", X_NAME3, Y_NAME_LINE);
+  // Taxpayer Name
+  draw1(businessRow.last_name || "",   X_LAST_NAME,   Y_LAST_NAME);
+  draw1(businessRow.first_name || "",  X_FIRST_NAME,  Y_FIRST_NAME);
+  draw1(businessRow.middle_name || "", X_MIDDLE_NAME, Y_MIDDLE_NAME);
 
-  // ---------- PAGE 1: business names ----------
-  draw1(businessRow.business_name || "", X_COL1, Y_BUS_NAME);
-  draw1(businessRow.trade_name || "",   X_COL1, Y_TRADE_NAME);
+  // Business Name / Trade Name
+  draw1(businessRow.business_name || "", X_BUSINESS_NAME, Y_BUSINESS_NAME);
+  draw1(businessRow.trade_name || "",    X_TRADE_NAME,    Y_TRADE_NAME);
 
-  // ---------- PAGE 1: business contact info ----------
-  draw1(businessRow.business_address || "", X_COL1, Y_BUS_ADDR);
-  draw1(businessRow.postal_code || "",      X_COL1, Y_BUS_POSTAL);
-  draw1(businessRow.business_email || "",   X_COL2, Y_BUS_POSTAL);
-  draw1(businessRow.business_telephone || "", X_COL1, Y_BUS_TEL);
-  // If you have a business mobile field, you can place it here:
-  // draw1(businessRow.business_mobile || "", X_COL2, Y_BUS_TEL);
+  // Business contact info
+  draw1(businessRow.business_address || "",     X_BUSINESS_ADDRESS,   Y_BUSINESS_ADDRESS);
+  draw1(businessRow.business_postal_code || "", X_BUSINESS_POSTAL,    Y_BUSINESS_POSTAL);
+  draw1(businessRow.business_email || "",       X_BUSINESS_EMAIL,     Y_BUSINESS_EMAIL);
+  draw1(businessRow.business_telephone || "",   X_BUSINESS_TELEPHONE, Y_BUSINESS_TELEPHONE);
+  draw1(businessRow.business_mobile || "",      X_BUSINESS_MOBILE,    Y_BUSINESS_MOBILE);
 
-  // ---------- PAGE 1: owner info ----------
-  draw1(businessRow.owner_address || "",      X_COL1, Y_OWNER_ADDR);
-  draw1(businessRow.owner_postal || "",       X_COL1, Y_OWNER_POSTAL);
-  draw1(businessRow.owner_email || "",        X_COL2, Y_OWNER_POSTAL);
-  draw1(businessRow.owner_telephone || "",    X_COL1, Y_OWNER_TEL);
-  draw1(businessRow.owner_mobile || "",       X_COL2, Y_OWNER_TEL);
+  // Owner info
+  draw1(businessRow.owner_address || "",     X_OWNER_ADDRESS,   Y_OWNER_ADDRESS);
+  draw1(businessRow.owner_postal_code || "",X_OWNER_POSTAL,    Y_OWNER_POSTAL);
+  draw1(businessRow.owner_email || "",      X_OWNER_EMAIL,     Y_OWNER_EMAIL);
+  draw1(businessRow.owner_telephone || "",  X_OWNER_TELEPHONE, Y_OWNER_TELEPHONE);
+  draw1(businessRow.owner_mobile || "",     X_OWNER_MOBILE,    Y_OWNER_MOBILE);
 
-  // ---------- PAGE 1: emergency contact ----------
-  draw1(businessRow.emergency_contact || "", X_COL1, Y_EMERG_NAME);
-  draw1(businessRow.emergency_phone || "",   X_COL1, Y_EMERG_CONTACT);
-  draw1(businessRow.emergency_email || "",   X_COL2, Y_EMERG_CONTACT);
+  // Emergency contact
+  draw1(businessRow.emergency_contact || "", X_EMERGENCY_CONTACT, Y_EMERGENCY_CONTACT);
+  draw1(businessRow.emergency_phone || "",   X_EMERGENCY_PHONE,   Y_EMERGENCY_PHONE);
+  draw1(businessRow.emergency_email || "",   X_EMERGENCY_EMAIL,   Y_EMERGENCY_EMAIL);
 
-  // ---------- PAGE 1: business area & employees ----------
-  draw1(String(businessRow.business_area || ""),           X_COL1, Y_BUS_AREA);
-  draw1(String(businessRow.total_employees_male || ""),    300,    Y_BUS_AREA);
-  draw1(String(businessRow.total_employees_female || ""),  385,    Y_BUS_AREA);
-  draw1(String(businessRow.employees_within_lgu || ""),    500,    Y_BUS_AREA);
+  // Business area & employees
+  draw1(String(businessRow.business_area || ""),      X_BUSINESS_AREA,        Y_BUSINESS_AREA);
+  draw1(String(businessRow.male_employees || ""),     X_EMPLOYEES_MALE,       Y_EMPLOYEES_MALE);
+  draw1(String(businessRow.female_employees || ""),   X_EMPLOYEES_FEMALE,     Y_EMPLOYEES_FEMALE);
+  draw1(String(businessRow.local_employees || ""),    X_EMPLOYEES_WITHIN_LGU, Y_EMPLOYEES_WITHIN_LGU);
 
-  // ---------- PAGE 2: LGU verification (checkbox-like X marks) ----------
+  // Lessor info
+  draw1(businessRow.lessor_name || "",    X_LESSOR_NAME,    Y_LESSOR_NAME);
+  draw1(businessRow.lessor_address || "", X_LESSOR_ADDRESS, Y_LESSOR_ADDRESS);
+  draw1(businessRow.lessor_phone || "",   X_LESSOR_PHONE,   Y_LESSOR_PHONE);
+  draw1(businessRow.lessor_email || "",   X_LESSOR_EMAIL,   Y_LESSOR_EMAIL);
+  if (businessRow.monthly_rental != null) {
+    draw1(String(businessRow.monthly_rental), X_MONTHLY_RENTAL, Y_MONTHLY_RENTAL);
+  }
+
+  // ========== PAGE 2: LGU VERIFICATION CHECKBOXES ==========
+
   const norm = (val) => {
     const v = String(val || "").toLowerCase();
     if (v === "yes" || v === "no" || v === "not_needed") return v;
@@ -1789,47 +2163,41 @@ async function createBusinessPermitFilledPdf(businessRow, checks = {}) {
     river_floating_fish:     norm(checks.river_floating_fish),
   };
 
-  // approximate centers of Yes / No / Not Needed boxes
-  const YES_X = 470;
-  const NO_X  = 500;
-  const NN_X  = 530;
+  // Centers of Yes / No / Not Needed boxes
+  const X_CHECK_YES         = 355;
+  const X_CHECK_NO          = 420;
+  const X_CHECK_NOT_NEEDED  = 530;
+
+  // Slightly lowered so they don’t touch the header line
+  const Y_OCCUPANCY_PERMIT  = 896;
+  const Y_ZONING_CLEARANCE  = 877;
+  const Y_BARANGAY_CLEARANCE= 858;
+  const Y_SANITARY          = 835;
+  const Y_ENV_CERT          = 815;
+  const Y_MARKET_CLEARANCE  = 794;
+  const Y_FIRE_SAFETY       = 773;
+  const Y_RIVER_FLOATING    = 744;
 
   function markCheck(rowY, status) {
     let x;
-    if (status === "yes") x = YES_X;
-    else if (status === "no") x = NO_X;
-    else x = NN_X;
+    if (status === "yes") x = X_CHECK_YES;
+    else if (status === "no") x = X_CHECK_NO;
+    else x = X_CHECK_NOT_NEEDED;
 
-    page2.drawText("X", {
-      x,
-      y: rowY,
-      size: 10,
-      font,
-    });
+    page2.drawText("X", { x, y: rowY, size: 10, font });
   }
 
-  // real row Y’s based on template scan
-  const rowYs = [
-    707, // Occupancy Permit (For New)
-    689, // Zoning (New and Renewal)
-    671, // Barangay Clearance (For Renewal)
-    653, // Sanitary / Health
-    635, // Municipal Environmental Certificate
-    617, // Market Clearance
-    599, // Valid Fire Safety Inspection Certificate
-    581, // Registration / Floating Fish Cage
-  ];
+  markCheck(Y_OCCUPANCY_PERMIT,   normalizedChecks.occupancy_permit);
+  markCheck(Y_ZONING_CLEARANCE,   normalizedChecks.zoning_clearance);
+  markCheck(Y_BARANGAY_CLEARANCE, normalizedChecks.barangay_clearance);
+  markCheck(Y_SANITARY,           normalizedChecks.sanitary_clearance);
+  markCheck(Y_ENV_CERT,           normalizedChecks.environment_certificate);
+  markCheck(Y_MARKET_CLEARANCE,   normalizedChecks.market_clearance);
+  markCheck(Y_FIRE_SAFETY,        normalizedChecks.fire_safety_certificate);
+  markCheck(Y_RIVER_FLOATING,     normalizedChecks.river_floating_fish);
 
-  markCheck(rowYs[0], normalizedChecks.occupancy_permit);
-  markCheck(rowYs[1], normalizedChecks.zoning_clearance);
-  markCheck(rowYs[2], normalizedChecks.barangay_clearance);
-  markCheck(rowYs[3], normalizedChecks.sanitary_clearance);
-  markCheck(rowYs[4], normalizedChecks.environment_certificate);
-  markCheck(rowYs[5], normalizedChecks.market_clearance);
-  markCheck(rowYs[6], normalizedChecks.fire_safety_certificate);
-  markCheck(rowYs[7], normalizedChecks.river_floating_fish);
+  // ========== SAVE COMBINED PDF ==========
 
-  // ---------- Save combined PDF ----------
   const pdfBytes = await pdfDoc.save();
 
   const outDir = path.join(__dirname, "..", "uploads", "requirements");
@@ -1841,10 +2209,11 @@ async function createBusinessPermitFilledPdf(businessRow, checks = {}) {
   const absPath = path.join(outDir, fileName);
   fs.writeFileSync(absPath, pdfBytes);
 
-  // path stored in DB (served via express.static('/uploads'))
   const dbPath = `/uploads/requirements/${fileName}`;
   return dbPath;
 }
+
+
 
 exports.generateBusinessPermitForm = (req, res) => {
   if (!requireAuth(req, res)) return;
@@ -2025,3 +2394,125 @@ exports.generateBusinessPermitForm = (req, res) => {
   });
 };
 
+/* ---------- NEW ENDPOINTS (standalone; existing ones untouched) ---------- */
+
+// Save/Update assessment rows (you can call this from UI to persist)
+exports.saveBusinessPermitAssessment = (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  const { application_id, items = {} } = req.body || {};
+  const appId = Number(application_id);
+  if (!Number.isFinite(appId) || appId <= 0) {
+    return res.status(400).json({ success: false, message: "application_id must be a positive number." });
+  }
+
+  _bp_upsertAssessment(appId, items)
+    .then((saved) => res.json({ success: true, ...saved }))
+    .catch((e) => {
+      console.error("saveBusinessPermitAssessment error:", e);
+      res.status(500).json({ success: false, message: "Failed to save assessment." });
+    });
+};
+
+// Generate PDF WITH assessment (does not replace your existing generate)
+exports.generateBusinessPermitFormWithAssessment = (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  const { application_type, application_id, checks = {}, assessment = {} } = req.body || {};
+  const appType = String(application_type || "").toLowerCase();
+  const appId = Number(application_id);
+
+  const SUPPORTED = new Set(["business", "renewal_business", "special_sales"]);
+  if (!SUPPORTED.has(appType)) {
+    return res.status(400).json({ success: false, message: `Unsupported application_type: ${application_type}` });
+  }
+  if (!Number.isFinite(appId) || appId <= 0) {
+    return res.status(400).json({ success: false, message: "application_id must be a positive number." });
+  }
+
+  const sql = `SELECT * FROM business_permits WHERE BusinessP_id = ? LIMIT 1`;
+  db.query(sql, [appId], async (err, rows) => {
+    if (err) {
+      console.error("generateBusinessPermitFormWithAssessment: load err:", err);
+      return res.status(500).json({ success: false, message: "Server error loading application." });
+    }
+    if (!rows.length) return res.status(404).json({ success: false, message: "Business permit not found." });
+
+    const businessRow = rows[0];
+
+    try {
+      // persist assessment
+      await _bp_upsertAssessment(appId, assessment);
+
+      // build PDF with assessment
+      const pdfDbPath = await _bp_createPdf_WithAssessment(businessRow, checks, assessment);
+
+      // update business_permits.filled_up_forms so it appears in uploads list
+      await new Promise((resolve, reject) => {
+        const upd = `UPDATE business_permits SET filled_up_forms = ? WHERE BusinessP_id = ?`;
+        db.query(upd, [pdfDbPath, appId], (e) => (e ? reject(e) : resolve()));
+      });
+
+      // attach into tbl_application_requirements (same style as your other code)
+      const getAppUid = `
+        SELECT app_uid, user_id
+        FROM application_index
+        WHERE application_type = ? AND application_id = ?
+        LIMIT 1
+      `;
+      const { app_uid, user_id: applicantUserId } = await new Promise((resolve, reject) => {
+        db.query(getAppUid, [appType, appId], (idxErr, idxRows) => {
+          if (idxErr) return reject(idxErr);
+          if (!idxRows.length) return reject(new Error("Application not indexed."));
+          resolve(idxRows[0]);
+        });
+      });
+
+      const FILE_LABEL = "Business Permit LGU Form";
+      const dupeSql = `
+        SELECT requirement_id
+        FROM tbl_application_requirements
+        WHERE application_type = ? AND application_id = ? AND file_path = ?
+        LIMIT 1
+      `;
+      const existing = await new Promise((resolve, reject) => {
+        db.query(dupeSql, [appType, appId, FILE_LABEL], (dErr, dRows) => (dErr ? reject(dErr) : resolve(dRows[0])));
+      });
+
+      if (existing) {
+        const updReq = `
+          UPDATE tbl_application_requirements
+          SET pdf_path = ?, uploaded_at = NOW()
+          WHERE requirement_id = ?
+        `;
+        await new Promise((resolve, reject) => {
+          db.query(updReq, [pdfDbPath, existing.requirement_id], (uErr) => (uErr ? reject(uErr) : resolve()));
+        });
+      } else {
+        const insReq = `
+          INSERT INTO tbl_application_requirements
+            (app_uid, user_id, file_path, application_type, application_id, pdf_path, uploaded_at)
+          VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `;
+        await new Promise((resolve, reject) => {
+          db.query(
+            insReq,
+            [app_uid, applicantUserId, FILE_LABEL, appType, appId, pdfDbPath],
+            (iErr) => (iErr ? reject(iErr) : resolve())
+          );
+        });
+      }
+
+      const base = `${req.protocol}://${req.get("host")}`;
+      return res.json({
+        success: true,
+        message: "LGU form (with assessment) generated and attached.",
+        pdf_path: pdfDbPath,
+        file_url: `${base}${pdfDbPath}`,
+      });
+    } catch (e) {
+      console.error("generateBusinessPermitFormWithAssessment error:", e);
+      return res.status(500).json({ success: false, message: "Failed to generate LGU form with assessment." });
+    }
+  });
+};
