@@ -15,6 +15,10 @@ import {
   ExternalLink,
   Filter
 } from 'lucide-react';
+import FencingInlineForm from "../User/FencingInlineForm";
+import ElectricalInlineForm, { InlineModal } from "../User/ElectricalInlineForm";
+import ElectronicsInlineForm from "../User/ElectronicsInlineForm";
+import PlumbingInlineForms from "../User/PlumbingInlineForms";
 import { useNavigate } from 'react-router-dom';
 import Uheader from '../Header/User_header';
 import UFooter from '../Footer/User_Footer';
@@ -23,9 +27,20 @@ function DocumentStatusTracker() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [openElectricalForm, setOpenElectricalForm] = useState(false);
+  const [electricalContext, setElectricalContext] = useState(null); 
+  const [openElectronicsForm, setOpenElectronicsForm] = useState(false);
+  const [electronicsContext, setElectronicsContext] = useState(null);
+  const [openFencingForm, setOpenFencingForm] = useState(false);
+  const [fencingContext, setFencingContext] = useState(null);
   const [expandedCards, setExpandedCards] = useState({});
   const [viewFilter, setViewFilter] = useState('all'); // 'all' | 'applications' | 'payments'
   const navigate = useNavigate();
+  const [openPlumbingForm, setOpenPlumbingForm] = useState(false);
+  const [plumbingContext, setPlumbingContext] = useState(null);
+  const includesCI = (haystack, needle) =>
+  String(haystack || '').toLowerCase().includes(String(needle || '').toLowerCase());
+
 
   // ---------- NEW: requirements state + helpers ----------
   const [requirementsByApp, setRequirementsByApp] = useState({}); // { [application.id]: { loading, items } }
@@ -1282,20 +1297,127 @@ async function replaceUserRequirement(application, requirement_id, file) {
                                                 : ''}
                                             </div>
                                           </div>
-                                          <div className="col-span-3">
-                                            {item.template_url ? (
-                                              <a
-                                                href={item.template_url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-blue-600 hover:underline"
-                                              >
-                                                Download template
-                                              </a>
-                                            ) : (
-                                              <span className="text-gray-400">—</span>
-                                            )}
-                                          </div>
+                                          <div className="col-span-3 flex items-center gap-2">
+  {item.template_url ? (
+    <a
+      href={item.template_url}
+      target="_blank"
+      rel="noreferrer"
+      className="text-blue-600 hover:underline"
+    >
+      Download template
+    </a>
+  ) : (
+    <span className="text-gray-400">—</span>
+  )}
+
+  {/* Show inline fill button when this requirement is the Electrical Filled Form */}
+  {String(item.name).toLowerCase().includes("electrical permit filled form") && (
+    <button
+      type="button"
+      onClick={() => {
+        const appId = parseAppId(application.id);
+        setElectricalContext({
+          applicationId: appId,
+          requirementId: item.requirement_id,
+          templateUrl: item.template_url || null,
+        });
+        setOpenElectricalForm(true);
+      }}
+      className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+    >
+      Fill online
+    </button>
+  )}
+</div>
+ <div className="col-span-3 flex items-center gap-2">
+   {item.template_url ? (
+     <a
+       href={item.template_url}
+       target="_blank"
+       rel="noreferrer"
+       className="text-blue-600 hover:underline"
+     >
+       Download template
+     </a>
+   ) : (
+     <span className="text-gray-400">—</span>
+   )}
+   {/* Electrical: open inline form */}
+   {includesCI(item.name, "Electrical Permit Filled Form") && (
+     <button
+       type="button"
+       onClick={() => {
+         const appId = parseAppId(application.id);
+         setElectricalContext({
+           applicationId: appId,
+           requirementId: item.requirement_id,
+          templateUrl: item.template_url || null,
+        });
+         setOpenElectricalForm(true);
+       }}
+      className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+     >
+       Fill online
+     </button>
+  )}
+
+  {/* Electronics: open inline form */}
+   {includesCI(item.name, "Electronics Permit Filled Form") && (
+     <button
+      type="button"
+       onClick={() => {
+        const appId = parseAppId(application.id);
+       setElectronicsContext({
+         applicationId: appId,
+          requirementId: item.requirement_id,
+          templateUrl: item.template_url || null,
+        });
+        setOpenElectronicsForm(true);
+       }}
+      className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+    >
+      Fill online
+    </button>
+   )}
+    {includesCI(item.name, "Fencing Permit Filled Form") && (
+    <button
+      type="button"
+      onClick={() => {
+        const appId = parseAppId(application.id);
+        setFencingContext({
+          applicationId: appId,
+          requirementId: item.requirement_id,
+          templateUrl: item.template_url || null,
+        });
+        setOpenFencingForm(true);
+      }}
+      className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+    >
+      Fill online
+    </button>
+  )}
+  {includesCI(item.name, "Plumbing Permit Filled Form") && (
+  <button
+    type="button"
+    onClick={() => {
+      const appId = parseAppId(application.id);
+      setPlumbingContext({
+        applicationId: appId,
+        requirementId: item.requirement_id,
+        templateUrl: item.template_url || null,
+      });
+      setOpenPlumbingForm(true);
+    }}
+    className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+  >
+    Fill online
+  </button>
+)}
+
+</div>
+
+
                                           <div className="col-span-4">
   {item.user_file_url ? (
     <div className="flex flex-col gap-1">
@@ -1534,6 +1656,60 @@ async function replaceUserRequirement(application, requirement_id, file) {
             </div>
           ))}
         </div>
+        {openElectricalForm && electricalContext && (
+  <ElectricalInlineForm
+    applicationId={electricalContext.applicationId}
+    requirementId={electricalContext.requirementId}
+    templateUrl={electricalContext.templateUrl}
+    onClose={() => setOpenElectricalForm(false)}
+    onSubmitted={() => {
+      // refresh requirements for that card so the uploaded/attached PDF appears
+      const app = applications.find(a => parseAppId(a.id) === electricalContext.applicationId && a.type === "Electrical Permit");
+      if (app) loadRequirementsForApplication(app);
+    }}
+  />
+)}
+{openElectronicsForm && electronicsContext && (
+   <ElectronicsInlineForm
+     applicationId={electronicsContext.applicationId}
+     requirementId={electronicsContext.requirementId}
+     templateUrl={electronicsContext.templateUrl}
+     onClose={() => setOpenElectronicsForm(false)}
+     onSubmitted={() => {
+       const app = applications.find(
+         a => parseAppId(a.id) === electronicsContext.applicationId && a.type === "Electronics Permit"
+       );
+       if (app) loadRequirementsForApplication(app);
+     }}
+   />
+ )}
+ {openFencingForm && fencingContext && (
+  <FencingInlineForm
+    applicationId={fencingContext.applicationId}
+    requirementId={fencingContext.requirementId}
+    templateUrl={fencingContext.templateUrl}
+    onClose={() => setOpenFencingForm(false)}
+    onSubmitted={() => {
+      const app = applications.find(
+        a => parseAppId(a.id) === fencingContext.applicationId && a.type === "Fencing Permit"
+      );
+      if (app) loadRequirementsForApplication(app);
+    }}
+  />
+)}
+{openPlumbingForm && plumbingContext && (
+  <PlumbingInlineForms
+    applicationId={plumbingContext.applicationId}
+    onClose={() => setOpenPlumbingForm(false)}
+    onSubmitted={() => {
+      const app = applications.find(
+        a => parseAppId(a.id) === plumbingContext.applicationId && a.type === "Plumbing Permit"
+      );
+      if (app) loadRequirementsForApplication(app);
+    }}
+  />
+)}
+
       </div>
       <UFooter />
     </div>

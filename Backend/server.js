@@ -1,64 +1,89 @@
+// server.js
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
-const db = require('./db/dbconnect');
 const fileUpload = require('express-fileupload');
-require('dotenv').config();
-
 const path = require('path');
+const http = require('http');
+
+const db = require('./db/dbconnect');
+
 const app = express();
+
+/* ===================== TRUST PROXY (for cookies behind localhost proxies) ===================== */
+app.set('trust proxy', 1);
 
 /* ===================== STATIC UPLOADS ===================== */
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-/* ===================== FILE UPLOAD ===================== */
-app.use(fileUpload());
+/* ===================== JSON / URLENCODED (BIG LIMITS FIRST!) ===================== */
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-/* ===================== CORS ===================== */
+/* ===================== FILE UPLOAD (only affects multipart/form-data) ===================== */
+app.use(
+  fileUpload({
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    abortOnLimit: false,
+    useTempFiles: false,
+  })
+);
+
+/* ===================== CORS (allow your actual frontend) ===================== */
+const FRONTENDS = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
 app.use(
   cors({
-    origin: 'http://localhost:3000', // or Vite: 'http://localhost:5173'
+    origin: (origin, cb) => cb(null, !origin || FRONTENDS.includes(origin)),
     credentials: true,
   })
 );
 
-/* ===================== JSON PARSER ===================== */
-app.use(express.json());
-
 /* ===================== SESSION STORE (MySQL) ===================== */
 const MySQLStore = require('express-mysql-session')(session);
-
-// Use env vars or hardcode if needed
 const sessionStore = new MySQLStore({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'municipal_db', // change this
+  database: process.env.DB_NAME || 'municipal_db',
 });
-
 sessionStore.on('error', (err) => {
   console.error('Session store error:', err);
 });
 
-/* ===================== SESSION MIDDLEWARE ===================== */
 app.use(
   session({
+    name: 'sid',
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     store: sessionStore,
     cookie: {
-      secure: false, // true only if you're on HTTPS
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      secure: false,          // set true only if HTTPS
       httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
     },
   })
 );
 
-/* ===================== DEBUG ROUTES ===================== */
+/* ===================== DEBUG / HEALTH ===================== */
+app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
+
+// quick way to test body size/transport without hitting your PDF code
+app.post('/api/debug/echo', (req, res) => {
+  const raw = JSON.stringify(req.body || {});
+  res.json({ ok: true, size: raw.length, keys: Object.keys(req.body || {}) });
+});
+
 app.get('/api/debug-session', (req, res) => {
-  console.log('Session debug:', req.session);
   res.json({
     sessionExists: !!req.session,
     userExists: !!req.session.user,
@@ -76,7 +101,7 @@ app.get('/api/check-session', (req, res) => {
 app.post('/api/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ message: 'Failed to logout' });
-    res.clearCookie('connect.sid');
+    res.clearCookie('sid');
     return res.status(200).json({ message: 'Logged out successfully' });
   });
 });
@@ -105,8 +130,11 @@ const usernavRoutes = require('./routes/usernavRoutes');
 const smsRoutes = require('./routes/smsRoutes');
 const admindocupriceRoutes = require('./routes/admindocupriceRoutes');
 const admindashRoutes = require('./routes/admindashRoutes');
+const userdashRoutes = require('./routes/userdashRoutes');
+const fencingfillRoutes = require('./routes/PDF_fencingfillRoutes')
+const plumbingfillRoutes = require('./routes/PDF_fillplumbingRoutes');
 
-/* ===================== USE ROUTES ===================== */
+/* ===================== USE ROUTES (mounted under /api) ===================== */
 app.use('/api/auth', authRoutes);
 app.use('/api', businessPermitRoutes, cedulaRoutes);
 app.use('/api', employeeRoutes);
@@ -115,38 +143,50 @@ app.use('/api', electricalPermitRoutes);
 app.use('/api', applicationRequirementsRoutes);
 app.use('/api', userProfileRoutes);
 
-/* ===================== PAYMENT ROUTES ===================== */
 app.use('/api/payments', paymentRoutes);
 app.use('/api', paymentverification);
 
-/* ===================== FORMS AUTOFILL ROUTES ===================== */
 app.use('/api', formsfillController);
 
-/* ===================== PERMIT ROUTES ===================== */
 app.use('/api', buildingpermit);
 app.use('/api', plumbingpermit);
 app.use('/api', fencingpermit);
 app.use('/api', electronicpermit);
 
-/* ===================== TRACKING / DASHBOARD ROUTES ===================== */
 app.use('/api', fourpermits);
 app.use('/api', employeedash);
 
-/* ===================== DOCUMENT STORAGE ROUTES ===================== */
 app.use('/api/document-storage', documentstorage);
 
-/* ===================== SIDEBAR / NAV ROUTES ===================== */
 app.use('/api', employeesidebarRoutes);
 app.use('/api', usernavRoutes);
 
-/* ===================== SMS ROUTES ===================== */
 app.use('/api/sms', smsRoutes);
 
-/* ===================== ADMIN ROUTES ===================== */
 app.use('/api/document-prices', admindocupriceRoutes);
 app.use('/api/admin-dashboard', admindashRoutes);
+app.use('/api', userdashRoutes);
+app.use('/api', fencingfillRoutes);
+app.use('/api', plumbingfillRoutes);
 
-/* ===================== START SERVER ===================== */
-app.listen(8081, () => {
-  console.log('Server running on port 8081');
+
+/* ===================== CENTRAL ERROR HANDLER (prevents hard resets) ===================== */
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ success: false, message: 'Server error.' });
+});
+
+/* ===================== START HTTP SERVER WITH LONGER TIMEOUTS ===================== */
+const PORT = process.env.PORT || 8081;
+const server = http.createServer(app);
+
+// Give large JSON uploads + PDF generation enough time
+server.headersTimeout = 120_000;   // 120s
+server.requestTimeout = 120_000;   // 120s
+server.keepAliveTimeout = 75_000;  // 75s
+process.on("uncaughtException", (e) => console.error("UNCAUGHT:", e));
+process.on("unhandledRejection", (e) => console.error("UNHANDLED REJECTION:", e));
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

@@ -79,7 +79,6 @@ function AttachedRequirementsPanel({ selectedApplication }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
-
   const [attachOpen, setAttachOpen] = useState(false);
 
   const applicationType = useMemo(
@@ -91,13 +90,29 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     [selectedApplication]
   );
 
+  // ---------- helpers ----------
+  const safeOrigin =
+    (typeof window !== "undefined" && window.location && window.location.origin) ||
+    "http://localhost:8081";
+
+  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
+
+  // turn "uploads/..." or "/uploads/..." into absolute http url
+  const toAbsoluteURL = (maybeUrlOrPath) => {
+    if (!maybeUrlOrPath) return null;
+    const s = String(maybeUrlOrPath).trim();
+    if (!s) return null;
+    if (/^https?:\/\//i.test(s)) return s; // already absolute
+    const path = s.startsWith("/") ? s : `/${s}`;
+    return `${baseURL}${path}`;
+  };
+
   // comments
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [commentFilter, setCommentFilter] = useState("all");
 
-  // Only used for business permits
   const isBusinessApp =
     applicationType === "business" ||
     applicationType === "renewal_business" ||
@@ -121,43 +136,35 @@ function AttachedRequirementsPanel({ selectedApplication }) {
   const [checks, setChecks] = useState(() =>
     Object.fromEntries(LGU_ROWS.map(([k]) => [k, "not_needed"]))
   );
-
   const updateCheck = (key, value) =>
     setChecks((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }));
 
   const [generating, setGenerating] = useState(false);
 
-  // =========================
-  // NEW: Assessment state/UI
-  // =========================
+  // --------- Assessment (Business only) ---------
   const ASSESS_ROWS = [
-    { code: "gross_sales_tax",              label: "Gross Sales Tax" },
-    { code: "delivery_vans_trucks_tax",     label: "Tax on Delivery Vans/Trucks" },
-    { code: "combustible_storage_tax",      label: "Tax on Storage for Combustible/Flammable or Explosive Substances" },
-    { code: "signboard_billboards_tax",     label: "Tax on Signboard/Billboards" },
-
-    { code: "mayors_permit_fee",            label: "Mayor’s Permit Fee" },
-    { code: "garbage_charges",              label: "Garbage Charges" },
-    { code: "trucks_vans_permit_fee",       label: "Delivery Trucks/Vans Permit Fee" },
-    { code: "sanitary_inspection_fee",      label: "Sanitary Inspection Fee" },
-    { code: "building_inspection_fee",      label: "Building Inspection Fee" },
-    { code: "electrical_inspection_fee",    label: "Electrical Inspection Fee" },
-    { code: "mechanical_inspection_fee",    label: "Mechanical Inspection Fee" },
-    { code: "plumbing_inspection_fee",      label: "Plumbing Inspection Fee" },
-    { code: "signboard_renewal_fee",        label: "Signboard/Billboard Renewal Fee" },
+    { code: "gross_sales_tax", label: "Gross Sales Tax" },
+    { code: "delivery_vans_trucks_tax", label: "Tax on Delivery Vans/Trucks" },
+    { code: "combustible_storage_tax", label: "Tax on Storage for Combustible/Flammable or Explosive Substances" },
+    { code: "signboard_billboards_tax", label: "Tax on Signboard/Billboards" },
+    { code: "mayors_permit_fee", label: "Mayor’s Permit Fee" },
+    { code: "garbage_charges", label: "Garbage Charges" },
+    { code: "trucks_vans_permit_fee", label: "Delivery Trucks/Vans Permit Fee" },
+    { code: "sanitary_inspection_fee", label: "Sanitary Inspection Fee" },
+    { code: "building_inspection_fee", label: "Building Inspection Fee" },
+    { code: "electrical_inspection_fee", label: "Electrical Inspection Fee" },
+    { code: "mechanical_inspection_fee", label: "Mechanical Inspection Fee" },
+    { code: "plumbing_inspection_fee", label: "Plumbing Inspection Fee" },
+    { code: "signboard_renewal_fee", label: "Signboard/Billboard Renewal Fee" },
     { code: "combustible_sale_storage_fee", label: "Storage & Sale of Combustible/Flammable or Explosive Substance" },
-    { code: "others_fee",                   label: "Others" },
+    { code: "others_fee", label: "Others" },
   ];
-
   const sanitizeNum = (v) => String(v || "").replace(/[^\d.]/g, "");
-
   const [assessment, setAssessment] = useState(() =>
-    Object.fromEntries(ASSESS_ROWS.map(r => [r.code, { amount: "", penalty: "" }]))
+    Object.fromEntries(ASSESS_ROWS.map((r) => [r.code, { amount: "", penalty: "" }]))
   );
-
   const setAssessCell = (code, field, val) =>
-    setAssessment(prev => ({ ...prev, [code]: { ...prev[code], [field]: sanitizeNum(val) } }));
-
+    setAssessment((prev) => ({ ...prev, [code]: { ...prev[code], [field]: sanitizeNum(val) } }));
   const computedAssessment = useMemo(() => {
     let lgu = 0;
     const rows = {};
@@ -175,7 +182,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
   const handleSaveAssessment = async () => {
     if (!applicationId) return;
     await axios.post(
-      `${API_BASE_URL}/api/business-permit/assessment/save`,
+      `${baseURL}/api/business-permit/assessment/save`,
       { application_id: applicationId, items: computedAssessment.rows },
       { withCredentials: true }
     );
@@ -188,11 +195,9 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     if (!ok) return;
     try {
       setGenerating(true);
-      // save first to keep DB in sync
       await handleSaveAssessment();
-      // then generate with assessment
       const { data } = await axios.post(
-        `${API_BASE_URL}/api/business-permit/generate-form-with-assessment`,
+        `${baseURL}/api/business-permit/generate-form-with-assessment`,
         {
           application_type: applicationType,
           application_id: applicationId,
@@ -209,53 +214,228 @@ function AttachedRequirementsPanel({ selectedApplication }) {
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to generate with Assessment.");
+      alert(e?.response?.data?.message || e?.message || "Failed to generate with Assessment.");
     } finally {
       setGenerating(false);
     }
   };
-  // =========================
-  // /NEW: Assessment section
-  // =========================
+
+  // --------- Electrical: generator (NO new URL()) ---------
+// --------- Electrical: generator (no auto-open) ---------
+const handleGenerateElectricalForm = async () => {
+  if (!applicationId) return;
+  const ok = window.confirm(
+    "Generate the Electrical Permit form and attach it to this application?"
+  );
+  if (!ok) return;
+
+  const safeOrigin =
+    (typeof window !== "undefined" &&
+      window.location &&
+      window.location.origin) ||
+    "http://localhost:8081";
+  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
+
+  try {
+    setGenerating(true);
+    const { data } = await axios.post(
+      `${baseURL}/api/electrical-permit/generate-form`,
+      { application_id: applicationId },
+      { withCredentials: true }
+    );
+
+    if (data?.success) {
+      // ✅ Do NOT open a new tab.
+      // Just refresh the attachments list like Business flow.
+      setRefreshTick((n) => n + 1);
+      // (Optional) toast/alert for feedback; remove if you don't want it.
+      alert("Electrical form generated and attached.");
+    } else {
+      throw new Error(data?.message || "Generation failed.");
+    }
+  } catch (e) {
+    console.error("Electrical generate error:", e);
+    alert(
+      e?.response?.data?.message ||
+        e?.message ||
+        "Failed to generate Electrical form."
+    );
+  } finally {
+    setGenerating(false);
+  }
+};
+// --------- Electronics: generator (no auto-open) ---------
+const handleGenerateElectronicsForm = async () => {
+  if (!applicationId) return;
+  const ok = window.confirm(
+    "Generate the Electronics Permit form and attach it to this application?"
+  );
+  if (!ok) return;
+
+  const safeOrigin =
+    (typeof window !== "undefined" &&
+      window.location &&
+      window.location.origin) ||
+    "http://localhost:8081";
+  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
+
+  try {
+    setGenerating(true);
+    const { data } = await axios.post(
+      `${baseURL}/api/electronics-permit/generate-form`,
+      { application_id: applicationId },
+      { withCredentials: true }
+    );
+
+    if (data?.success) {
+      alert("Electronics form generated and attached.");
+      setRefreshTick((n) => n + 1);
+    } else {
+      throw new Error(data?.message || "Generation failed.");
+    }
+  } catch (e) {
+    console.error("Electronics generate error:", e);
+    alert(
+      e?.response?.data?.message ||
+        e?.message ||
+        "Failed to generate Electronics form."
+    );
+  } finally {
+    setGenerating(false);
+  }
+};
+const handleGenerateFencingForm = async () => {
+  if (!applicationId) return;
+  const ok = window.confirm(
+    "Generate the Fencing Permit form and attach it to this application?"
+  );
+  if (!ok) return;
+
+  const safeOrigin =
+    (typeof window !== "undefined" && window.location && window.location.origin) ||
+    "http://localhost:8081";
+  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
+
+  try {
+    setGenerating(true);
+    const { data } = await axios.post(
+      `${baseURL}/api/fencing-permit/generate-form`,
+      { application_id: applicationId },
+      { withCredentials: true }
+    );
+
+    if (data?.success) {
+      alert("Fencing form generated and attached.");
+      setRefreshTick((n) => n + 1);
+    } else {
+      throw new Error(data?.message || "Generation failed.");
+    }
+  } catch (e) {
+    console.error("Fencing generate error:", e);
+    alert(
+      e?.response?.data?.message ||
+        e?.message ||
+        "Failed to generate Fencing form."
+    );
+  } finally {
+    setGenerating(false);
+  }
+};
+// below other generate handlers:
+const handleGeneratePlumbingForm = async () => {
+  if (!applicationId) return;
+  const ok = window.confirm(
+    "Generate the Plumbing Permit form and attach it to this application?"
+  );
+  if (!ok) return;
+
+  const safeOrigin =
+    (typeof window !== "undefined" && window.location && window.location.origin) ||
+    "http://localhost:8081";
+  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
+
+  try {
+    setGenerating(true);
+    const { data } = await axios.post(
+      `${baseURL}/api/plumbing-permit/generate-form`,
+      { application_id: applicationId },
+      { withCredentials: true }
+    );
+
+    if (data?.success) {
+      alert("Plumbing form generated and attached.");
+      setRefreshTick((n) => n + 1);
+    } else {
+      throw new Error(data?.message || "Generation failed.");
+    }
+  } catch (e) {
+    console.error("Plumbing generate error:", e);
+    alert(
+      e?.response?.data?.message ||
+        e?.message ||
+        "Failed to generate Plumbing form."
+    );
+  } finally {
+    setGenerating(false);
+  }
+};
 
   // reset checks & assessment whenever app changes
   useEffect(() => {
     setChecks(Object.fromEntries(LGU_ROWS.map(([k]) => [k, "not_needed"])));
-    setAssessment(Object.fromEntries(ASSESS_ROWS.map(r => [r.code, { amount: "", penalty: "" }])));
+    setAssessment(Object.fromEntries(ASSESS_ROWS.map((r) => [r.code, { amount: "", penalty: "" }])));
   }, [applicationType, applicationId]);
 
   useEffect(() => {
-    let mounted = true;
+  let mounted = true;
+  async function load() {
+    if (!applicationType || !applicationId) return;
+    setLoading(true);
+    try {
+      const r = await axios.get(`${baseURL}/api/attached-requirements`, {
+        withCredentials: true,
+        params: { application_type: applicationType, application_id: applicationId },
+      });
+      const c = await axios.get(`${baseURL}/api/application-comments`, {
+        withCredentials: true,
+        params: { application_type: applicationType, application_id: applicationId },
+      });
+      if (!mounted) return;
 
-    async function load() {
-      if (!applicationType || !applicationId) return;
-      setLoading(true);
-      try {
-        const r = await axios.get(`${API_BASE_URL}/api/attached-requirements`, {
-          withCredentials: true,
-          params: { application_type: applicationType, application_id: applicationId },
+      // ✅ Normalize variants so UI can always render links
+      const normalizeItems = (arr = []) =>
+        arr.map((it) => {
+          const fileUrl =
+            it.file_url ||
+            it.system_file_url ||
+            it.pdf_path ||
+            it.filepath ||
+            it.file_path ||
+            null;
+
+          const userUrl =
+            it.user_file_url ||
+            it.user_pdf_path ||
+            it.user_filepath ||
+            it.user_file_path ||
+            null;
+
+          return { ...it, file_url: fileUrl, user_file_url: userUrl };
         });
 
-        const c = await axios.get(`${API_BASE_URL}/api/application-comments`, {
-          withCredentials: true,
-          params: { application_type: applicationType, application_id: applicationId },
-        });
-
-        if (!mounted) return;
-        setItems(r.data?.items || []);
-        setComments(c.data?.items || []);
-      } catch (e) {
-        console.error("Load attachments/comments failed:", e);
-      } finally {
-        mounted && setLoading(false);
-      }
+      setItems(normalizeItems(r.data?.items || []));
+      setComments(c.data?.items || []);
+    } catch (e) {
+      console.error("Load attachments/comments failed:", e);
+    } finally {
+      mounted && setLoading(false);
     }
-
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [applicationType, applicationId, refreshTick]);
+  }
+  load();
+  return () => {
+    mounted = false;
+  };
+}, [applicationType, applicationId, refreshTick, baseURL]);
 
   const hasItems = items?.length > 0;
 
@@ -275,7 +455,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     if (!window.confirm("Remove this attached requirement from the application?")) return;
     try {
       await axios.post(
-        `${API_BASE_URL}/api/attached-requirements/remove`,
+        `${baseURL}/api/attached-requirements/remove`,
         { requirement_id: requirementId },
         { withCredentials: true }
       );
@@ -298,7 +478,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     try {
       setGenerating(true);
       const res = await axios.post(
-        `${API_BASE_URL}/api/business-permit/generate-form`,
+        `${baseURL}/api/business-permit/generate-form`,
         { application_type: applicationType, application_id: applicationId, checks },
         { withCredentials: true }
       );
@@ -324,7 +504,6 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     return (
       <tr>
         <td className="px-2 py-1 border align-top">{label}</td>
-
         {["yes", "no", "not_needed"].map((option) => (
           <td key={option} className="px-2 py-1 border text-center">
             <label
@@ -347,10 +526,9 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     );
   };
 
-  // isolation stops any invisible overlay from another panel capturing clicks
+  // ------------------- UI -------------------
   return (
     <div className="space-y-5" key={`arp-${applicationId}`} style={{ isolation: "isolate" }}>
-      {/* Attached Requirements (User + System) */}
       <div className="bg-white border rounded-md p-4">
         <div className="flex items-center justify-between">
           <h4 className="text-md font-semibold text-gray-700 flex items-center">
@@ -367,6 +545,45 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                 {generating ? "Generating..." : "Generate Applicant Requirements"}
               </button>
             )}
+
+            {applicationType === "electrical" && (
+              <button
+                onClick={handleGenerateElectricalForm}
+                disabled={generating}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+              >
+                {generating ? "Generating..." : "Electrical: Generate Filled Form"}
+              </button>
+            )}
+{applicationType === "electronics" && (
+  <button
+    onClick={handleGenerateElectronicsForm}
+    disabled={generating}
+    className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+  >
+    {generating ? "Generating..." : "Electronics: Generate Filled Form"}
+  </button>
+)}
+{applicationType === "fencing" && (
+  <button
+    onClick={handleGenerateFencingForm}
+    disabled={generating}
+    className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+  >
+    {generating ? "Generating..." : "Fencing: Generate Filled Form"}
+  </button>
+)}
+{applicationType === "plumbing" && (
+  <button
+    onClick={handleGeneratePlumbingForm}
+    disabled={generating}
+    className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+  >
+    {generating ? "Generating..." : "Plumbing: Generate Filled Form"}
+  </button>
+)}
+
+
             <button
               onClick={() => setAttachOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-2 px-3 rounded"
@@ -406,7 +623,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                 <div className="flex flex-wrap gap-2 items-center">
                   {it.file_url && (
                     <a
-                      href={it.file_url}
+                      href={toAbsoluteURL(it.file_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:underline text-xs md:text-sm"
@@ -416,7 +633,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                   )}
                   {it.user_file_url && (
                     <a
-                      href={it.user_file_url}
+                      href={toAbsoluteURL(it.user_file_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-green-600 hover:underline text-xs md:text-sm"
@@ -443,7 +660,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
           <p className="text-sm text-gray-500 mt-3">No requirements attached yet.</p>
         )}
 
-        {/* LGU verification mini-form for Business permits */}
+        {/* Business-only: LGU verification + Assessment */}
         {isBusinessApp && (
           <div className="mt-5 border-t pt-4">
             <h5 className="text-sm font-semibold text-gray-700 mb-2">
@@ -472,13 +689,8 @@ function AttachedRequirementsPanel({ selectedApplication }) {
               </table>
             </div>
 
-            {/* =========================
-                NEW: Assessment panel
-                ========================= */}
             <div className="bg-white border rounded-md p-4 mt-5">
-              <h5 className="text-sm font-semibold text-gray-700 mb-3">
-                Assessment of Applicable Fees
-              </h5>
+              <h5 className="text-sm font-semibold text-gray-700 mb-3">Assessment of Applicable Fees</h5>
 
               <div className="grid grid-cols-[1fr_140px_160px_160px] gap-2 text-sm">
                 <div className="text-gray-500">Description</div>
@@ -511,15 +723,12 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                   </React.Fragment>
                 ))}
 
-                {/* Totals */}
                 <div className="py-2 font-semibold text-right col-span-3">TOTAL FEES for LGU</div>
                 <div className="py-2 font-semibold">
                   {computedAssessment.totalFeesLgu.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
 
-                <div className="py-2 font-semibold text-right col-span-3">
-                  FIRE SAFETY INSPECTION FEE (15%)
-                </div>
+                <div className="py-2 font-semibold text-right col-span-3">FIRE SAFETY INSPECTION FEE (15%)</div>
                 <div className="py-2 font-semibold">
                   {computedAssessment.fsif15.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
@@ -543,17 +752,15 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                 </button>
               </div>
             </div>
-            {/* /Assessment panel */}
           </div>
         )}
       </div>
 
-      {/* Comments */}
+      {/* Comments (unchanged) */}
       <div className="bg-white border rounded-md p-4">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-md font-semibold text-gray-700">Comments</h4>
-
-        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
             <span className="text-xs text-gray-500">Filter:</span>
             <select
               value={commentFilter}
@@ -609,11 +816,9 @@ function AttachedRequirementsPanel({ selectedApplication }) {
                 try {
                   setCommentSubmitting(true);
                   const rawStatus =
-                    selectedApplication.application_status ??
-                    selectedApplication.status ??
-                    "";
+                    selectedApplication.application_status ?? selectedApplication.status ?? "";
                   await axios.post(
-                    `${API_BASE_URL}/api/application-comments`,
+                    `${baseURL}/api/application-comments`,
                     {
                       application_type: applicationType,
                       application_id: applicationId,
@@ -649,6 +854,8 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     </div>
   );
 }
+
+
 
 
 

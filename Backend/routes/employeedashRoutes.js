@@ -3,6 +3,9 @@ const express = require('express');
 const router = express.Router();
 const isAuthenticated = require('../middleware/sessionAuth');
 const C = require('../Controller/employeedashController');
+const PDF_fillelectricalController = require("../Controller/PDF_fillelectricalController");
+const PDF_fillelectronicsController = require("../Controller/PDF_fillelectronicsController");
+const PDF_fillefencingController = require("../Controller/PDF_fillefencingController"); // ← add this
 
 /* ===================== LISTS ===================== */
 router.get('/plumbing-applications', isAuthenticated, C.getAllPlumbingPermitsForEmployee);
@@ -72,9 +75,45 @@ router.get('/user/comments', isAuthenticated, C.getUserComments);
 router.post('/business-permit/assessment/save', isAuthenticated, C.saveBusinessPermitAssessment);
 router.post('/business-permit/generate-form-with-assessment', isAuthenticated, C.generateBusinessPermitFormWithAssessment);
 
+
+// routes/employeedashRoutes.js
+router.post(
+  "/electrical-permit/generate-form",
+  isAuthenticated, // optional but recommended
+  PDF_fillelectricalController.generateFilledElectrical
+);
+router.post(
+  "/attached-requirements/remove",
+  isAuthenticated,
+  PDF_fillelectricalController.removeAttachedRequirement
+);
+
 router.post(
   '/business-permit/generate-form',
   isAuthenticated,
   C.generateBusinessPermitForm
+);
+router.post(
+  "/electronics-permit/generate-form",
+  isAuthenticated,
+  PDF_fillelectronicsController.generateFilledElectronics
+);
+router.post(
+  "/electronics/attached-requirements/remove",
+  isAuthenticated,
+  PDF_fillelectronicsController.removeAttachedRequirement
+);
+// FENCING: generate filled form and attach
+router.post(
+  "/fencing-permit/generate-form",
+  isAuthenticated,
+  PDF_fillefencingController.generateFilledFencing
+);
+
+// FENCING: remove an attached requirement (system/generated)
+router.post(
+  "/fencing/attached-requirements/remove",
+  isAuthenticated,
+  PDF_fillefencingController.removeAttachedRequirement
 );
 module.exports = router;
