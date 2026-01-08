@@ -1,7 +1,5 @@
 // src/modals/ModalContents.jsx
-// src/modals/ModalContents.jsx
-import React, { useEffect, useMemo, useState, useId, memo } from "react";
-
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import AttachRequirementFromLibraryModal from "./AttachRequirementFromLibraryModal";
 import { FileText } from "lucide-react";
@@ -25,15 +23,16 @@ function typeToApiSlug(typeLabel = "") {
 }
 
 function appIdFromSelected(selectedApplication) {
-  return (
-    selectedApplication?.id ||
-    selectedApplication?.cedula_id ||
-    selectedApplication?.BusinessP_id ||
-    selectedApplication?.application_id ||
-    selectedApplication?.applicationId ||
+  return (  
+    selectedApplication?.cedula_id ??
+    selectedApplication?.BusinessP_id ??
+    selectedApplication?.application_id ??
+    selectedApplication?.applicationId ??
+    selectedApplication?.id ??
     null
   );
 }
+
 
 // Pretty label for status strings like "in-review" → "In Review"
 function niceStatusLabel(raw = "") {
@@ -43,36 +42,6 @@ function niceStatusLabel(raw = "") {
     .replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
-/* ───────────────────── radio-row (safe grouping) ───────────────────── */
-const RadioRow = function RadioRow({ appId, fieldKey, label, value, onChange }) {
-  // stable group name so only 1 of the 3 can be selected in this row
-  const groupName = `lgu-${appId ?? "app"}-${fieldKey}`;
-
-  return (
-    <tr>
-      <td className="px-2 py-1 border align-top">{label}</td>
-
-      {["yes", "no", "not_needed"].map((option) => (
-        <td key={option} className="px-2 py-1 border text-center">
-          <label className="flex items-center justify-center w-full h-full cursor-pointer select-none">
-            <input
-              type="radio"
-              name={groupName}
-              value={option}
-              checked={value === option}
-              onChange={() => onChange(fieldKey, option)}
-              className="cursor-pointer"
-            />
-          </label>
-        </td>
-      ))}
-    </tr>
-  );
-};
-
-
-/* ------------------ shared panel: attached requirements ------------------ */
-
 /* ------------------ shared panel: attached requirements ------------------ */
 
 function AttachedRequirementsPanel({ selectedApplication }) {
@@ -80,6 +49,26 @@ function AttachedRequirementsPanel({ selectedApplication }) {
   const [loading, setLoading] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
   const [attachOpen, setAttachOpen] = useState(false);
+    const [openMayors, setOpenMayors] = useState(false);
+    const [openCedulaFinal, setOpenCedulaFinal] = useState(false);
+  const rawStatus =
+    (selectedApplication?.application_status ??
+      selectedApplication?.status ??
+      ""
+    )
+      .toString()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+
+  const isApproved = ["approved", "ready-for-pickup", "released"].includes(
+    rawStatus
+  );
+
+  // Optional default “Kind of Business” from record if you store it
+  const defaultKindOfBiz =
+    selectedApplication?.primary_business_line ||
+    selectedApplication?.line_of_business ||
+    "";
 
   const applicationType = useMemo(
     () => typeToApiSlug(selectedApplication?.type),
@@ -92,7 +81,9 @@ function AttachedRequirementsPanel({ selectedApplication }) {
 
   // ---------- helpers ----------
   const safeOrigin =
-    (typeof window !== "undefined" && window.location && window.location.origin) ||
+    (typeof window !== "undefined" &&
+      window.location &&
+      window.location.origin) ||
     "http://localhost:8081";
 
   const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
@@ -118,7 +109,44 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     applicationType === "renewal_business" ||
     applicationType === "special_sales";
 
-  // LGU verification rows
+      const isBuildingApp = applicationType === "building";
+
+  const BUILDING_DOC_ROWS = [
+    ["unified_form", "Five (5) copies of filled up Unified Form for Building Permit and FSEC"],
+    ["locational_clearance", "Filled up Application Form for Locational Clearance"],
+    ["rpt_and_taxdec", "Current Real Property Tax Receipt & Tax Declaration (5 Copies)"],
+    ["oct_tct_deed", "OCT / TCT / Deed of Sale / Contract of Sale / Contract of Lease (5 Copies)"],
+    ["lot_vicinity_map", "Lot Plan / Vicinity Map (5 Copies)"],
+    ["survey_plan", "Five (5) Sets of Survey Plan, Design Plans and Documents such as:"],
+    ["arch", "Architectural"],
+    ["specs", "Specifications (5 Copies)"],
+    ["civil_structural", "Civil / Structural"],
+    ["voltage_drop", "Voltage Drop (5 Copies)"],
+    ["electrical", "Electrical"],
+    ["mechanical", "Mechanical"],
+    ["sanitary", "Sanitary"],
+    ["plumbing", "Plumbing"],
+    ["electronics", "Electronics"],
+    ["geodetic", "Geodetic"],
+    ["fire_protection_plan", "Fire Protection Plan (if applicable)"],
+    ["prc_license", "Four (4) photocopies of Valid License (PRC ID) of Signing Professionals"],
+    ["estimated_value", "Notarized Estimated Value of the Building/Structure (5 Copies)"],
+    ["csafety_program", "Construction Safety and Health Program (if applicable)"],
+    ["affidavit", "Affidavit of Undertaking"],
+    ["soil_test", "Soil Test (for 3-storey and above) (5 Copies)"],
+    ["structural_analysis", "Structural Analysis (for 2-storey and above) (5 Copies)"],
+    ["ctc_owner", "CTC of Owner (5 Copies)"],
+  ];
+
+  const [buildingChecks, setBuildingChecks] = useState(() =>
+    Object.fromEntries(BUILDING_DOC_ROWS.map(([k]) => [k, false]))
+  );
+  const [buildingRemarks, setBuildingRemarks] = useState("complete"); // "complete" or "incomplete"
+
+  const toggleBuildingDoc = (key) =>
+    setBuildingChecks((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // LGU verification rows (BUSINESS ONLY)
   const LGU_ROWS = [
     ["occupancy_permit", "Occupancy Permit (For New)"],
     ["zoning_clearance", "Zoning (New and Renewal)"],
@@ -137,7 +165,9 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     Object.fromEntries(LGU_ROWS.map(([k]) => [k, "not_needed"]))
   );
   const updateCheck = (key, value) =>
-    setChecks((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }));
+    setChecks((prev) =>
+      prev[key] === value ? prev : { ...prev, [key]: value }
+    );
 
   const [generating, setGenerating] = useState(false);
 
@@ -145,26 +175,45 @@ function AttachedRequirementsPanel({ selectedApplication }) {
   const ASSESS_ROWS = [
     { code: "gross_sales_tax", label: "Gross Sales Tax" },
     { code: "delivery_vans_trucks_tax", label: "Tax on Delivery Vans/Trucks" },
-    { code: "combustible_storage_tax", label: "Tax on Storage for Combustible/Flammable or Explosive Substances" },
-    { code: "signboard_billboards_tax", label: "Tax on Signboard/Billboards" },
+    {
+      code: "combustible_storage_tax",
+      label:
+        "Tax on Storage for Combustible/Flammable or Explosive Substances",
+    },
+    {
+      code: "signboard_billboards_tax",
+      label: "Tax on Signboard/Billboards",
+    },
     { code: "mayors_permit_fee", label: "Mayor’s Permit Fee" },
     { code: "garbage_charges", label: "Garbage Charges" },
-    { code: "trucks_vans_permit_fee", label: "Delivery Trucks/Vans Permit Fee" },
+    {
+      code: "trucks_vans_permit_fee",
+      label: "Delivery Trucks/Vans Permit Fee",
+    },
     { code: "sanitary_inspection_fee", label: "Sanitary Inspection Fee" },
     { code: "building_inspection_fee", label: "Building Inspection Fee" },
     { code: "electrical_inspection_fee", label: "Electrical Inspection Fee" },
     { code: "mechanical_inspection_fee", label: "Mechanical Inspection Fee" },
     { code: "plumbing_inspection_fee", label: "Plumbing Inspection Fee" },
     { code: "signboard_renewal_fee", label: "Signboard/Billboard Renewal Fee" },
-    { code: "combustible_sale_storage_fee", label: "Storage & Sale of Combustible/Flammable or Explosive Substance" },
+    {
+      code: "combustible_sale_storage_fee",
+      label:
+        "Storage & Sale of Combustible/Flammable or Explosive Substance",
+    },
     { code: "others_fee", label: "Others" },
   ];
   const sanitizeNum = (v) => String(v || "").replace(/[^\d.]/g, "");
   const [assessment, setAssessment] = useState(() =>
-    Object.fromEntries(ASSESS_ROWS.map((r) => [r.code, { amount: "", penalty: "" }]))
+    Object.fromEntries(
+      ASSESS_ROWS.map((r) => [r.code, { amount: "", penalty: "" }])
+    )
   );
   const setAssessCell = (code, field, val) =>
-    setAssessment((prev) => ({ ...prev, [code]: { ...prev[code], [field]: sanitizeNum(val) } }));
+    setAssessment((prev) => ({
+      ...prev,
+      [code]: { ...prev[code], [field]: sanitizeNum(val) },
+    }));
   const computedAssessment = useMemo(() => {
     let lgu = 0;
     const rows = {};
@@ -191,7 +240,9 @@ function AttachedRequirementsPanel({ selectedApplication }) {
 
   const handleGenerateWithAssessment = async () => {
     if (!applicationType || !applicationId) return;
-    const ok = window.confirm("Generate the LGU form including Assessment values?");
+    const ok = window.confirm(
+      "Generate the LGU form including Assessment values?"
+    );
     if (!ok) return;
     try {
       setGenerating(true);
@@ -214,18 +265,275 @@ function AttachedRequirementsPanel({ selectedApplication }) {
       }
     } catch (e) {
       console.error(e);
-      alert(e?.response?.data?.message || e?.message || "Failed to generate with Assessment.");
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate with Assessment."
+      );
     } finally {
       setGenerating(false);
     }
   };
 
-  // --------- Electrical: generator (NO new URL()) ---------
-// --------- Electrical: generator (no auto-open) ---------
-const handleGenerateElectricalForm = async () => {
+  // --------- Electrical: generator (no auto-open) ---------
+  const handleGenerateElectricalForm = async () => {
+    if (!applicationId) return;
+    const ok = window.confirm(
+      "Generate the Electrical Permit form and attach it to this application?"
+    );
+    if (!ok) return;
+
+    try {
+      setGenerating(true);
+      const { data } = await axios.post(
+        `${baseURL}/api/electrical-permit/generate-form`,
+        { application_id: applicationId },
+        { withCredentials: true }
+      );
+
+      if (data?.success) {
+        setRefreshTick((n) => n + 1);
+        alert("Electrical form generated and attached.");
+      } else {
+        throw new Error(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Electrical generate error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate Electrical form."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // --------- Electronics: generator (no auto-open) ---------
+  const handleGenerateElectronicsForm = async () => {
+    if (!applicationId) return;
+    const ok = window.confirm(
+      "Generate the Electronics Permit form and attach it to this application?"
+    );
+    if (!ok) return;
+
+    try {
+      setGenerating(true);
+      const { data } = await axios.post(
+        `${baseURL}/api/electronics-permit/generate-form`,
+        { application_id: applicationId },
+        { withCredentials: true }
+      );
+
+      if (data?.success) {
+        alert("Electronics form generated and attached.");
+        setRefreshTick((n) => n + 1);
+      } else {
+        throw new Error(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Electronics generate error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate Electronics form."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleGenerateFencingForm = async () => {
+    if (!applicationId) return;
+    const ok = window.confirm(
+      "Generate the Fencing Permit form and attach it to this application?"
+    );
+    if (!ok) return;
+
+    try {
+      setGenerating(true);
+      const { data } = await axios.post(
+        `${baseURL}/api/fencing-permit/generate-form`,
+        { application_id: applicationId },
+        { withCredentials: true }
+      );
+
+      if (data?.success) {
+        alert("Fencing form generated and attached.");
+        setRefreshTick((n) => n + 1);
+      } else {
+        throw new Error(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Fencing generate error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate Fencing form."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleGeneratePlumbingForm = async () => {
+    if (!applicationId) return;
+    const ok = window.confirm(
+      "Generate the Plumbing Permit form and attach it to this application?"
+    );
+    if (!ok) return;
+
+    try {
+      setGenerating(true);
+      const { data } = await axios.post(
+        `${baseURL}/api/plumbing-permit/generate-form`,
+        { application_id: applicationId },
+        { withCredentials: true }
+      );
+
+      if (data?.success) {
+        alert("Plumbing form generated and attached.");
+        setRefreshTick((n) => n + 1);
+      } else {
+        throw new Error(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Plumbing generate error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate Plumbing form."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+    // ───────── Mayor's Permit: submit handler (calls backend) ─────────
+  const handleGenerateMayorsPermit = async (payload) => {
+    if (!applicationId) return;
+    try {
+      setGenerating(true);
+      const { data } = await axios.post(
+        `${baseURL}/api/mayors-permit/generate-final`,
+        {
+          application_id: applicationId,
+          permit_no: payload.permit_no,
+          kind_of_business: payload.kind_of_business,
+          date_of_issuance: payload.date_of_issuance, // server can default if omitted
+          mayor_signature_path: payload.mayor_signature_path || null, // <- signature from modal
+        },
+        { withCredentials: true }
+      );
+
+      if (data?.success) {
+        alert("Final Mayor’s Permit generated and attached.");
+        setOpenMayors(false);
+        setRefreshTick((n) => n + 1);
+      } else {
+        throw new Error(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Mayor’s Permit generate error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate Mayor’s Permit."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+// ───────── Cedula Final: submit handler (calls backend) ─────────
+const handleGenerateCedulaFinal = async (payload) => {
+  if (!applicationId) return;
+
+  try {
+    setGenerating(true);
+
+    const { data } = await axios.post(
+      `${baseURL}/api/cedula/generate-final`,
+      {
+        application_id: applicationId,
+        taxable_amount: payload.taxable_amount,
+        tax_due: payload.tax_due,
+        interest: payload.interest,
+        total_amount: payload.total_amount,
+        treasurer_signature_path: payload.treasurer_signature_path || null,
+      },
+      { withCredentials: true }
+    );
+
+    if (data?.success) {
+      alert("Cedula Final PDF generated and attached.");
+      setOpenCedulaFinal(false);
+      setRefreshTick((n) => n + 1);
+    } else {
+      throw new Error(data?.message || "Generation failed.");
+    }
+  } catch (e) {
+    console.error("Cedula Final generate error:", e);
+    alert(
+      e?.response?.data?.message ||
+        e?.message ||
+        "Failed to generate Cedula Final."
+    );
+  } finally {
+    setGenerating(false);
+  }
+};
+
+
+// --------- Building: generator (no auto-open) ---------
+  const handleGenerateBuildingForm = async () => {
+    if (!applicationId) return;
+
+    const ok = window.confirm(
+      "Generate the Building Permit form (with Page 1 documentary checklist) and attach it to this application?"
+    );
+    if (!ok) return;
+
+    try {
+      setGenerating(true);
+
+      // This structure matches what PDF_fillbuildingController expects:
+      //   req.body.checks.docs   -> booleans per item
+      //   req.body.checks.remarks -> 'complete' or 'incomplete'
+      const checksPayload = {
+        docs: buildingChecks,
+        remarks: buildingRemarks,
+      };
+
+      const { data } = await axios.post(
+        `${baseURL}/api/building-permit/generate-form`,
+        {
+          application_id: applicationId,
+          checks: checksPayload,
+        },
+        { withCredentials: true }
+      );
+
+      if (data?.success) {
+        alert("Building form generated and attached.");
+        setRefreshTick((n) => n + 1);
+      } else {
+        throw new Error(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Building generate error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate Building form."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+const handleGenerateCedulaForm = async () => {
   if (!applicationId) return;
   const ok = window.confirm(
-    "Generate the Electrical Permit form and attach it to this application?"
+    "Generate the Cedula form and attach it to this application?"
   );
   if (!ok) return;
 
@@ -239,203 +547,101 @@ const handleGenerateElectricalForm = async () => {
   try {
     setGenerating(true);
     const { data } = await axios.post(
-      `${baseURL}/api/electrical-permit/generate-form`,
+      `${baseURL}/api/cedula-permit/generate-form`,
       { application_id: applicationId },
       { withCredentials: true }
     );
 
     if (data?.success) {
-      // ✅ Do NOT open a new tab.
-      // Just refresh the attachments list like Business flow.
-      setRefreshTick((n) => n + 1);
-      // (Optional) toast/alert for feedback; remove if you don't want it.
-      alert("Electrical form generated and attached.");
-    } else {
-      throw new Error(data?.message || "Generation failed.");
-    }
-  } catch (e) {
-    console.error("Electrical generate error:", e);
-    alert(
-      e?.response?.data?.message ||
-        e?.message ||
-        "Failed to generate Electrical form."
-    );
-  } finally {
-    setGenerating(false);
-  }
-};
-// --------- Electronics: generator (no auto-open) ---------
-const handleGenerateElectronicsForm = async () => {
-  if (!applicationId) return;
-  const ok = window.confirm(
-    "Generate the Electronics Permit form and attach it to this application?"
-  );
-  if (!ok) return;
-
-  const safeOrigin =
-    (typeof window !== "undefined" &&
-      window.location &&
-      window.location.origin) ||
-    "http://localhost:8081";
-  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
-
-  try {
-    setGenerating(true);
-    const { data } = await axios.post(
-      `${baseURL}/api/electronics-permit/generate-form`,
-      { application_id: applicationId },
-      { withCredentials: true }
-    );
-
-    if (data?.success) {
-      alert("Electronics form generated and attached.");
+      alert("Cedula form generated and attached.");
       setRefreshTick((n) => n + 1);
     } else {
       throw new Error(data?.message || "Generation failed.");
     }
   } catch (e) {
-    console.error("Electronics generate error:", e);
+    console.error("Cedula generate error:", e);
     alert(
       e?.response?.data?.message ||
         e?.message ||
-        "Failed to generate Electronics form."
+        "Failed to generate Cedula form."
     );
   } finally {
     setGenerating(false);
   }
 };
-const handleGenerateFencingForm = async () => {
-  if (!applicationId) return;
-  const ok = window.confirm(
-    "Generate the Fencing Permit form and attach it to this application?"
-  );
-  if (!ok) return;
-
-  const safeOrigin =
-    (typeof window !== "undefined" && window.location && window.location.origin) ||
-    "http://localhost:8081";
-  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
-
-  try {
-    setGenerating(true);
-    const { data } = await axios.post(
-      `${baseURL}/api/fencing-permit/generate-form`,
-      { application_id: applicationId },
-      { withCredentials: true }
-    );
-
-    if (data?.success) {
-      alert("Fencing form generated and attached.");
-      setRefreshTick((n) => n + 1);
-    } else {
-      throw new Error(data?.message || "Generation failed.");
-    }
-  } catch (e) {
-    console.error("Fencing generate error:", e);
-    alert(
-      e?.response?.data?.message ||
-        e?.message ||
-        "Failed to generate Fencing form."
-    );
-  } finally {
-    setGenerating(false);
-  }
-};
-// below other generate handlers:
-const handleGeneratePlumbingForm = async () => {
-  if (!applicationId) return;
-  const ok = window.confirm(
-    "Generate the Plumbing Permit form and attach it to this application?"
-  );
-  if (!ok) return;
-
-  const safeOrigin =
-    (typeof window !== "undefined" && window.location && window.location.origin) ||
-    "http://localhost:8081";
-  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
-
-  try {
-    setGenerating(true);
-    const { data } = await axios.post(
-      `${baseURL}/api/plumbing-permit/generate-form`,
-      { application_id: applicationId },
-      { withCredentials: true }
-    );
-
-    if (data?.success) {
-      alert("Plumbing form generated and attached.");
-      setRefreshTick((n) => n + 1);
-    } else {
-      throw new Error(data?.message || "Generation failed.");
-    }
-  } catch (e) {
-    console.error("Plumbing generate error:", e);
-    alert(
-      e?.response?.data?.message ||
-        e?.message ||
-        "Failed to generate Plumbing form."
-    );
-  } finally {
-    setGenerating(false);
-  }
-};
-
   // reset checks & assessment whenever app changes
   useEffect(() => {
+    // Business LGU rows reset
     setChecks(Object.fromEntries(LGU_ROWS.map(([k]) => [k, "not_needed"])));
-    setAssessment(Object.fromEntries(ASSESS_ROWS.map((r) => [r.code, { amount: "", penalty: "" }])));
+    setAssessment(
+      Object.fromEntries(
+        ASSESS_ROWS.map((r) => [r.code, { amount: "", penalty: "" }])
+      )
+    );
+
+    // Building checklist reset
+    setBuildingChecks(
+      Object.fromEntries(BUILDING_DOC_ROWS.map(([k]) => [k, false]))
+    );
+    setBuildingRemarks("complete");
   }, [applicationType, applicationId]);
 
+
   useEffect(() => {
-  let mounted = true;
-  async function load() {
-    if (!applicationType || !applicationId) return;
-    setLoading(true);
-    try {
-      const r = await axios.get(`${baseURL}/api/attached-requirements`, {
-        withCredentials: true,
-        params: { application_type: applicationType, application_id: applicationId },
-      });
-      const c = await axios.get(`${baseURL}/api/application-comments`, {
-        withCredentials: true,
-        params: { application_type: applicationType, application_id: applicationId },
-      });
-      if (!mounted) return;
-
-      // ✅ Normalize variants so UI can always render links
-      const normalizeItems = (arr = []) =>
-        arr.map((it) => {
-          const fileUrl =
-            it.file_url ||
-            it.system_file_url ||
-            it.pdf_path ||
-            it.filepath ||
-            it.file_path ||
-            null;
-
-          const userUrl =
-            it.user_file_url ||
-            it.user_pdf_path ||
-            it.user_filepath ||
-            it.user_file_path ||
-            null;
-
-          return { ...it, file_url: fileUrl, user_file_url: userUrl };
+    let mounted = true;
+    async function load() {
+      if (!applicationType || !applicationId) return;
+      setLoading(true);
+      try {
+        const r = await axios.get(`${baseURL}/api/attached-requirements`, {
+          withCredentials: true,
+          params: {
+            application_type: applicationType,
+            application_id: applicationId,
+          },
         });
+        const c = await axios.get(`${baseURL}/api/application-comments`, {
+          withCredentials: true,
+          params: {
+            application_type: applicationType,
+            application_id: applicationId,
+          },
+        });
+        if (!mounted) return;
 
-      setItems(normalizeItems(r.data?.items || []));
-      setComments(c.data?.items || []);
-    } catch (e) {
-      console.error("Load attachments/comments failed:", e);
-    } finally {
-      mounted && setLoading(false);
+        const normalizeItems = (arr = []) =>
+          arr.map((it) => {
+            const fileUrl =
+              it.file_url ||
+              it.system_file_url ||
+              it.pdf_path ||
+              it.filepath ||
+              it.file_path ||
+              null;
+
+            const userUrl =
+              it.user_file_url ||
+              it.user_pdf_path ||
+              it.user_filepath ||
+              it.user_file_path ||
+              null;
+
+            return { ...it, file_url: fileUrl, user_file_url: userUrl };
+          });
+
+        setItems(normalizeItems(r.data?.items || []));
+        setComments(c.data?.items || []);
+      } catch (e) {
+        console.error("Load attachments/comments failed:", e);
+      } finally {
+        mounted && setLoading(false);
+      }
     }
-  }
-  load();
-  return () => {
-    mounted = false;
-  };
-}, [applicationType, applicationId, refreshTick, baseURL]);
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [applicationType, applicationId, refreshTick, baseURL]);
 
   const hasItems = items?.length > 0;
 
@@ -447,12 +653,19 @@ const handleGeneratePlumbingForm = async () => {
 
   const filteredComments = useMemo(() => {
     if (commentFilter === "all") return comments;
-    return comments.filter((c) => (c.status_at_post || "") === commentFilter);
+    return comments.filter(
+      (c) => (c.status_at_post || "") === commentFilter
+    );
   }, [comments, commentFilter]);
 
   const handleRemoveRequirement = async (requirementId) => {
     if (!requirementId) return;
-    if (!window.confirm("Remove this attached requirement from the application?")) return;
+    if (
+      !window.confirm(
+        "Remove this attached requirement from the application?"
+      )
+    )
+      return;
     try {
       await axios.post(
         `${baseURL}/api/attached-requirements/remove`,
@@ -528,7 +741,11 @@ const handleGeneratePlumbingForm = async () => {
 
   // ------------------- UI -------------------
   return (
-    <div className="space-y-5" key={`arp-${applicationId}`} style={{ isolation: "isolate" }}>
+    <div
+      className="space-y-5"
+      key={`arp-${applicationId}`}
+      style={{ isolation: "isolate" }}
+    >
       <div className="bg-white border rounded-md p-4">
         <div className="flex items-center justify-between">
           <h4 className="text-md font-semibold text-gray-700 flex items-center">
@@ -542,7 +759,19 @@ const handleGeneratePlumbingForm = async () => {
                 disabled={generating}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
               >
-                {generating ? "Generating..." : "Generate Applicant Requirements"}
+                {generating
+                  ? "Generating..."
+                  : "Generate Applicant Requirements"}
+              </button>
+            )}
+              {isBusinessApp && isApproved && (
+              <button
+                onClick={() => setOpenMayors(true)}
+                disabled={generating}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+                title="Visible only when the application is Approved / Ready for Pickup / Released"
+              >
+                {generating ? "Generating..." : "Generate Final Mayor’s Permit"}
               </button>
             )}
 
@@ -552,36 +781,74 @@ const handleGeneratePlumbingForm = async () => {
                 disabled={generating}
                 className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
               >
-                {generating ? "Generating..." : "Electrical: Generate Filled Form"}
+                {generating
+                  ? "Generating..."
+                  : "Electrical: Generate Filled Form"}
               </button>
             )}
-{applicationType === "electronics" && (
+            {applicationType === "electronics" && (
+              <button
+                onClick={handleGenerateElectronicsForm}
+                disabled={generating}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+              >
+                {generating
+                  ? "Generating..."
+                  : "Electronics: Generate Filled Form"}
+              </button>
+            )}
+            {applicationType === "fencing" && (
+              <button
+                onClick={handleGenerateFencingForm}
+                disabled={generating}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+              >
+                {generating
+                  ? "Generating..."
+                  : "Fencing: Generate Filled Form"}
+              </button>
+            )}
+            {applicationType === "cedula" && (
   <button
-    onClick={handleGenerateElectronicsForm}
+    onClick={handleGenerateCedulaForm}
     disabled={generating}
     className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
   >
-    {generating ? "Generating..." : "Electronics: Generate Filled Form"}
+    {generating ? "Generating..." : "Cedula: Generate Filled Form"}
   </button>
 )}
-{applicationType === "fencing" && (
+{applicationType === "cedula" && (
   <button
-    onClick={handleGenerateFencingForm}
+    onClick={() => setOpenCedulaFinal(true)}
+    disabled={generating}
+    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+  >
+    {generating ? "Generating..." : "Cedula: Fill Treasurer / Generate Final"}
+  </button>
+)}
+
+
+            {applicationType === "plumbing" && (
+              <button
+                onClick={handleGeneratePlumbingForm}
+                disabled={generating}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+              >
+                {generating
+                  ? "Generating..."
+                  : "Plumbing: Generate Filled Form"}
+              </button>
+            )}
+{applicationType === "building" && (
+  <button
+    onClick={handleGenerateBuildingForm}
     disabled={generating}
     className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
   >
-    {generating ? "Generating..." : "Fencing: Generate Filled Form"}
+    {generating ? "Generating..." : "Building: Generate Filled Form"}
   </button>
 )}
-{applicationType === "plumbing" && (
-  <button
-    onClick={handleGeneratePlumbingForm}
-    disabled={generating}
-    className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
-  >
-    {generating ? "Generating..." : "Plumbing: Generate Filled Form"}
-  </button>
-)}
+
 
 
             <button
@@ -600,22 +867,32 @@ const handleGeneratePlumbingForm = async () => {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-500 mt-3">Loading attached requirements…</p>
+          <p className="text-sm text-gray-500 mt-3">
+            Loading attached requirements…
+          </p>
         ) : hasItems ? (
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
             {items.map((it) => (
               <div
-                key={`${it.requirement_id}-${it.file_path}-${it.uploaded_at}-${it.user_uploaded_at || "na"}`}
+                key={`${it.requirement_id}-${it.file_path}-${it.uploaded_at}-${
+                  it.user_uploaded_at || "na"
+                }`}
                 className="bg-gray-50 border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between"
               >
                 <div className="pr-3 mb-2 md:mb-0">
-                  <p className="text-sm font-medium text-gray-800">{it.file_path || "Requirement"}</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {it.file_path || "Requirement"}
+                  </p>
                   <p className="text-xs text-gray-500">
-                    System attached: {it.uploaded_at ? new Date(it.uploaded_at).toLocaleString() : "N/A"}
+                    System attached:{" "}
+                    {it.uploaded_at
+                      ? new Date(it.uploaded_at).toLocaleString()
+                      : "N/A"}
                   </p>
                   {it.user_uploaded_at && (
                     <p className="text-xs text-gray-500">
-                      User uploaded: {new Date(it.user_uploaded_at).toLocaleString()}
+                      User uploaded:{" "}
+                      {new Date(it.user_uploaded_at).toLocaleString()}
                     </p>
                   )}
                 </div>
@@ -642,12 +919,16 @@ const handleGeneratePlumbingForm = async () => {
                     </a>
                   )}
                   {!it.file_url && !it.user_file_url && (
-                    <span className="text-xs text-gray-400 italic">No file</span>
+                    <span className="text-xs text-gray-400 italic">
+                      No file
+                    </span>
                   )}
 
                   <button
                     type="button"
-                    onClick={() => handleRemoveRequirement(it.requirement_id)}
+                    onClick={() =>
+                      handleRemoveRequirement(it.requirement_id)
+                    }
                     className="text-xs md:text-sm text-red-600 hover:text-red-700 hover:underline ml-1"
                   >
                     Remove
@@ -657,106 +938,193 @@ const handleGeneratePlumbingForm = async () => {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500 mt-3">No requirements attached yet.</p>
+          <p className="text-sm text-gray-500 mt-3">
+            No requirements attached yet.
+          </p>
         )}
 
         {/* Business-only: LGU verification + Assessment */}
-        {isBusinessApp && (
-          <div className="mt-5 border-t pt-4">
-            <h5 className="text-sm font-semibold text-gray-700 mb-2">
-              LGU Verification of Documents (will appear on Page 2)
-            </h5>
-            <p className="text-xs text-gray-500 mb-3">
-              Set which documents are required for this application. These choices will be
-              checked/encoded on the second page of the generated PDF.
-            </p>
+        {(isBusinessApp || isBuildingApp) && (
+  <div className="mt-5 border-t pt-4 space-y-6">
+    {/* ===================== BUILDING: Documentary Requirements (Page 1) ===================== */}
+    {isBuildingApp && (
+      <div>
+        <h5 className="text-sm font-semibold text-gray-700 mb-2">
+          Building Permit Documentary Requirements (Page 1)
+        </h5>
+        <p className="text-xs text-gray-500 mb-3">
+          Check all documents that are required/attached for this application.
+          These will be encoded on Page 1 of the generated Building Permit
+          checklist PDF.
+        </p>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs border">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="text-left px-2 py-1 border">Description</th>
-                    <th className="px-2 py-1 border">Yes</th>
-                    <th className="px-2 py-1 border">No</th>
-                    <th className="px-2 py-1 border">Not needed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {LGU_ROWS.map(([fieldKey, label]) => (
-                    <RadioRow key={fieldKey} fieldKey={fieldKey} label={label} />
-                  ))}
-                </tbody>
-              </table>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-xs border">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="text-left px-2 py-1 border">Description</th>
+                <th className="px-2 py-1 border text-center">Required</th>
+              </tr>
+            </thead>
+            <tbody>
+              {BUILDING_DOC_ROWS.map(([fieldKey, label]) => (
+                <tr key={fieldKey}>
+                  <td className="px-2 py-1 border align-top">{label}</td>
+                  <td className="px-2 py-1 border text-center">
+                    <input
+                      type="checkbox"
+                      className="cursor-pointer"
+                      checked={!!buildingChecks[fieldKey]}
+                      onChange={() => toggleBuildingDoc(fieldKey)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <span className="text-xs font-medium text-gray-600">Remarks:</span>
+
+          <label className="inline-flex items-center gap-1 text-xs text-gray-700">
+            <input
+              type="radio"
+              name={`bldg-remarks-${applicationId ?? "app"}`}
+              value="complete"
+              checked={buildingRemarks === "complete"}
+              onChange={(e) => setBuildingRemarks(e.target.value)}
+            />
+            Complete Documents
+          </label>
+
+          <label className="inline-flex items-center gap-1 text-xs text-gray-700">
+            <input
+              type="radio"
+              name={`bldg-remarks-${applicationId ?? "app"}`}
+              value="incomplete"
+              checked={buildingRemarks === "incomplete"}
+              onChange={(e) => setBuildingRemarks(e.target.value)}
+            />
+            Incomplete Documents
+          </label>
+        </div>
+      </div>
+    )}
+
+    {/* ===================== BUSINESS: LGU Verification (Page 2) + Assessment ===================== */}
+    {isBusinessApp && (
+      <div>
+        <h5 className="text-sm font-semibold text-gray-700 mb-2">
+          LGU Verification of Documents (will appear on Page 2)
+        </h5>
+        <p className="text-xs text-gray-500 mb-3">
+          Set which documents are required for this application. These choices
+          will be checked/encoded on the second page of the generated PDF.
+        </p>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-xs border">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="text-left px-2 py-1 border">Description</th>
+                <th className="px-2 py-1 border">Yes</th>
+                <th className="px-2 py-1 border">No</th>
+                <th className="px-2 py-1 border">Not needed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LGU_ROWS.map(([fieldKey, label]) => (
+                <RadioRow key={fieldKey} fieldKey={fieldKey} label={label} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="bg-white border rounded-md p-4 mt-5">
+          <h5 className="text-sm font-semibold text-gray-700 mb-3">
+            Assessment of Applicable Fees
+          </h5>
+
+          <div className="grid grid-cols-[1fr_140px_160px_160px] gap-2 text-sm">
+            <div className="text-gray-500">Description</div>
+            <div className="text-gray-500">Amount</div>
+            <div className="text-gray-500">Penalty/Surcharge</div>
+            <div className="text-gray-500">Total</div>
+
+            {ASSESS_ROWS.map((r) => (
+              <React.Fragment key={r.code}>
+                <div className="py-1">{r.label}</div>
+                <input
+                  inputMode="decimal"
+                  className="border rounded px-2 py-1"
+                  value={assessment[r.code].amount}
+                  onChange={(e) => setAssessCell(r.code, "amount", e.target.value)}
+                  placeholder="0.00"
+                />
+                <input
+                  inputMode="decimal"
+                  className="border rounded px-2 py-1"
+                  value={assessment[r.code].penalty}
+                  onChange={(e) => setAssessCell(r.code, "penalty", e.target.value)}
+                  placeholder="0.00"
+                />
+                <div className="py-1 font-medium">
+                  {computedAssessment.rows[r.code].total
+                    ? computedAssessment.rows[r.code].total.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })
+                    : "—"}
+                </div>
+              </React.Fragment>
+            ))}
+
+            <div className="py-2 font-semibold text-right col-span-3">
+              TOTAL FEES for LGU
+            </div>
+            <div className="py-2 font-semibold">
+              {computedAssessment.totalFeesLgu.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+              })}
             </div>
 
-            <div className="bg-white border rounded-md p-4 mt-5">
-              <h5 className="text-sm font-semibold text-gray-700 mb-3">Assessment of Applicable Fees</h5>
-
-              <div className="grid grid-cols-[1fr_140px_160px_160px] gap-2 text-sm">
-                <div className="text-gray-500">Description</div>
-                <div className="text-gray-500">Amount</div>
-                <div className="text-gray-500">Penalty/Surcharge</div>
-                <div className="text-gray-500">Total</div>
-
-                {ASSESS_ROWS.map((r) => (
-                  <React.Fragment key={r.code}>
-                    <div className="py-1">{r.label}</div>
-                    <input
-                      inputMode="decimal"
-                      className="border rounded px-2 py-1"
-                      value={assessment[r.code].amount}
-                      onChange={(e) => setAssessCell(r.code, "amount", e.target.value)}
-                      placeholder="0.00"
-                    />
-                    <input
-                      inputMode="decimal"
-                      className="border rounded px-2 py-1"
-                      value={assessment[r.code].penalty}
-                      onChange={(e) => setAssessCell(r.code, "penalty", e.target.value)}
-                      placeholder="0.00"
-                    />
-                    <div className="py-1 font-medium">
-                      {computedAssessment.rows[r.code].total
-                        ? computedAssessment.rows[r.code].total.toLocaleString(undefined, { minimumFractionDigits: 2 })
-                        : "—"}
-                    </div>
-                  </React.Fragment>
-                ))}
-
-                <div className="py-2 font-semibold text-right col-span-3">TOTAL FEES for LGU</div>
-                <div className="py-2 font-semibold">
-                  {computedAssessment.totalFeesLgu.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </div>
-
-                <div className="py-2 font-semibold text-right col-span-3">FIRE SAFETY INSPECTION FEE (15%)</div>
-                <div className="py-2 font-semibold">
-                  {computedAssessment.fsif15.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2 justify-end">
-                <button
-                  onClick={handleSaveAssessment}
-                  className="px-3 py-2 text-sm bg-gray-100 rounded hover:bg-gray-200"
-                >
-                  Save Assessment
-                </button>
-                <button
-                  disabled={generating}
-                  onClick={handleGenerateWithAssessment}
-                  className={`px-4 py-2 rounded text-white ${
-                    generating ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"
-                  }`}
-                >
-                  {generating ? "Generating…" : "Generate LGU Form (with Assessment)"}
-                </button>
-              </div>
+            <div className="py-2 font-semibold text-right col-span-3">
+              FIRE SAFETY INSPECTION FEE (15%)
+            </div>
+            <div className="py-2 font-semibold">
+              {computedAssessment.fsif15.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+              })}
             </div>
           </div>
-        )}
+
+          <div className="mt-3 flex flex-wrap gap-2 justify-end">
+            <button
+              onClick={handleSaveAssessment}
+              className="px-3 py-2 text-sm bg-gray-100 rounded hover:bg-gray-200"
+            >
+              Save Assessment
+            </button>
+            <button
+              disabled={generating}
+              onClick={handleGenerateWithAssessment}
+              className={`px-4 py-2 rounded text-white ${
+                generating
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              }`}
+            >
+              {generating ? "Generating…" : "Generate LGU Form (with Assessment)"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}
       </div>
 
-      {/* Comments (unchanged) */}
+      {/* Comments */}
       <div className="bg-white border rounded-md p-4">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-md font-semibold text-gray-700">Comments</h4>
@@ -781,11 +1149,15 @@ const handleGeneratePlumbingForm = async () => {
           <div className="space-y-3 mb-4">
             {filteredComments.map((c) => (
               <div key={c.id} className="bg-gray-50 border rounded p-3">
-                <p className="text-sm text-gray-800 whitespace-pre-wrap">{c.comment}</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                  {c.comment}
+                </p>
                 <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
                   <div>
                     {c.author_role ? `${c.author_role} • ` : ""}
-                    {c.created_at ? new Date(c.created_at).toLocaleString() : ""}
+                    {c.created_at
+                      ? new Date(c.created_at).toLocaleString()
+                      : ""}
                   </div>
                   {c.status_at_post && (
                     <span className="ml-2 inline-flex px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
@@ -816,14 +1188,18 @@ const handleGeneratePlumbingForm = async () => {
                 try {
                   setCommentSubmitting(true);
                   const rawStatus =
-                    selectedApplication.application_status ?? selectedApplication.status ?? "";
+                    selectedApplication.application_status ??
+                    selectedApplication.status ??
+                    "";
                   await axios.post(
                     `${baseURL}/api/application-comments`,
                     {
                       application_type: applicationType,
                       application_id: applicationId,
                       comment: commentText,
-                      status_at_post: String(rawStatus).toLowerCase().replace(/\s+/g, "-"),
+                      status_at_post: String(rawStatus)
+                        .toLowerCase()
+                        .replace(/\s+/g, "-"),
                     },
                     { withCredentials: true }
                   );
@@ -851,15 +1227,282 @@ const handleGeneratePlumbingForm = async () => {
         applicationId={applicationId}
         onAttached={() => setRefreshTick((n) => n + 1)}
       />
+        <MayorsPermitGenerateModal
+        open={openMayors}
+        onClose={() => setOpenMayors(false)}
+        onSubmit={handleGenerateMayorsPermit}
+        defaultKind={defaultKindOfBiz}
+      />
+<CedulaFinalGenerateModal
+  open={openCedulaFinal}
+  onClose={() => setOpenCedulaFinal(false)}
+  onSubmit={handleGenerateCedulaFinal}
+/>
+
+      
+    </div>
+    
+  );
+}
+
+/* ---------------- existing simple upload modal (kept) ---------------- */
+/* ───────────────────── Mayor’s Permit: small input modal ───────────────────── */
+function MayorsPermitGenerateModal({ open, onClose, onSubmit, defaultKind }) {
+  const [permitNo, setPermitNo] = useState("");
+  const [kindOfBiz, setKindOfBiz] = useState(defaultKind || "");
+  const [issuedAt, setIssuedAt] = useState(
+    new Date().toISOString().slice(0, 10)
+  ); // yyyy-mm-dd
+  const [submitting, setSubmitting] = useState(false);
+
+  // NEW: signature upload state
+  const [sigFile, setSigFile] = useState(null);
+  const [sigUploading, setSigUploading] = useState(false);
+  const [sigDbPath, setSigDbPath] = useState("");   // '/uploads/...'
+  const [sigPreview, setSigPreview] = useState(""); // http url for preview
+
+  // Util to get baseURL (same pattern as above)
+  const safeOrigin =
+    (typeof window !== "undefined" &&
+      window.location &&
+      window.location.origin) ||
+    "http://localhost:8081";
+  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
+
+  if (!open) return null;
+
+async function uploadSignature() {
+  if (!sigFile) {
+    alert("Choose a PNG/JPG signature first.");
+    return;
+  }
+
+  const safeOrigin =
+    (typeof window !== "undefined" &&
+      window.location &&
+      window.location.origin) ||
+    "http://localhost:8081";
+  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
+
+  const fd = new FormData();
+  fd.append("signature", sigFile);
+
+  const { data } = await axios.post(
+    `${baseURL}/api/cedula/upload-treasurer-signature`,
+    fd,
+    {
+      withCredentials: true,
+      headers: { "Content-Type": "multipart/form-data" },
+    }
+  );
+
+  if (data?.success) setSigDbPath(data.db_path);
+  else alert(data?.message || "Upload failed.");
+}
+
+
+  async function handleSubmit() {
+    if (!permitNo.trim() || !kindOfBiz.trim()) {
+      alert("Permit No. and Kind of Business are required.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await onSubmit({
+        permit_no: permitNo.trim(),
+        kind_of_business: kindOfBiz.trim(),
+        date_of_issuance: issuedAt,
+        mayor_signature_path: sigDbPath || null, // send signature path to handler
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-lg shadow-xl p-5">
+        <h3 className="text-base font-semibold mb-4">
+          Generate Final Mayor’s Permit
+        </h3>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">
+              Permit No.
+            </label>
+            <input
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={permitNo}
+              onChange={(e) => setPermitNo(e.target.value)}
+              placeholder="e.g., MP-2025-00123"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">
+              Kind of Business
+            </label>
+            <input
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={kindOfBiz}
+              onChange={(e) => setKindOfBiz(e.target.value)}
+              placeholder="e.g., Retail / Sari-sari Store"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">
+              Date of Issuance
+            </label>
+            <input
+              type="date"
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={issuedAt}
+              onChange={(e) => setIssuedAt(e.target.value)}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Validity will be set to exactly 1 year from this date.
+            </p>
+          </div>
+
+          {/* Mayor e-signature upload */}
+          <div className="border-t pt-3 mt-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Mayor’s E-Signature (PNG/JPG)
+            </label>
+
+            {!sigPreview ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg"
+                  onChange={(e) => setSigFile(e.target.files?.[0] || null)}
+                  className="text-sm"
+                />
+                <button
+                  onClick={uploadSignature}
+                  disabled={!sigFile || sigUploading}
+                  className="bg-gray-800 hover:bg-black text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+                >
+                  {sigUploading ? "Uploading…" : "Upload Signature"}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <img
+                  src={sigPreview}
+                  alt="Mayor signature preview"
+                  style={{ width: 140, height: "auto" }}
+                  className="border rounded"
+                />
+                <button
+                  onClick={() => {
+                    setSigFile(null);
+                    setSigDbPath("");
+                    setSigPreview("");
+                  }}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+
+            {sigDbPath && (
+              <p className="text-xs text-green-700 mt-1">
+                Attached: {sigDbPath}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-3 py-2 text-sm bg-gray-100 rounded hover:bg-gray-200"
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className={`px-4 py-2 rounded text-white ${
+              submitting ? "bg-gray-400" : "bg-emerald-600 hover:bg-emerald-700"
+            }`}
+          >
+            {submitting ? "Generating…" : "Generate"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
+function CedulaFinalGenerateModal({ open, onClose, onSubmit }) {
+  const [taxableAmount, setTaxableAmount] = useState("");
+  const [taxDue, setTaxDue] = useState("");
+  const [interest, setInterest] = useState("");
+  const [totalAmount, setTotalAmount] = useState("");
+  const [sigFile, setSigFile] = useState(null);
+  const [sigDbPath, setSigDbPath] = useState("");
 
+  if (!open) return null;
 
+  async function uploadSignature() {
+    const fd = new FormData();
+    fd.append("signature", sigFile);
+    const safeOrigin =
+  (typeof window !== "undefined" &&
+    window.location &&
+    window.location.origin) ||
+  "http://localhost:8081";
+const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
 
+const { data } = await axios.post(
+  `${baseURL}/api/cedula/upload-treasurer-signature`,
+  fd,
+  { withCredentials: true }
+);
+    setSigDbPath(data.db_path);
+  }
 
-/* ---------------- existing simple upload modal (kept) ---------------- */
+  async function handleSubmit() {
+    await onSubmit({
+      taxable_amount: taxableAmount,
+      tax_due: taxDue,
+      interest,
+      total_amount: totalAmount,
+      treasurer_signature_path: sigDbPath,
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg p-5 w-full max-w-md">
+        <h3 className="text-base font-semibold mb-4">Cedula Final Form</h3>
+        <label className="block text-sm">Taxable Amount (₱)</label>
+        <input className="border w-full mb-2 p-2 rounded" value={taxableAmount} onChange={(e)=>setTaxableAmount(e.target.value)} />
+        <label className="block text-sm">Community Tax Due (₱)</label>
+        <input className="border w-full mb-2 p-2 rounded" value={taxDue} onChange={(e)=>setTaxDue(e.target.value)} />
+        <label className="block text-sm">Interest (₱)</label>
+        <input className="border w-full mb-2 p-2 rounded" value={interest} onChange={(e)=>setInterest(e.target.value)} />
+        <label className="block text-sm">Total Amount Paid (₱)</label>
+        <input className="border w-full mb-2 p-2 rounded" value={totalAmount} onChange={(e)=>setTotalAmount(e.target.value)} />
+        <div className="mt-3">
+          <label className="block text-sm font-medium">Treasurer Signature (PNG/JPG)</label>
+          <input type="file" accept="image/png, image/jpeg" onChange={(e)=>setSigFile(e.target.files?.[0])}/>
+          <button onClick={uploadSignature} className="mt-2 px-3 py-2 bg-gray-700 text-white rounded">Upload Signature</button>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-2 bg-gray-100 rounded">Cancel</button>
+          <button onClick={handleSubmit} className="px-4 py-2 bg-emerald-600 text-white rounded">Generate</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function AttachRequirementsModal({ onClose }) {
   const [requirementPDF, setRequirementPDF] = useState(null);
@@ -1053,6 +1696,7 @@ export function CedulaModalContent({ selectedApplication }) {
               : "N/A"}
           </p>
         </div>
+        
       </div>
 
       <AttachedRequirementsPanel
@@ -1187,6 +1831,71 @@ export function ElectricalPermitModalContent({ selectedApplication }) {
 /* ---------------- Business (kept uploads display) + panel ------------- */
 
 export function BusinessPermitModalContent({ selectedApplication }) {
+  // ▼▼▼ NEW: e-signature upload state & helpers ▼▼▼
+  const [esignFile, setEsignFile] = useState(null);
+  const [esignUploading, setEsignUploading] = useState(false);
+
+  const applicationId = appIdFromSelected(selectedApplication);
+
+  const safeOrigin =
+    (typeof window !== "undefined" &&
+      window.location &&
+      window.location.origin) ||
+    "http://localhost:8081";
+  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
+
+  const handleEsignChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      alert("E-signed form must be a PDF file.");
+      return;
+    }
+    setEsignFile(file);
+  };
+
+  const handleEsignUpload = async () => {
+    if (!esignFile || !applicationId) return;
+
+    try {
+      setEsignUploading(true);
+      const formData = new FormData();
+      // backend usually expects both the file and the application id
+      formData.append("pdf", esignFile);
+      formData.append("application_id", String(applicationId));
+
+      // NOTE: if your old endpoint name is different, adjust this URL only.
+      const { data } = await axios.post(
+        `${baseURL}/api/business-permit/upload-user-filled`,
+        formData,
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+
+      if (data?.success) {
+        alert("E-signed Filled-up Form uploaded successfully.");
+        setEsignFile(null);
+        // parent list won’t auto-refresh selectedApplication,
+        // so usually the easiest is to reload or re-open the modal.
+        // window.location.reload();
+      } else {
+        alert(data?.message || "Upload failed.");
+      }
+    } catch (e) {
+      console.error("E-signed form upload error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to upload e-signed form."
+      );
+    } finally {
+      setEsignUploading(false);
+    }
+  };
+  // ▲▲▲ END: e-signature upload helpers ▲▲▲
+
   return (
     <div className="bg-gray-50 rounded-lg p-6 space-y-8">
       <h3 className="text-lg font-semibold text-gray-800 mb-4">
@@ -1286,54 +1995,47 @@ export function BusinessPermitModalContent({ selectedApplication }) {
         </p>
       </div>
 
+      {/* ▼▼▼ UPDATED: header + e-signature upload controls ▼▼▼ */}
       <div>
-        <h4 className="text-md font-semibold text-gray-700 mb-3">
-          Business Activities
-        </h4>
-        {selectedApplication.activities?.length > 0 ? (
-          <table className="min-w-full bg-white border rounded-lg overflow-hidden">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="text-left px-4 py-2">Line of Business</th>
-                <th className="text-left px-4 py-2">Units</th>
-                <th className="text-left px-4 py-2">
-                  Capitalization
-                </th>
-                <th className="text-left px-4 py-2">Date Added</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selectedApplication.activities.map((act, idx) => (
-                <tr key={idx} className="border-t">
-                  <td className="px-4 py-2">
-                    {act.line_of_business}
-                  </td>
-                  <td className="px-4 py-2">{act.units}</td>
-                  <td className="px-4 py-2">
-                    ₱{Number(act.capitalization).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2">
-                    {act.created_at
-                      ? new Date(
-                          act.created_at
-                        ).toLocaleDateString()
-                      : "N/A"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-gray-600">
-            No business activities recorded.
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-md font-semibold text-gray-700">
+            Uploaded Requirements
+          </h4>
+
+          <div className="flex items-center gap-2">
+            {/* hidden input for E-signed PDF */}
+            <input
+              id="business-esign-upload"
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={handleEsignChange}
+            />
+            <label
+              htmlFor="business-esign-upload"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded border border-gray-300 bg-white hover:bg-gray-50 cursor-pointer"
+            >
+              Choose E-signed Form (PDF)
+            </label>
+
+            <button
+              type="button"
+              onClick={handleEsignUpload}
+              disabled={!esignFile || esignUploading || !applicationId}
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {esignUploading ? "Uploading…" : "Upload E-signed Form"}
+            </button>
+          </div>
+        </div>
+
+        {esignFile && (
+          <p className="text-xs text-gray-500 mb-2">
+            Selected file: <span className="font-medium">{esignFile.name}</span>
           </p>
         )}
-      </div>
+      {/* ▲▲▲ END: e-signature UI ▲▲▲ */}
 
-      <div>
-        <h4 className="text-md font-semibold text-gray-700 mb-3">
-          Uploaded Requirements
-        </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             {
@@ -1388,6 +2090,7 @@ export function BusinessPermitModalContent({ selectedApplication }) {
           )}
         </div>
       </div>
+      {/* ▲▲ end requirements section ▲▲ */}
 
       <AttachedRequirementsPanel
         selectedApplication={{
@@ -1398,6 +2101,7 @@ export function BusinessPermitModalContent({ selectedApplication }) {
     </div>
   );
 }
+
 
 /* -------------------- New four permit modals + panel ------------------- */
 

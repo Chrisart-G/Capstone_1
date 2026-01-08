@@ -164,9 +164,9 @@ function Uheader() {
                   <a href="/Userprofile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     My Profile
                   </a>
-                  <a href="/Usersettings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  {/* <a href="/Usersettings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     Settings
-                  </a>
+                  </a> */}
                   <div className="border-t border-gray-100"></div>
                   <button
                     onClick={handleLogout}

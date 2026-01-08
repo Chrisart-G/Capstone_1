@@ -1,6 +1,70 @@
 // Controller/userprofileController.js
 const db = require("../db/dbconnect");
 
+/* -------------------------- helpers -------------------------- */
+function toFullUrl(req, maybePath) {
+  if (!maybePath) return null;
+  const s = String(maybePath).trim();
+  if (/^https?:\/\//i.test(s)) return s;                  // already absolute
+  const clean = s.startsWith("/") ? s : `/${s}`;          // ensure leading slash
+  const base = `${req.protocol}://${req.get("host")}`;
+  return `${base}${clean}`;
+}
+
+/**
+ * Gets the newest attachment from tbl_application_requirements for an app.
+ * Returns the column `pdf_path` (which is the stored /uploads/... for the file).
+ */
+function getLatestAttachment(appType, appId) {
+  return new Promise((resolve, reject) => {
+    const sql = `
+      SELECT pdf_path
+      FROM tbl_application_requirements
+      WHERE application_type = ? AND application_id = ?
+            AND pdf_path IS NOT NULL AND pdf_path <> ''
+      ORDER BY uploaded_at DESC, requirement_id DESC
+      LIMIT 1
+    `;
+    db.query(sql, [appType, appId], (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows[0]?.pdf_path || null);
+    });
+  });
+}
+
+/**
+ * For each permit row, compute a working pickup_file_url using:
+ *   1) row.pickup_file_path if present; else
+ *   2) newest attachment in tbl_application_requirements (by appType/appId)
+ */
+async function enrichPermitRow(req, row) {
+  const primary = row.pickup_file_path && String(row.pickup_file_path).trim() !== ""
+    ? row.pickup_file_path
+    : null;
+
+  let fallback = null;
+  if (!primary) {
+    // map your selected permit_category to the application_type used in the attachments table
+    const appType = String(row.permit_category || "").toLowerCase();
+    const appId = row.referenceNo;
+    try {
+      fallback = await getLatestAttachment(appType, appId);
+    } catch (e) {
+      console.error("Attachment lookup failed:", { appType, appId, e: e.message });
+    }
+  }
+
+  const chosen = primary || fallback || null;
+
+  return {
+    ...row,
+    pickup_file_url: chosen ? toFullUrl(req, chosen) : null,
+    // keep original path for debugging if you like
+    // pickup_file_path_original: row.pickup_file_path || null,
+  };
+}
+
+/* ------------------------ main controller ------------------------ */
 exports.MunicipalUserProfile = (req, res) => {
   if (!req.session?.user?.user_id) {
     return res.status(401).json({ message: "Unauthorized. Please log in." });
@@ -163,7 +227,6 @@ exports.MunicipalUserProfile = (req, res) => {
         ORDER BY application_date DESC
       `;
 
-      // 7 user_id values for 7 "WHERE user_id = ?" clauses
       const permitParams = [
         userId, // business
         userId, // building
@@ -174,7 +237,7 @@ exports.MunicipalUserProfile = (req, res) => {
         userId, // cedula
       ];
 
-      db.query(allPermitsQuery, permitParams, (err3, permitsResult) => {
+      db.query(allPermitsQuery, permitParams, async (err3, permitsResult) => {
         if (err3) {
           console.error("Error fetching permits:", err3);
           return res.status(500).json({
@@ -183,22 +246,31 @@ exports.MunicipalUserProfile = (req, res) => {
           });
         }
 
-        // ----- 4) STATISTICS -----
-        const totalApplications = permitsResult.length;
+        // Enrich each permit with a working pickup_file_url
+        let enriched = [];
+        try {
+          enriched = await Promise.all(permitsResult.map(r => enrichPermitRow(req, r)));
+        } catch (e) {
+          console.error("Error enriching permits:", e);
+          enriched = permitsResult.map(r => ({ ...r, pickup_file_url: null }));
+        }
 
-        const approvedPermits = permitsResult.filter((p) =>
+        // ----- 4) STATISTICS -----
+        const totalApplications = enriched.length;
+
+        const approvedPermits = enriched.filter((p) =>
           ["approved", "active", "completed", "ready-for-pickup"].includes(
             p.status?.toLowerCase()
           )
         ).length;
 
-        const pendingPermits = permitsResult.filter((p) =>
+        const pendingPermits = enriched.filter((p) =>
           ["pending", "in-review", "in-progress", "requirements-completed"].includes(
             p.status?.toLowerCase()
           )
         ).length;
 
-        const activePermits = permitsResult.filter((p) =>
+        const activePermits = enriched.filter((p) =>
           ["approved", "active"].includes(p.status?.toLowerCase())
         ).length;
 
@@ -237,7 +309,6 @@ exports.MunicipalUserProfile = (req, res) => {
           // ----- 6) FINAL RESPONSE -----
           const userInfo = userInfoResult[0] || {};
           const memberSince = memberResult[0]?.member_since || "N/A";
-          const baseUrl = `${req.protocol}://${req.get("host")}`;
 
           res.json({
             userInfo: {
@@ -250,17 +321,15 @@ exports.MunicipalUserProfile = (req, res) => {
               member_since: memberSince,
               // business info from first business permit if present
               business_name:
-                permitsResult.find((p) => p.permit_category === "business")
+                enriched.find((p) => p.permit_category === "business")
                   ?.business_name || "",
               business_type: "",
               tin_number: "",
             },
-            permits: permitsResult.map((permit) => ({
+            // add placeholder expiry; keep your frontend logic intact
+            permits: enriched.map((permit) => ({
               ...permit,
-              expiry_date: "2025-12-31", // placeholder
-              pickup_file_url: permit.pickup_file_path
-                ? `${baseUrl}${permit.pickup_file_path}`
-                : null,
+              expiry_date: "2025-12-31",
             })),
             recentActivity,
             statistics: {

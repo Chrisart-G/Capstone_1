@@ -369,22 +369,34 @@ const PermitsHomepage = () => {
       <main className="container mx-auto py-8 px-4">
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           {/* Tab Navigation */}
-          <div className="flex flex-wrap border-b">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => setActiveTab(category.id)}
-                className={`px-4 py-3 font-medium text-sm focus:outline-none transition-colors duration-200
-                  ${
-                    activeTab === category.id
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 hover:bg-blue-50'
-                  }`}
-              >
-                {category.name} Permits
-              </button>
-            ))}
-          </div>
+          {/* Tab Navigation – hide some categories temporarily */}
+<div className="flex flex-wrap border-b">
+  {categories
+    // TEMP: hide these three tabs
+    .filter(
+      (category) =>
+        ![
+          'Environmental',
+          'Event & Public Gathering',
+          'Transportation & Vehicle',
+        ].includes(category.name)
+    )
+    .map((category) => (
+      <button
+        key={category.id}
+        onClick={() => setActiveTab(category.id)}
+        className={`px-4 py-3 font-medium text-sm focus:outline-none transition-colors duration-200
+          ${
+            activeTab === category.id
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-700 hover:bg-blue-50'
+          }`}
+      >
+        {category.name} Permits
+      </button>
+    ))}
+</div>
+
 
           {/* Tab Content */}
           <div className="p-6">

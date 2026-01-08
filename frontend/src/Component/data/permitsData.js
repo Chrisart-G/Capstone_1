@@ -5,20 +5,20 @@ export const permits = {
       { name: "Business Permit", description: "Required to legally operate a business within the municipality." },
       { name: "Cedula Permit", description: "A general permit issued by the mayor's office for businesses, events, or special activities." },
       { name: "Renewal Business Permit", description: "Allows vendors to operate in public markets." },
-      { name: "Special Sales Permit", description: "Required for promotional sales, discounts, or special selling activities." }
+      // { name: "Special Sales Permit", description: "Required for promotional sales, discounts, or special selling activities." }
     ],
     construction: [
       { name: "Building Permit", description: "Necessary before constructing, repairing, or renovating a structure." },
       { name: "Electrical Permit", description: "Required before a newly constructed building can be occupied." },
-      { name: "Zoning Permit", description: "Ensures compliance with local zoning laws for land use." },
+      // { name: "Zoning Permit", description: "Ensures compliance with local zoning laws for land use." },
       { name: "Plumbing Permit", description: "Needed before demolishing a building or structure." },
       { name: "Electronics Permit", description: "Required for digging, road works, or underground installations." },
       { name: "Fencing Permit", description: "Required for digging, road works, or underground installations." }
     ],
     health: [
       { name: "Health/Sanitary Permit", description: "Ensures compliance with hygiene and health regulations for businesses." },
-      { name: "Food Handler's Permit", description: "Required for workers in food establishments." },
-      { name: "Medical Certificate Permit", description: "Needed for employment, school, or travel purposes." }
+      // { name: "Food Handler's Permit", description: "Required for workers in food establishments." },
+      // { name: "Medical Certificate Permit", description: "Needed for employment, school, or travel purposes." }
     ],
     environmental: [
       { name: "Tree Cutting Permit", description: "Required for cutting trees in public or private areas." },

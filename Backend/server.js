@@ -168,15 +168,30 @@ app.use('/api/admin-dashboard', admindashRoutes);
 app.use('/api', userdashRoutes);
 app.use('/api', fencingfillRoutes);
 app.use('/api', plumbingfillRoutes);
+const mayorspermitRoutes = require("./routes/mayorspermitRoutes");
+// …
+app.use("/api", mayorspermitRoutes);
+app.use("/api", require("./routes/PDF_fillbusinesspermitRoutes"));
 
+const buildingFillRoutes = require('./routes/PDF_fillbuildingpermitRoutes');
+app.use('/api', buildingFillRoutes);
 
+const pdfFillCedulaRoutes = require("./routes/PDF_fillcedulaRoutes");
+app.use("/api", pdfFillCedulaRoutes);
+const cedulaTreasurerRoutes = require("./routes/PDF_cedulaTreasurerRoutes");
+app.use("/api", cedulaTreasurerRoutes);
+
+app.use("/api", require("./routes/userupdateRoutes"));
+const employeeHistoryRoutes = require("./routes/employeeHistoryRoutes");
+app.use("/api/employee", employeeHistoryRoutes);
 /* ===================== CENTRAL ERROR HANDLER (prevents hard resets) ===================== */
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   if (res.headersSent) return next(err);
   res.status(500).json({ success: false, message: 'Server error.' });
 });
-
+const employeeArchiveRoutes = require("./routes/employeeArchiveRoutes");
+app.use("/api", employeeArchiveRoutes);
 /* ===================== START HTTP SERVER WITH LONGER TIMEOUTS ===================== */
 const PORT = process.env.PORT || 8081;
 const server = http.createServer(app);

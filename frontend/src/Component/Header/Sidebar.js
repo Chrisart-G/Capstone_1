@@ -109,7 +109,7 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
           </a>
 
           {/* Archives */}
-          <a href="/Employeearchives" className="block">
+          <a href="/Achrive" className="block">
             <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
               <Archive size={20} className="mr-3" />
               <span>Archives</span>
@@ -117,12 +117,12 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
           </a>
 
           {/* Settings */}
-          <a href="/Employeeprofile" className="block">
+          {/* <a href="/Employeeprofile" className="block">
             <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
               <Settings size={20} className="mr-3" />
               <span>Settings</span>
             </div>
-          </a>
+          </a> */}
         </nav>
       </div>
 

@@ -83,6 +83,17 @@ export default function EmployeeDashboard() {
   const toggleExpandApplication = (id) => {
     setExpandedApplication(prev => (prev === id ? null : id));
   };
+const typeToArchiveSlug = (typeLabel = "") => {
+  const t = (typeLabel || "").toLowerCase();
+  if (t.includes("business")) return "business";
+  if (t.includes("electrical")) return "electrical";
+  if (t.includes("plumbing")) return "plumbing";
+  if (t.includes("electronics")) return "electronics";
+  if (t.includes("building")) return "building";
+  if (t.includes("fencing")) return "fencing";
+  if (t.includes("cedula")) return "cedula";
+  return "other";
+};
 
   const getApplicationKey = (app) => {
     const type = (app.type || "Electrical Permit")
@@ -764,6 +775,51 @@ export default function EmployeeDashboard() {
       alert("Server error while scheduling pickup.");
     }
   };
+  const handleMarkAsPickedUp = async (application) => {
+    try {
+      const appId = application.id || application.cedula_id;
+      if (!appId) {
+        alert("Missing application ID.");
+        return;
+      }
+
+      const label = application.type || "Document";
+      const slug = typeToArchiveSlug(label);
+      const applicantName =
+        application.name || application.applicant_name || "N/A";
+
+      const res = await axios.post(
+        `${API_BASE_URL}/api/employee/archive/mark-picked-up`,
+        {
+          applicationType: slug,
+          applicationId: appId,
+          documentType: label,
+          applicantName,
+        },
+        { withCredentials: true }
+      );
+
+      if (res.data && res.data.success) {
+        alert("Marked as picked up and moved to Archives.");
+
+        // Optional: refresh lists so your counts stay updated
+        await Promise.all([
+          fetchApplications(),
+          fetchElectricalApplications(),
+          fetchCedulaApplications(),
+          fetchPlumbingApplications(),
+          fetchElectronicsApplications(),
+          fetchBuildingApplications(),
+          fetchFencingApplications(),
+        ]);
+      } else {
+        alert(res.data.message || "Failed to archive application.");
+      }
+    } catch (err) {
+      console.error("Mark-as-picked-up error:", err);
+      alert("Server error while moving to archive.");
+    }
+  };
 
   // ---------- DETAIL PANEL RENDERER ----------
   const renderSelectedDetails = () => {
@@ -1277,6 +1333,16 @@ export default function EmployeeDashboard() {
                               className="text-sm px-3 py-1 bg-pink-100 text-pink-600 rounded hover:bg-pink-200"
                             >
                               Set Pickup Schedule
+                            </button>
+                          )}
+                          {(application.status === "ready-for-pickup" ||
+                            application.application_status ===
+                              "ready-for-pickup") && (
+                            <button
+                              onClick={() => handleMarkAsPickedUp(application)}
+                              className="text-sm px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                            >
+                              Mark as Picked Up
                             </button>
                           )}
                         </div>

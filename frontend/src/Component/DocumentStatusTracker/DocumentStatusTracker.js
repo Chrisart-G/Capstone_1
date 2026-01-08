@@ -19,6 +19,8 @@ import FencingInlineForm from "../User/FencingInlineForm";
 import ElectricalInlineForm, { InlineModal } from "../User/ElectricalInlineForm";
 import ElectronicsInlineForm from "../User/ElectronicsInlineForm";
 import PlumbingInlineForms from "../User/PlumbingInlineForms";
+import BusinessinlineForms from "../User/BusinessinlineForms";
+import UserUpdateModal from "../modals/userupdatemodal";
 import { useNavigate } from 'react-router-dom';
 import Uheader from '../Header/User_header';
 import UFooter from '../Footer/User_Footer';
@@ -36,12 +38,32 @@ function DocumentStatusTracker() {
   const [expandedCards, setExpandedCards] = useState({});
   const [viewFilter, setViewFilter] = useState('all'); // 'all' | 'applications' | 'payments'
   const navigate = useNavigate();
+  const [openBusinessForm, setOpenBusinessForm] = useState(false);
+const [businessContext, setBusinessContext] = useState(null);
+const [openUpdateModal, setOpenUpdateModal] = useState(false);
+const [updateContext, setUpdateContext] = useState(null);
   const [openPlumbingForm, setOpenPlumbingForm] = useState(false);
   const [plumbingContext, setPlumbingContext] = useState(null);
   const includesCI = (haystack, needle) =>
+    
   String(haystack || '').toLowerCase().includes(String(needle || '').toLowerCase());
 
+const openEditModal = (application) => {
+  const appType = TYPE_TO_APP[application.type] || application.applicationType || "";
+  const appId = parseAppId(application.id);
 
+  if (!appType || !appId) {
+    alert("Unable to determine application type/id for editing.");
+    return;
+  }
+
+  setUpdateContext({
+    application,
+    appType,
+    appId,
+  });
+  setOpenUpdateModal(true);
+};
   // ---------- NEW: requirements state + helpers ----------
   const [requirementsByApp, setRequirementsByApp] = useState({}); // { [application.id]: { loading, items } }
 
@@ -614,6 +636,64 @@ function DocumentStatusTracker() {
       alert('Failed to access form. Please try again.');
     }
   };
+// Cancel application with terms & conditions confirmation
+const handleCancelApplication = async (application) => {
+  try {
+    const appType =
+      TYPE_TO_APP[application.type] || application.applicationType || "";
+    const appId = parseAppId(application.id);
+
+    if (!appType || !appId) {
+      alert("Unable to determine which application to cancel.");
+      return;
+    }
+
+    const normStatus = String(application.status || "")
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .replace(/-/g, "");
+
+    // Front-end guard (same idea as backend)
+    if (["approved", "readyforpickup", "rejected"].includes(normStatus)) {
+      alert("This application can no longer be cancelled.");
+      return;
+    }
+
+    const ok = window.confirm(
+      "Are you sure you want to cancel this application?\n\n" +
+        "By proceeding, you confirm that you understand and agree that any " +
+        "payments and processing expenses already incurred are NON-REFUNDABLE " +
+        "as stated in the municipal terms and conditions."
+    );
+    if (!ok) return;
+
+    const r = await fetch(
+      `http://localhost:8081/api/user/cancel/${appType}/${appId}`,
+      {
+        method: "POST",
+        credentials: "include",
+      }
+    );
+    const j = await r.json();
+
+    if (!j.success) {
+      alert(j.message || "Failed to cancel application.");
+      return;
+    }
+
+    alert(
+      "Your application has been cancelled.\n\n" +
+        "Please note that any payments and expenses already incurred " +
+        "are NON-REFUNDABLE as per the terms and conditions."
+    );
+
+    // Refresh tracker so status changes to 'rejected'
+    fetchAllPermitData();
+  } catch (err) {
+    console.error("handleCancelApplication error:", err);
+    alert("Server error while cancelling the application.");
+  }
+};
 
   // Helpers
   function transformStatusToSteps(status) {
@@ -873,7 +953,7 @@ async function replaceUserRequirement(application, requirement_id, file) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Uheader />
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-6 min-h-screen">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Application Status Tracker</h1>
           <p className="text-gray-600 mt-2">Track the progress of your permit applications, cedula records, and payment receipts</p>
@@ -923,6 +1003,7 @@ async function replaceUserRequirement(application, requirement_id, file) {
         </div>
 
         <div className="space-y-4">
+          
           {visibleApps.map((application, appIndex) => (
             <div key={application.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
               {/* Application Header */}
@@ -975,23 +1056,27 @@ async function replaceUserRequirement(application, requirement_id, file) {
                     {application.type !== 'Payment Receipt' && (
                       <>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          className="flex items-center text-sm px-2 py-1 rounded-md text-indigo-600 hover:bg-indigo-100 transition"
-                        >
-                          <Pencil size={16} className="mr-1" />
-                          Edit
-                        </button>
+  onClick={(e) => {
+    e.stopPropagation();
+    openEditModal(application);
+  }}
+  className="flex items-center text-sm px-2 py-1 rounded-md text-indigo-600 hover:bg-indigo-100 transition"
+>
+  <Pencil size={16} className="mr-1" />
+  Edit
+</button>
+
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          className="flex items-center text-sm px-2 py-1 rounded-md text-red-600 hover:bg-red-100 transition"
-                        >
-                          <AlertCircle size={16} className="mr-1" />
-                          Cancel
-                        </button>
+  onClick={(e) => {
+    e.stopPropagation();
+    handleCancelApplication(application);
+  }}
+  className="flex items-center text-sm px-2 py-1 rounded-md text-red-600 hover:bg-red-100 transition"
+>
+  <AlertCircle size={16} className="mr-1" />
+  Cancel
+</button>
+
                       </>
                     )}
 
@@ -1414,7 +1499,31 @@ async function replaceUserRequirement(application, requirement_id, file) {
     Fill online
   </button>
 )}
-
+{/* Business Permit: open inline form */}
+{(
+  includesCI(item.name, "business permit") &&
+  (
+    includesCI(item.name, "lgu") ||
+    includesCI(item.name, "verification") ||
+    includesCI(item.name, "filled") ||
+    includesCI(item.name, "final")
+  )
+) && (
+  <button
+    type="button"
+    onClick={() => {
+      const appId = parseAppId(application.id);
+      setBusinessContext({
+        applicationId: appId,
+        templateUrl: item.template_url || null,
+      });
+      setOpenBusinessForm(true);
+    }}
+    className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+  >
+    Fill online
+  </button>
+)}
 </div>
 
 
@@ -1644,6 +1753,7 @@ async function replaceUserRequirement(application, requirement_id, file) {
                     </div>
                   )}
 
+
                   {/* Additional Information Section */}
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                     <h3 className="font-medium text-blue-800 mb-2">Need Help?</h3>
@@ -1706,6 +1816,37 @@ async function replaceUserRequirement(application, requirement_id, file) {
         a => parseAppId(a.id) === plumbingContext.applicationId && a.type === "Plumbing Permit"
       );
       if (app) loadRequirementsForApplication(app);
+    }}
+  />
+)}
+{openBusinessForm && businessContext && (
+  <BusinessinlineForms
+    applicationId={businessContext.applicationId}
+    templateUrl={businessContext.templateUrl}
+    onClose={() => setOpenBusinessForm(false)}
+    onSubmitted={() => {
+      const app = applications.find(
+        a => parseAppId(a.id) === businessContext.applicationId && a.type === "Business Permit"
+      );
+      if (app) loadRequirementsForApplication(app);
+    }}
+  />
+)}
+{openUpdateModal && updateContext && (
+  <UserUpdateModal
+    open={openUpdateModal}
+    applicationType={updateContext.appType}
+    applicationId={updateContext.appId}
+    displayTitle={updateContext.application.title}
+    currentStatus={updateContext.application.status}
+    onClose={() => {
+      setOpenUpdateModal(false);
+      setUpdateContext(null);
+    }}
+    onUpdated={() => {
+      setOpenUpdateModal(false);
+      setUpdateContext(null);
+      fetchAllPermitData(); // refresh list + show updated values
     }}
   />
 )}

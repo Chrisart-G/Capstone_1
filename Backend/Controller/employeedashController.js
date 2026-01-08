@@ -93,12 +93,12 @@ const TABLE_TO_TYPE = {
 };
 
 const OFFICE_BY_TYPE = {
-  plumbing: "Office of the Municipal Engineer",
-  electronics: "Office of the Municipal Engineer",
-  building: "Office of the Building Official",
-  fencing: "Office of the Municipal Engineer",
+  plumbing: "Office of the Municipal Planning Development",
+  electronics: "Office of the Municipal Planning Development",
+  building: "Office of the Municipal Planning Development",
+  fencing: "Office of the Municipal Planning Development",
   electrical: "Office of the Municipal Engineer",
-  cedula: "Municipal Treasurer’s Office",
+  cedula: "Municipal Business Permit and licensing Office",
   business: "Business Permits & Licensing Office", // NEW
 };
 // this is for schedule pickup

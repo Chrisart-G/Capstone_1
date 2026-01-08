@@ -296,13 +296,9 @@ export default function AddEmployeeForm() {
                     }`}
                   >
                     <option value="">Select Department</option>
-                    <option value="HR">Human Resources</option>
-                    <option value="IT">Information Technology</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Operations">Operations</option>
-                    <option value="Sales">Sales</option>
-                    <option value="Customer Service">Customer Service</option>
+                    <option value="BLPO">Business And Licensing Office</option>
+                    <option value="MPDO">Municipal Planning and Development Office</option>
+                    <option value="HMO">Municipal Health Office</option>
                   </select>
                   {errors.department && <p className="text-red-500 text-sm mt-1">{errors.department}</p>}
                 </div>

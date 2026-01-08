@@ -2,6 +2,7 @@ import './App.css';
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Logins from './Component/Logins/Login';
+import EmployeeArchivesDashboard from "./Component/Employee/EmployeeArchivesDashboard";
 import Singnup from './Component/Signup/Signup';
 import MunicipalLandingPage from './Component/Home/Home';
 import BusinessPermitForm from './Component/Form/businesspermit/businesspermit';
@@ -183,6 +184,11 @@ function App() {
           <Route path="/Documentprice" element={
             <ProtectedRoute>
               <Documentprice />
+            </ProtectedRoute>
+             } />
+             <Route path="/Achrive" element={
+            <ProtectedRoute>
+              <EmployeeArchivesDashboard />
             </ProtectedRoute>
              } />
           
