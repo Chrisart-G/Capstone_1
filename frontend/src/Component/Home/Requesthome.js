@@ -346,8 +346,13 @@ const PermitsHomepage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        Loading...
+      <div
+        className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-700 via-slate-400 to-slate-700"
+        style={{ fontFamily: "'Poppins', sans-serif" }}
+      >
+        <div className="bg-white/10 border border-white/20 backdrop-blur-xl rounded-2xl px-6 py-4 text-sm text-slate-900">
+          Loading...
+        </div>
       </div>
     );
   }
@@ -363,48 +368,45 @@ const PermitsHomepage = () => {
       : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div
+      className="min-h-screen flex flex-col bg-gradient-to-br from-slate-700 via-slate-400 to-slate-700"
+      style={{ fontFamily: "'Poppins', sans-serif" }}
+    >
       <Uheader />
 
-      <main className="container mx-auto py-8 px-4">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {/* Tab Navigation */}
+      <main className="container mx-auto py-8 px-4 flex-1">
+        <div className="bg-white/95 rounded-2xl shadow-xl overflow-hidden border border-slate-100">
           {/* Tab Navigation – hide some categories temporarily */}
-<div className="flex flex-wrap border-b">
-  {categories
-    // TEMP: hide these three tabs
-    .filter(
-      (category) =>
-        ![
-          'Environmental',
-          'Event & Public Gathering',
-          'Transportation & Vehicle',
-        ].includes(category.name)
-    )
-    .map((category) => (
-      <button
-        key={category.id}
-        onClick={() => setActiveTab(category.id)}
-        className={`px-4 py-3 font-medium text-sm focus:outline-none transition-colors duration-200
-          ${
-            activeTab === category.id
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-700 hover:bg-blue-50'
-          }`}
-      >
-        {category.name} Permits
-      </button>
-    ))}
-</div>
-
+          <div className="flex flex-wrap border-b">
+            {categories
+              .filter(
+                (category) =>
+                  ![
+                    'Environmental',
+                    'Event & Public Gathering',
+                    'Transportation & Vehicle',
+                  ].includes(category.name)
+              )
+              .map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setActiveTab(category.id)}
+                  className={`px-4 py-3 font-medium text-sm focus:outline-none transition-colors duration-200
+                  ${
+                    activeTab === category.id
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-blue-50'
+                  }`}
+                >
+                  {category.name} Permits
+                </button>
+              ))}
+          </div>
 
           {/* Tab Content */}
           <div className="p-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">
-              {
-                categories.find((cat) => cat.id === activeTab)
-                  ?.name
-              }{' '}
+              {categories.find((cat) => cat.id === activeTab)?.name}{' '}
               Permits
             </h2>
 
@@ -412,7 +414,7 @@ const PermitsHomepage = () => {
               {permits[activeTab].map((permit, index) => (
                 <div
                   key={index}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                  className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
                 >
                   <h3 className="text-lg font-semibold text-blue-700">
                     {permit.name}
@@ -498,6 +500,7 @@ const PermitsHomepage = () => {
               </div>
             )}
 
+
             {selectedPermit === 'Business Permit' && (
               <div className="mt-2 p-4 bg-gray-100 rounded-md">
                 <h3 className="text-lg font-semibold mb-2">
@@ -512,17 +515,13 @@ const PermitsHomepage = () => {
                 >
                   <p>1. FILLED-UP UNIFIED FORM (2 COPIES)</p>
                   <p>
-                    2. SEC/DTI/CDA CERTIFICATE (IF ANY) -
-                    PHOTOCOPY
+                    2. SEC/DTI/CDA CERTIFICATE (IF ANY) - PHOTOCOPY
                   </p>
-                  <p>
-                    3. LOCATION SKETCH OF THE NEW BUSINESS
-                  </p>
+                  <p>3. LOCATION SKETCH OF THE NEW BUSINESS</p>
                   <p>4. SWORN STATEMENT OF CAPITAL</p>
                   <p>5. TAX CLEARANCE</p>
                   <p>
-                    6. BRGY. BUSINESS CLEARANCE 2025 -
-                    PHOTOCOPY
+                    6. BRGY. BUSINESS CLEARANCE 2025 - PHOTOCOPY
                   </p>
                   <p>7. CEDULA 2025 - PHOTOCOPY</p>
                 </div>
