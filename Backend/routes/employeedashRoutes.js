@@ -116,4 +116,78 @@ router.post(
   isAuthenticated,
   PDF_fillefencingController.removeAttachedRequirement
 );
+/* ===== ANY STATUS → ON-HOLD ===== */
+router.put(
+  '/applications/move-to-onhold',
+  isAuthenticated,
+  C.businessToOnHold
+);
+router.put(
+  '/electrical-applications/move-to-onhold',
+  isAuthenticated,
+  C.electricalToOnHold
+);
+router.put(
+  '/plumbing-applications/move-to-onhold',
+  isAuthenticated,
+  C.plumbingToOnHold
+);
+router.put(
+  '/electronics-applications/move-to-onhold',
+  isAuthenticated,
+  C.electronicsToOnHold
+);
+router.put(
+  '/building-applications/move-to-onhold',
+  isAuthenticated,
+  C.buildingToOnHold
+);
+router.put(
+  '/fencing-applications/move-to-onhold',
+  isAuthenticated,
+  C.fencingToOnHold
+);
+router.put(
+  '/cedula/move-to-onhold',
+  isAuthenticated,
+  C.moveCedulaToOnHold
+);
+
+/* ===== APPROVED → PICKUP-DOCUMENT ===== */
+router.put(
+  '/applications/move-to-pickup-document',
+  isAuthenticated,
+  C.businessToPickupDocument
+);
+router.put(
+  '/electrical-applications/move-to-pickup-document',
+  isAuthenticated,
+  C.electricalToPickupDocument
+);
+router.put(
+  '/plumbing-applications/move-to-pickup-document',
+  isAuthenticated,
+  C.plumbingToPickupDocument
+);
+router.put(
+  '/electronics-applications/move-to-pickup-document',
+  isAuthenticated,
+  C.electronicsToPickupDocument
+);
+router.put(
+  '/building-applications/move-to-pickup-document',
+  isAuthenticated,
+  C.buildingToPickupDocument
+);
+router.put(
+  '/fencing-applications/move-to-pickup-document',
+  isAuthenticated,
+  C.fencingToPickupDocument
+);
+router.put(
+  '/cedula/move-to-pickup-document',
+  isAuthenticated,
+  C.moveCedulaToPickupDocument
+);
+
 module.exports = router;

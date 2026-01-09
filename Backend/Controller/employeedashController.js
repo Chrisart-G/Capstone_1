@@ -312,7 +312,7 @@ async function fireSmsFor(table, id, status, schedule) {
 
     const application_no = await getApplicationNo(table, id);
     const office_name = OFFICE_BY_TYPE[application_type] || "Municipal Office";
-    const extra_note = (function noteForStatus(status, schedule) {
+        const extra_note = (function noteForStatus(status, schedule) {
       switch (status) {
         case "in-review":
           return "Your application is under review. Please monitor your requirements in the portal.";
@@ -322,14 +322,21 @@ async function fireSmsFor(table, id, status, schedule) {
           return "All requirements received. Await final approval.";
         case "approved":
           return "Approved. Watch your portal for pickup instructions.";
+        case "on-hold": // NEW
+          return "Your application is currently on hold. Please check your account for remarks or additional requirements.";
+        case "pickup-document": // NEW
+          return "Your permit document is being prepared. Please monitor your account for the pickup schedule.";
         case "ready-for-pickup":
-          return schedule ? `Ready for pickup on ${schedule}. Bring a valid ID.` : "Ready for pickup. Bring a valid ID.";
+          return schedule
+            ? `Ready for pickup on ${schedule}. Bring a valid ID.`
+            : "Ready for pickup. Bring a valid ID.";
         case "rejected":
           return "Not approved. See details in your portal.";
         default:
           return "See your account for details.";
       }
     })(status, schedule);
+
 
     const label = application_type.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
     const message = buildStatusMessage({
@@ -373,33 +380,64 @@ exports.smsTest = async (req, res) => {
    SHARED HELPERS FOR STATUS UPDATES
 =================================================================== */
 
-// For tables that use `status` (plumbing/electronics/building/fencing/electrical)
-function updateStatus(res, table, id, status, schedule) {
-  console.log("[STATUS] updateStatus →", { table, id, status, schedule });
+/// For tables that use `status` (plumbing/electronics/building/fencing/electrical/business)
+function updateStatus(res, table, id, status, schedule, pkCol) {
+  console.log("[STATUS] updateStatus →", {
+    table,
+    id,
+    status,
+    schedule,
+    pkCol,
+  });
 
-  const hasSchedule = typeof schedule !== "undefined" && schedule !== null;
+  // Decide which column to use in WHERE clause
+  const idColumn =
+    pkCol || (table === "business_permits" ? "BusinessP_id" : "id");
+
+  const hasSchedule =
+    typeof schedule !== "undefined" && schedule !== null;
+
   const sql = hasSchedule
-    ? `UPDATE ${table} SET status = ?, pickup_schedule = ?, updated_at = NOW() WHERE id = ?`
-    : `UPDATE ${table} SET status = ?, updated_at = NOW() WHERE id = ?`;
-  const params = hasSchedule ? [status, schedule, id] : [status, id];
+    ? `UPDATE ${table}
+       SET status = ?, pickup_schedule = ?, updated_at = NOW()
+       WHERE ${idColumn} = ?`
+    : `UPDATE ${table}
+       SET status = ?, updated_at = NOW()
+       WHERE ${idColumn} = ?`;
+
+  const params = hasSchedule
+    ? [status, schedule, id]
+    : [status, id];
 
   db.query(sql, params, (err, result) => {
     if (err) {
       console.error(`[STATUS] Failed to update ${table}:`, err);
-      return res.status(500).json({ success: false, message: "Failed to update" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to update" });
     }
     if (result.affectedRows === 0) {
       console.warn("[STATUS] No rows affected →", { table, id });
-      return res.status(404).json({ success: false, message: "Record not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Record not found" });
     }
 
     res.json({ success: true, message: `Moved to ${status}` });
 
     fireSmsFor(table, id, status, schedule)
-      .then(() => console.log("[SMS] done for", { table, id, status }))
-      .catch((e) => console.error("[SMS] background error:", e?.response?.data || e));
+      .then(() =>
+        console.log("[SMS] done for", { table, id, status })
+      )
+      .catch((e) =>
+        console.error(
+          "[SMS] background error:",
+          e?.response?.data || e
+        )
+      );
   });
 }
+
 
 // For Cedula which uses `application_status`
 function updateCedulaStatusGeneric(res, id, status, schedule) {
@@ -2515,4 +2553,292 @@ exports.generateBusinessPermitFormWithAssessment = (req, res) => {
       return res.status(500).json({ success: false, message: "Failed to generate LGU form with assessment." });
     }
   });
+};
+
+
+/* ===================================================================
+   MOVE: ANY STATUS → ON-HOLD
+=================================================================== */
+// ---------------- CEDULA ID RESOLVER ----------------
+// ---------------- CEDULA ID RESOLVER ----------------
+function resolveCedulaId(req) {
+  const params = req.params || {};
+  const body   = req.body   || {};
+  const query  = req.query  || {};
+
+  // 1) Direct / flat candidates (body, params, query)
+  const candidates = [
+    // body
+    body.cedulaId,
+    body.cedula_id,
+    body.id,
+    body.applicationId,
+    body.application_id,
+    // params
+    params.cedulaId,
+    params.cedula_id,
+    params.id,
+    params.applicationId,
+    params.application_id,
+    // query
+    query.cedulaId,
+    query.cedula_id,
+    query.id,
+    query.applicationId,
+    query.application_id,
+  ];
+
+  // 2) Also look inside common nested objects (when frontend sends entire application)
+  const nestedSources = [
+    body.application,
+    body.app,
+    body.selectedApplication,
+    body.row,
+    body.data,
+  ];
+
+  for (const src of nestedSources) {
+    if (!src || typeof src !== "object") continue;
+    candidates.push(
+      src.cedulaId,
+      src.cedula_id,
+      src.id,
+      src.applicationId,
+      src.application_id
+    );
+  }
+
+  // 3) Normalize and pick the first valid numeric ID
+  for (const raw of candidates) {
+    if (raw === undefined || raw === null || raw === "") continue;
+    const n = Number(String(raw).trim());
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+
+  return null;
+}
+
+
+// BUSINESS (business_permits via /api/applications/*)
+exports.businessToOnHold = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "business_permits", id, "on-hold");
+};
+
+// PLUMBING
+exports.plumbingToOnHold = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_plumbing_permits", id, "on-hold");
+};
+
+// ELECTRONICS
+exports.electronicsToOnHold = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_electronics_permits", id, "on-hold");
+};
+
+// BUILDING
+exports.buildingToOnHold = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_building_permits", id, "on-hold");
+};
+
+// FENCING
+exports.fencingToOnHold = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_fencing_permits", id, "on-hold");
+};
+
+// ELECTRICAL
+exports.electricalToOnHold = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_electrical_permits", id, "on-hold");
+};
+
+// CEDULA (uses application_status)
+exports.moveCedulaToOnHold = (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  console.log("[CEDULA] moveCedulaToOnHold body:", req.body);
+  console.log("[CEDULA] moveCedulaToOnHold params:", req.params);
+  console.log("[CEDULA] moveCedulaToOnHold query:", req.query);
+
+  const cedulaId = resolveCedulaId(req);
+
+  if (!cedulaId) {
+    console.error("[CEDULA] moveCedulaToOnHold - No valid ID found:", {
+      params: req.params,
+      body: req.body,
+      query: req.query,
+    });
+    return res.status(400).json({
+      success: false,
+      message:
+        "Cedula ID is required (id | cedulaId | applicationId).",
+    });
+  }
+
+  console.log("[CEDULA] moveCedulaToOnHold - Using ID:", cedulaId);
+  updateCedulaStatusGeneric(res, cedulaId, "on-hold");
+};
+
+
+/* ===================================================================
+   MOVE: APPROVED → PICKUP-DOCUMENT
+=================================================================== */
+
+// BUSINESS
+exports.businessToPickupDocument = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  // business_permits uses BusinessP_id as its primary key
+  updateStatus(
+    res,
+    "business_permits",
+    id,
+    "pickup-document",
+    null,
+    "BusinessP_id"
+  );
+};
+
+
+// PLUMBING
+exports.plumbingToPickupDocument = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_plumbing_permits", id, "pickup-document");
+};
+
+// ELECTRONICS
+exports.electronicsToPickupDocument = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_electronics_permits", id, "pickup-document");
+};
+
+// BUILDING
+exports.buildingToPickupDocument = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_building_permits", id, "pickup-document");
+};
+
+// FENCING
+exports.fencingToPickupDocument = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_fencing_permits", id, "pickup-document");
+};
+
+// ELECTRICAL
+exports.electricalToPickupDocument = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, "tbl_electrical_permits", id, "pickup-document");
+};
+
+// CEDULA (uses application_status)
+exports.moveCedulaToPickupDocument = (req, res) => {
+  if (!requireAuth(req, res)) return;
+
+  console.log("[CEDULA] moveToPickupDocument body:", req.body);
+  console.log("[CEDULA] moveToPickupDocument params:", req.params);
+  console.log("[CEDULA] moveToPickupDocument query:", req.query);
+
+  const cedulaId = resolveCedulaId(req);
+
+  if (!cedulaId) {
+    console.error("[CEDULA] moveCedulaToPickupDocument - No valid ID found:", {
+      params: req.params,
+      body: req.body,
+      query: req.query,
+    });
+    return res.status(400).json({
+      success: false,
+      message:
+        "Cedula ID is required (id | cedulaId | applicationId).",
+    });
+  }
+
+  console.log("[CEDULA] moveCedulaToPickupDocument - Using ID:", cedulaId);
+  updateCedulaStatusGeneric(res, cedulaId, "pickup-document");
 };

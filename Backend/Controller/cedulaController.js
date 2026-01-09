@@ -96,6 +96,7 @@ function buildCedulaMessage({ status, schedule }) {
   return lines.join('\n').slice(0, 306);
 }
 
+
 async function sendCedulaStatusSms(cedulaId, status, schedule = null) {
   try {
     const smsOn = await getSmsEnabledFlag();
