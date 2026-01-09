@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jan 08, 2026 at 05:41 PM
+-- Generation Time: Jan 09, 2026 at 05:30 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -44,7 +44,8 @@ CREATE TABLE `application_archives` (
 
 INSERT INTO `application_archives` (`id`, `application_type`, `application_id`, `document_type`, `applicant_name`, `notes`, `archived_at`, `archived_by`) VALUES
 (1, 'other', 86, 'new', 'Chris Ge', NULL, '2025-12-13 14:09:11', NULL),
-(5, 'other', 88, 'new', 'Chris Ge', NULL, '2025-12-13 14:44:36', NULL);
+(5, 'other', 88, 'new', 'Chris Ge', NULL, '2025-12-13 14:44:36', NULL),
+(7, 'other', 90, 'new', 'dave chester', NULL, '2026-01-09 02:28:55', NULL);
 
 -- --------------------------------------------------------
 
@@ -155,7 +156,8 @@ INSERT INTO `application_index` (`app_uid`, `application_type`, `application_id`
 (54, 'cedula', 27, 48, '2025-12-13 07:05:29'),
 (55, 'business', 90, 44, '2025-12-13 09:23:57'),
 (56, 'business', 91, 35, '2026-01-05 03:39:28'),
-(57, 'cedula', 28, 35, '2026-01-05 03:56:02');
+(57, 'cedula', 28, 35, '2026-01-05 03:56:02'),
+(58, 'business', 92, 52, '2026-01-09 13:53:18');
 
 -- --------------------------------------------------------
 
@@ -203,7 +205,8 @@ CREATE TABLE `business_activities` (
 
 INSERT INTO `business_activities` (`id`, `permit_id`, `line_of_business`, `units`, `capitalization`, `gross_essential`, `gross_non_essential`, `created_at`, `updated_at`) VALUES
 (96, 90, '', '', 0.00, 0.00, 0.00, '2025-12-13 09:16:14', '2025-12-13 09:16:14'),
-(97, 91, 'Asperiores deserunt ', 'Qui eaque deserunt v', 0.00, 0.00, 0.00, '2026-01-05 03:36:58', '2026-01-05 03:36:58');
+(97, 91, 'Asperiores deserunt ', 'Qui eaque deserunt v', 0.00, 0.00, 0.00, '2026-01-05 03:36:58', '2026-01-05 03:36:58'),
+(98, 92, 'Dolore facere non do', 'Ea nostrum aut ullam', 0.00, 0.00, 0.00, '2026-01-09 13:46:56', '2026-01-09 13:46:56');
 
 -- --------------------------------------------------------
 
@@ -233,7 +236,8 @@ INSERT INTO `business_clearance_form` (`application_id`, `status`, `zoning`, `fi
 (86, 'submitted', '{\"action\":\"\",\"deficiencies\":{\"1\":\"Eum enim lorem saepe\",\"2\":\"wwdw\",\"3\":\"d\"},\"remarks\":\"Voluptas nostrum per\"}', '{\"action\":\"approved\",\"deficiencies\":{},\"remarks\":\"Fugiat placeat inve\"}', '{\"action\":\"approved\",\"deficiencies\":{},\"remarks\":\"Sunt suscipit mollit\"}', '{\"action\":\"approved\",\"deficiencies\":{},\"remarks\":\"Soluta nisi elit au\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Commodi mollitia exc\"}', '{\"action\":\"approved\",\"deficiencies\":{\"1\":\"d\"},\"remarks\":\"Enim quis voluptate \"}', '/uploads/requirements/business_permit_86_lgu_form_preview.pdf', '/uploads/requirements/business_permit_86_lgu_form_user.pdf', '2025-12-13 13:59:12'),
 (88, 'submitted', '{\"action\":\"\",\"deficiencies\":{\"1\":\"Laboriosam est veni\"},\"remarks\":\"Eum eaque esse assum\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Quo qui culpa quia \"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Mollit rerum tenetur\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Nulla at vitae labor\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Eu excepteur accusan\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Expedita amet place\"}', NULL, '/uploads/requirements/business_permit_88_lgu_form_user.pdf', '2025-12-13 14:05:22'),
 (90, 'submitted', '{\"action\":\"\",\"deficiencies\":{\"1\":\"Libero rerum non por\"},\"remarks\":\"Tempora in Nam rerum\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Quas quisquam quos n\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Sequi rerum enim eiu\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Nemo ipsam numquam s\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Libero similique nec\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Consequatur Est nes\"}', NULL, '/uploads/requirements/business_permit_90_lgu_form_user.pdf', '2025-12-13 17:27:55'),
-(91, 'submitted', '{\"action\":\"\",\"deficiencies\":{\"1\":\"Consequatur velit et\"},\"remarks\":\"Eiusmod ad maiores u\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Earum deserunt quod \"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Quia et rerum sunt s\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Possimus laudantium\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Elit nulla velit se\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Perferendis molestia\"}', NULL, '/uploads/requirements/business_permit_91_lgu_form_user.pdf', '2026-01-05 12:12:38');
+(91, 'submitted', '{\"action\":\"\",\"deficiencies\":{\"1\":\"Consequatur velit et\"},\"remarks\":\"Eiusmod ad maiores u\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Earum deserunt quod \"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Quia et rerum sunt s\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Possimus laudantium\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Elit nulla velit se\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"Perferendis molestia\"}', NULL, '/uploads/requirements/business_permit_91_lgu_form_user.pdf', '2026-01-05 12:12:38'),
+(92, 'submitted', '{\"action\":\"\",\"deficiencies\":{\"1\":\"2\"},\"remarks\":\"da\"}', '{\"action\":\"approved\",\"deficiencies\":{\"1\":\"2\"},\"remarks\":\"\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"\"}', '{\"action\":\"\",\"deficiencies\":{},\"remarks\":\"\"}', NULL, '/uploads/requirements/business_permit_92_lgu_form_user.pdf', '2026-01-09 22:25:00');
 
 -- --------------------------------------------------------
 
@@ -281,7 +285,7 @@ CREATE TABLE `business_permits` (
   `lessor_phone` varchar(20) DEFAULT NULL,
   `lessor_email` varchar(100) DEFAULT NULL,
   `monthly_rental` decimal(10,2) DEFAULT NULL,
-  `status` enum('pending','in-review','in-progress','requirements-completed','ready-for-pickup','approved','rejected') DEFAULT 'pending',
+  `status` enum('pending','in-review','in-progress','requirements-completed','approved','on-hold','pickup-document','ready-for-pickup','rejected') NOT NULL DEFAULT 'pending',
   `pickup_schedule` datetime DEFAULT NULL,
   `pickup_file_path` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -302,8 +306,9 @@ CREATE TABLE `business_permits` (
 --
 
 INSERT INTO `business_permits` (`BusinessP_id`, `application_type`, `payment_mode`, `application_date`, `tin_no`, `registration_no`, `registration_date`, `business_type`, `amendment_from`, `amendment_to`, `tax_incentive`, `tax_incentive_entity`, `last_name`, `first_name`, `middle_name`, `business_name`, `trade_name`, `business_address`, `business_postal_code`, `business_email`, `business_telephone`, `business_mobile`, `owner_address`, `owner_postal_code`, `owner_email`, `owner_telephone`, `owner_mobile`, `emergency_contact`, `emergency_phone`, `emergency_email`, `business_area`, `male_employees`, `female_employees`, `local_employees`, `lessor_name`, `lessor_address`, `lessor_phone`, `lessor_email`, `monthly_rental`, `status`, `pickup_schedule`, `pickup_file_path`, `created_at`, `updated_at`, `user_id`, `filled_up_forms`, `sec_dti_cda_certificate`, `local_sketch`, `sworn_statement_capital`, `tax_clearance`, `brgy_clearance_business`, `cedula`, `docu_type`) VALUES
-(90, 'new', 'annually', '2025-12-12', '123', '3213', '2025-12-13', 'single', 'single', 'single', 'no', '', 'chester', 'dave', 'gealolo', 'AAA Water Station', 'dwwad', 'hinigaran', '0909', 'davechester@gmail.com', '09534178798', '09534178798', 'brgy  2', '776', 'davechester@gmail.com', '32', '09534178798', '321', '09534178798', 'davechester@gmail.com', 'w23', 2, 3, 32, '321', '321', '2', 'davechester@gmail.com', 1222.00, 'in-progress', '2025-12-13 17:32:00', NULL, '2025-12-13 09:16:14', '2026-01-05 04:08:52', 44, '/uploads/requirements/business_permit_90_lgu_form.pdf', NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit'),
-(91, 'new', 'semi-annually', '1989-03-30', 'Excepteur voluptas l', 'Voluptatibus velit ', '2011-11-15', 'partnership', 'single', 'corporation', 'yes', '', 'Ge', 'Chris', 'Pa', 'Noelani Stout', 'Leandra Stephens', 'Laboris ut beatae qu', 'Corrupti v', 'wuzomiqyb@mailinator.com', '+1 (254) 139-9184', 'Repellendus Id et u', 'Laboriosam asperior', 'Qui et quo', 'nivi@mailinator.com', '+1 (354) 428-9912', 'Doloremque autem fug', 'Georgia Michael', '+1 (677) 285-8927', 'volehax@mailinator.com', 'Ut neque occaecat do', 15, 50, 78, 'Ashton Cruz', 'Do quisquam et sed a', '+1 (773) 626-1324', 'gike@mailinator.com', 10.00, 'ready-for-pickup', '2026-01-05 11:53:00', NULL, '2026-01-05 03:36:58', '2026-01-05 03:53:12', 35, '/uploads/requirements/business_permit_91_lgu_form.pdf', NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit');
+(90, 'new', 'annually', '2025-12-12', '123', '3213', '2025-12-13', 'single', 'single', 'single', 'no', '', 'chester', 'dave', 'gealolo', 'AAA Water Station', 'dwwad', 'hinigaran', '0909', 'davechester@gmail.com', '09534178798', '09534178798', 'brgy  2', '776', 'davechester@gmail.com', '32', '09534178798', '321', '09534178798', 'davechester@gmail.com', 'w23', 2, 3, 32, '321', '321', '2', 'davechester@gmail.com', 1222.00, 'in-review', '2026-01-09 02:28:00', NULL, '2025-12-13 09:16:14', '2026-01-09 13:32:03', 44, '/uploads/requirements/business_permit_90_lgu_form.pdf', NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit'),
+(91, 'new', 'semi-annually', '1989-03-30', 'Excepteur voluptas l', 'Voluptatibus velit ', '2011-11-15', 'partnership', 'single', 'corporation', 'yes', '', 'Ge', 'Chris', 'Pa', 'Noelani Stout', 'Leandra Stephens', 'Laboris ut beatae qu', 'Corrupti v', 'wuzomiqyb@mailinator.com', '+1 (254) 139-9184', 'Repellendus Id et u', 'Laboriosam asperior', 'Qui et quo', 'nivi@mailinator.com', '+1 (354) 428-9912', 'Doloremque autem fug', 'Georgia Michael', '+1 (677) 285-8927', 'volehax@mailinator.com', 'Ut neque occaecat do', 15, 50, 78, 'Ashton Cruz', 'Do quisquam et sed a', '+1 (773) 626-1324', 'gike@mailinator.com', 10.00, 'pickup-document', '2026-01-05 11:53:00', NULL, '2026-01-05 03:36:58', '2026-01-09 14:36:13', 35, '/uploads/requirements/business_permit_91_lgu_form.pdf', NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit'),
+(92, 'new', 'annually', '2007-10-25', 'Alias placeat id m', 'Officia dolor vel qu', '2012-12-28', 'partnership', 'partnership', 'single', 'no', '', 'Getida', 'Chris Art', 'P', 'Alfonso Salas', 'Dominique Nolan', 'Adipisci qui aut mol', 'Ad non obc', 'joful@mailinator.com', '+1 (806) 468-5791', 'Itaque ea quis dolor', 'Ipsum quo occaecat ', 'Eligendi p', 'comofajy@mailinator.com', '+1 (138) 422-4497', 'Voluptatem et sapien', 'Evangeline Kelly', '+1 (686) 893-5437', 'ralux@mailinator.com', 'Minus consequatur N', 35, 36, 5, 'Seth Meyer', 'Id vero perspiciatis', '+1 (228) 768-7196', 'vuzyliga@mailinator.com', 12.00, 'on-hold', '2026-02-07 21:58:00', NULL, '2026-01-09 13:46:56', '2026-01-09 14:27:35', 52, '/uploads/requirements/business_permit_92_lgu_form.pdf', NULL, NULL, NULL, NULL, NULL, NULL, 'Business Permit');
 
 -- --------------------------------------------------------
 
@@ -326,8 +331,9 @@ CREATE TABLE `business_permit_assessment` (
 --
 
 INSERT INTO `business_permit_assessment` (`id`, `BusinessP_id`, `items_json`, `total_fees_lgu`, `fsif_15`, `created_at`, `updated_at`) VALUES
-(5, 90, '{\"gross_sales_tax\":{\"amount\":123,\"penalty\":32,\"total\":155},\"delivery_vans_trucks_tax\":{\"amount\":32,\"penalty\":32,\"total\":64},\"combustible_storage_tax\":{\"amount\":0,\"penalty\":32,\"total\":32},\"signboard_billboards_tax\":{\"amount\":3,\"penalty\":232,\"total\":235},\"mayors_permit_fee\":{\"amount\":32,\"penalty\":0,\"total\":32},\"garbage_charges\":{\"amount\":23,\"penalty\":0,\"total\":23},\"trucks_vans_permit_fee\":{\"amount\":0,\"penalty\":232,\"total\":232},\"sanitary_inspection_fee\":{\"amount\":3232,\"penalty\":32,\"total\":3264},\"building_inspection_fee\":{\"amount\":32,\"penalty\":0,\"total\":32},\"electrical_inspection_fee\":{\"amount\":32,\"penalty\":0,\"total\":32},\"mechanical_inspection_fee\":{\"amount\":32,\"penalty\":32,\"total\":64},\"plumbing_inspection_fee\":{\"amount\":0,\"penalty\":23,\"total\":23},\"signboard_renewal_fee\":{\"amount\":32,\"penalty\":0,\"total\":32},\"combustible_sale_storage_fee\":{\"amount\":32,\"penalty\":0,\"total\":32},\"others_fee\":{\"amount\":32,\"penalty\":0,\"total\":32}}', 4284.00, 642.60, '2025-12-13 09:25:34', '2025-12-13 09:25:34'),
-(6, 91, '{\"gross_sales_tax\":{\"amount\":878,\"penalty\":787,\"total\":1665},\"delivery_vans_trucks_tax\":{\"amount\":87,\"penalty\":87,\"total\":174},\"combustible_storage_tax\":{\"amount\":87,\"penalty\":87,\"total\":174},\"signboard_billboards_tax\":{\"amount\":87,\"penalty\":8,\"total\":95},\"mayors_permit_fee\":{\"amount\":78,\"penalty\":7,\"total\":85},\"garbage_charges\":{\"amount\":87,\"penalty\":87,\"total\":174},\"trucks_vans_permit_fee\":{\"amount\":8,\"penalty\":78,\"total\":86},\"sanitary_inspection_fee\":{\"amount\":78,\"penalty\":7,\"total\":85},\"building_inspection_fee\":{\"amount\":87,\"penalty\":87,\"total\":174},\"electrical_inspection_fee\":{\"amount\":87,\"penalty\":87,\"total\":174},\"mechanical_inspection_fee\":{\"amount\":87,\"penalty\":8,\"total\":95},\"plumbing_inspection_fee\":{\"amount\":78,\"penalty\":78,\"total\":156},\"signboard_renewal_fee\":{\"amount\":78,\"penalty\":7,\"total\":85},\"combustible_sale_storage_fee\":{\"amount\":87,\"penalty\":87,\"total\":174},\"others_fee\":{\"amount\":87,\"penalty\":87,\"total\":174}}', 3570.00, 535.50, '2026-01-05 03:44:30', '2026-01-05 03:44:30');
+(5, 90, '{\"gross_sales_tax\":{\"amount\":87,\"penalty\":87,\"total\":174},\"delivery_vans_trucks_tax\":{\"amount\":87,\"penalty\":87,\"total\":174},\"combustible_storage_tax\":{\"amount\":8,\"penalty\":78,\"total\":86},\"signboard_billboards_tax\":{\"amount\":7,\"penalty\":87,\"total\":94},\"mayors_permit_fee\":{\"amount\":87,\"penalty\":87,\"total\":174},\"garbage_charges\":{\"amount\":87,\"penalty\":87,\"total\":174},\"trucks_vans_permit_fee\":{\"amount\":8,\"penalty\":787,\"total\":795},\"sanitary_inspection_fee\":{\"amount\":87,\"penalty\":87,\"total\":174},\"building_inspection_fee\":{\"amount\":8,\"penalty\":0,\"total\":8},\"electrical_inspection_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"mechanical_inspection_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"plumbing_inspection_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"signboard_renewal_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"combustible_sale_storage_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"others_fee\":{\"amount\":0,\"penalty\":0,\"total\":0}}', 1853.00, 277.95, '2025-12-13 09:25:34', '2026-01-09 14:23:44'),
+(6, 91, '{\"gross_sales_tax\":{\"amount\":878,\"penalty\":787,\"total\":1665},\"delivery_vans_trucks_tax\":{\"amount\":87,\"penalty\":87,\"total\":174},\"combustible_storage_tax\":{\"amount\":87,\"penalty\":87,\"total\":174},\"signboard_billboards_tax\":{\"amount\":87,\"penalty\":8,\"total\":95},\"mayors_permit_fee\":{\"amount\":78,\"penalty\":7,\"total\":85},\"garbage_charges\":{\"amount\":87,\"penalty\":87,\"total\":174},\"trucks_vans_permit_fee\":{\"amount\":8,\"penalty\":78,\"total\":86},\"sanitary_inspection_fee\":{\"amount\":78,\"penalty\":7,\"total\":85},\"building_inspection_fee\":{\"amount\":87,\"penalty\":87,\"total\":174},\"electrical_inspection_fee\":{\"amount\":87,\"penalty\":87,\"total\":174},\"mechanical_inspection_fee\":{\"amount\":87,\"penalty\":8,\"total\":95},\"plumbing_inspection_fee\":{\"amount\":78,\"penalty\":78,\"total\":156},\"signboard_renewal_fee\":{\"amount\":78,\"penalty\":7,\"total\":85},\"combustible_sale_storage_fee\":{\"amount\":87,\"penalty\":87,\"total\":174},\"others_fee\":{\"amount\":87,\"penalty\":87,\"total\":174}}', 3570.00, 535.50, '2026-01-05 03:44:30', '2026-01-05 03:44:30'),
+(7, 92, '{\"gross_sales_tax\":{\"amount\":76,\"penalty\":76,\"total\":152},\"delivery_vans_trucks_tax\":{\"amount\":76,\"penalty\":76,\"total\":152},\"combustible_storage_tax\":{\"amount\":76,\"penalty\":6,\"total\":82},\"signboard_billboards_tax\":{\"amount\":76,\"penalty\":76,\"total\":152},\"mayors_permit_fee\":{\"amount\":76,\"penalty\":76,\"total\":152},\"garbage_charges\":{\"amount\":76,\"penalty\":76,\"total\":152},\"trucks_vans_permit_fee\":{\"amount\":7,\"penalty\":6,\"total\":13},\"sanitary_inspection_fee\":{\"amount\":76,\"penalty\":76,\"total\":152},\"building_inspection_fee\":{\"amount\":76,\"penalty\":76,\"total\":152},\"electrical_inspection_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"mechanical_inspection_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"plumbing_inspection_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"signboard_renewal_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"combustible_sale_storage_fee\":{\"amount\":0,\"penalty\":0,\"total\":0},\"others_fee\":{\"amount\":0,\"penalty\":0,\"total\":0}}', 1159.00, 173.85, '2026-01-09 14:24:30', '2026-01-09 14:24:30');
 
 -- --------------------------------------------------------
 
@@ -356,7 +362,8 @@ CREATE TABLE `business_permit_doc_verification` (
 
 INSERT INTO `business_permit_doc_verification` (`id`, `BusinessP_id`, `occupancy_permit`, `zoning_clearance`, `barangay_clearance`, `sanitary_clearance`, `environment_certificate`, `market_clearance`, `fire_safety_certificate`, `river_floating_fish`, `created_at`, `updated_at`) VALUES
 (6, 90, 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', '2025-12-13 09:23:57', '2025-12-13 09:23:57'),
-(7, 91, 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', '2026-01-05 03:39:27', '2026-01-05 03:39:27');
+(7, 91, 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', '2026-01-05 03:39:27', '2026-01-05 03:39:27'),
+(8, 92, 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', 'not_needed', '2026-01-09 13:53:17', '2026-01-09 13:53:17');
 
 -- --------------------------------------------------------
 
@@ -489,8 +496,9 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`session_id`, `expires`, `data`) VALUES
-('ND6KvELj8rio9TfVQppTi-YPTIRlMopU', 1767673935, '{\"cookie\":{\"originalMaxAge\":86400000,\"expires\":\"2026-01-06T04:14:50.414Z\",\"secure\":false,\"httpOnly\":true,\"path\":\"/\",\"sameSite\":\"lax\"},\"user\":{\"user_id\":35,\"email\":\"09xghagox09@gmail.com\",\"role\":\"citizen\"}}'),
-('z7KY-bMxc6KumLMA79rqUhnAR5P5lL1R', 1767673935, '{\"cookie\":{\"originalMaxAge\":86400000,\"expires\":\"2026-01-06T03:35:52.324Z\",\"secure\":false,\"httpOnly\":true,\"path\":\"/\",\"sameSite\":\"lax\"},\"user\":{\"user_id\":35,\"email\":\"09xghagox09@gmail.com\",\"role\":\"citizen\"}}');
+('QPS6GOqljHSFdPIvl37IG5GbG-UwS9sv', 1768062587, '{\"cookie\":{\"originalMaxAge\":86400000,\"expires\":\"2026-01-10T13:44:01.064Z\",\"secure\":false,\"httpOnly\":true,\"path\":\"/\",\"sameSite\":\"lax\"},\"user\":{\"user_id\":52,\"email\":\"newuser@gmail.com\",\"role\":\"citizen\"}}'),
+('_dhMDQw2WJ20OqEtM4l6XZ50P6Urly6_', 1767988702, '{\"cookie\":{\"originalMaxAge\":86400000,\"expires\":\"2026-01-09T17:16:10.693Z\",\"secure\":false,\"httpOnly\":true,\"path\":\"/\",\"sameSite\":\"lax\"},\"user\":{\"user_id\":30,\"email\":\"employee@gmail.com\",\"role\":\"employee\"}}'),
+('fswcxHiudmg16Q0Ddm5vsVsQi0Fh2_So', 1768062618, '{\"cookie\":{\"originalMaxAge\":86400000,\"expires\":\"2026-01-10T14:20:15.410Z\",\"secure\":false,\"httpOnly\":true,\"path\":\"/\",\"sameSite\":\"lax\"},\"user\":{\"user_id\":30,\"email\":\"employee@gmail.com\",\"role\":\"employee\"}}');
 
 -- --------------------------------------------------------
 
@@ -509,7 +517,7 @@ CREATE TABLE `system_settings` (
 --
 
 INSERT INTO `system_settings` (`k`, `v`, `updated_at`) VALUES
-('sms_enabled', 'true', '2025-12-13 07:03:47');
+('sms_enabled', 'false', '2026-01-09 14:00:44');
 
 -- --------------------------------------------------------
 
@@ -575,8 +583,11 @@ INSERT INTO `tbl_application_requirements` (`requirement_id`, `app_uid`, `user_i
 (437, 56, 35, 'Business Permit – Verification Sheet (User Filled)', 'business', 91, '/uploads/requirements/business_permit_91_lgu_form_user.pdf', NULL, NULL, '2026-01-05 03:41:31'),
 (438, 56, 35, 'Mayor’s Permit – Final Output', 'business', 91, '/uploads/system_generated/mayors_permit/mayors_permit_final_91_1767584963364.pdf', NULL, NULL, '2026-01-05 03:49:23'),
 (439, 57, 35, 'Cedula Filled Form', 'cedula', 28, '/uploads/system_generated/cedula/cedula-28-1767585389860.pdf', NULL, NULL, '2026-01-05 03:56:29'),
-(440, 55, 44, 'Business Permit LGU Form', 'business', 90, '/uploads/requirements/business_permit_90_lgu_form.pdf', NULL, NULL, '2026-01-05 04:10:33'),
-(441, 56, 35, 'Business Permit – Verification Sheet (User Filled)', 'business', 91, '/uploads/requirements/business_permit_91_lgu_form_user.pdf', NULL, NULL, '2026-01-05 04:12:38');
+(441, 56, 35, 'Business Permit – Verification Sheet (User Filled)', 'business', 91, '/uploads/requirements/business_permit_91_lgu_form_user.pdf', NULL, NULL, '2026-01-05 04:12:38'),
+(443, 58, 52, 'Business Permit LGU Form', 'business', 92, '/uploads/requirements/business_permit_92_lgu_form.pdf', NULL, NULL, '2026-01-09 14:24:31'),
+(444, 55, 44, 'Business Permit LGU Form', 'business', 90, '/uploads/requirements/business_permit_90_lgu_form.pdf', NULL, NULL, '2026-01-09 14:23:44'),
+(445, 58, 52, 'Business Permit – Verification Sheet (User Filled)', 'business', 92, '/uploads/requirements/business_permit_92_lgu_form_user.pdf', NULL, NULL, '2026-01-09 14:25:00'),
+(446, 58, 52, 'Mayor’s Permit – Final Output', 'business', 92, '/uploads/system_generated/mayors_permit/mayors_permit_final_92_1767968767351.pdf', NULL, NULL, '2026-01-09 14:26:07');
 
 -- --------------------------------------------------------
 
@@ -622,7 +633,7 @@ CREATE TABLE `tbl_building_permits` (
   `group_j1` varchar(100) DEFAULT NULL,
   `group_j2` varchar(100) DEFAULT NULL,
   `applies_also_for` varchar(100) DEFAULT NULL,
-  `status` enum('pending','in-review','in-progress','requirements-completed','approved','ready-for-pickup','completed','rejected') DEFAULT 'pending',
+  `status` enum('pending','in-review','in-progress','requirements-completed','approved','on-hold','pickup-document','ready-for-pickup','rejected') NOT NULL DEFAULT 'pending',
   `pickup_schedule` datetime DEFAULT NULL,
   `pickup_file_path` varchar(255) DEFAULT NULL,
   `status_updated_at` timestamp NULL DEFAULT NULL,
@@ -635,7 +646,7 @@ CREATE TABLE `tbl_building_permits` (
 --
 
 INSERT INTO `tbl_building_permits` (`id`, `user_id`, `application_no`, `bp_no`, `building_permit_no`, `last_name`, `first_name`, `middle_initial`, `tin`, `construction_owned`, `form_of_ownership`, `address_no`, `address_street`, `address_barangay`, `address_city`, `address_zip_code`, `telephone_no`, `location_lot_no`, `location_blk_no`, `location_tct_no`, `location_tax_dec_no`, `location_street`, `location_barangay`, `location_city`, `scope_of_work`, `group_a`, `group_b`, `group_c`, `group_d`, `group_e`, `group_f`, `group_g`, `group_h`, `group_i`, `group_j1`, `group_j2`, `applies_also_for`, `status`, `pickup_schedule`, `pickup_file_path`, `status_updated_at`, `created_at`, `updated_at`) VALUES
-(4, 35, 'BP-APP-2025-000004', 'BP-2025-000004', 'BLDG-2025-000004', 'Ge', 'Chris', 'P', 'Neque tempore nihil', 'Vel laborum Eaque r', 'Laudantium non est', 'Dolor est consequunt', 'murcia', 'Autem dolores dolore', 'Hinigaran', '41764', '09458542757', 'Voluptate aspernatur', 'Dolor commodo laboru', 'Non vero aliquam rep', 'Enim sed et odit par', 'Sunt est saepe qui r', 'Quia dolor dolor cum', 'Esse eveniet quis a', 'Others', 'Duplex', 'Boarding House', 'Museum', 'Municipal Hall', 'Shopping Center', 'Workshop', 'Warehouse', 'Manufacturing Facility', 'Clinic', 'Agricultural Storage', 'Carport', 'plumbing', 'approved', '2025-12-02 04:07:00', '/uploads/pickup_docs/building/1764187664534_November.pdf', NULL, '2025-11-24 17:10:18', '2025-12-13 06:44:23');
+(4, 35, 'BP-APP-2025-000004', 'BP-2025-000004', 'BLDG-2025-000004', 'Ge', 'Chris', 'P', 'Neque tempore nihil', 'Vel laborum Eaque r', 'Laudantium non est', 'Dolor est consequunt', 'murcia', 'Autem dolores dolore', 'Hinigaran', '41764', '09458542757', 'Voluptate aspernatur', 'Dolor commodo laboru', 'Non vero aliquam rep', 'Enim sed et odit par', 'Sunt est saepe qui r', 'Quia dolor dolor cum', 'Esse eveniet quis a', 'Others', 'Duplex', 'Boarding House', 'Museum', 'Municipal Hall', 'Shopping Center', 'Workshop', 'Warehouse', 'Manufacturing Facility', 'Clinic', 'Agricultural Storage', 'Carport', 'plumbing', 'on-hold', '2025-12-02 04:07:00', '/uploads/pickup_docs/building/1764187664534_November.pdf', NULL, '2025-11-24 17:10:18', '2026-01-08 18:26:45');
 
 -- --------------------------------------------------------
 
@@ -658,7 +669,7 @@ CREATE TABLE `tbl_cedula` (
   `user_id` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `application_status` enum('pending','in-review','in-progress','requirements-completed','ready-for-pickup','approved','rejected') DEFAULT 'pending',
+  `application_status` enum('pending','in-review','in-progress','requirements-completed','approved','on-hold','pickup-document','ready-for-pickup','rejected') NOT NULL DEFAULT 'pending',
   `pickup_schedule` datetime DEFAULT NULL,
   `pickup_file_path` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -669,8 +680,8 @@ CREATE TABLE `tbl_cedula` (
 
 INSERT INTO `tbl_cedula` (`id`, `name`, `address`, `place_of_birth`, `date_of_birth`, `profession`, `yearly_income`, `purpose`, `sex`, `status`, `tin`, `user_id`, `created_at`, `updated_at`, `application_status`, `pickup_schedule`, `pickup_file_path`) VALUES
 (25, 'Chris Pa Ge', 'murcia', 'murcia city', '2001-10-05', 'student', 100.00, 'Et at nisi voluptate', 'male', 'single', 'Et repudiandae vel f', 35, '2025-11-24 17:09:34', '2025-12-13 02:31:20', 'rejected', '2025-11-29 04:27:00', NULL),
-(27, 'lenuel t betita', 'test', 'Ut doloribus accusan', '1996-06-13', 'Aut nostrum consecte', 972.00, 'Consectetur libero ', 'male', 'single', 'Fugiat minus suscipi', 48, '2025-12-13 07:04:48', '2025-12-13 07:12:58', 'approved', NULL, NULL),
-(28, 'Chris Pa Ge', 'murcia', 'Odio quisquam eum si', '1985-04-13', 'Do a aliquam dolore ', 336.00, 'Quis nobis in dolore', 'male', 'widowed', 'Ipsum nisi mollitia', 35, '2026-01-05 03:55:47', '2026-01-05 03:58:16', 'approved', NULL, NULL);
+(27, 'lenuel t betita', 'test', 'Ut doloribus accusan', '1996-06-13', 'Aut nostrum consecte', 972.00, 'Consectetur libero ', 'male', 'single', 'Fugiat minus suscipi', 48, '2025-12-13 07:04:48', '2026-01-09 15:28:23', 'in-review', NULL, NULL),
+(28, 'Chris Pa Ge', 'murcia', 'Odio quisquam eum si', '1985-04-13', 'Do a aliquam dolore ', 336.00, 'Quis nobis in dolore', 'male', 'widowed', 'Ipsum nisi mollitia', 35, '2026-01-05 03:55:47', '2026-01-09 15:28:27', 'pickup-document', '2026-01-09 22:28:00', NULL);
 
 -- --------------------------------------------------------
 
@@ -732,15 +743,8 @@ CREATE TABLE `tbl_document_requirements` (
 --
 
 INSERT INTO `tbl_document_requirements` (`requirement_id`, `name`, `office_id`, `category_id`, `permit_type`, `instructions`, `template_path`, `allowed_extensions`, `is_required`, `is_active`, `created_by`, `created_at`, `updated_at`) VALUES
-(14, 'try', 15, 7, 'electrical', 'try lng ', '/uploads/requirements/1763628431841_Untitled_design_10_.pdf', 'pdf', 1, 1, NULL, '2025-11-20 08:47:11', '2025-11-20 08:47:11'),
-(15, 'elec try', 15, NULL, 'electronics', 'try lng ', '/uploads/requirements/1763628500655_Untitled_design_18_.pdf', 'pdf', 1, 1, NULL, '2025-11-20 08:48:20', '2025-11-20 08:48:20'),
-(16, 'try business permit', 14, 8, 'business', '', '/uploads/requirements/1763652005667_Untitled_design_8_.pdf', 'pdf', 1, 1, NULL, '2025-11-20 15:20:05', '2025-11-20 15:20:05'),
-(17, 'fencing test require', 15, 9, 'fencing', '', '/uploads/requirements/1763709880121_November.pdf', 'pdf', 1, 1, NULL, '2025-11-21 07:24:40', '2025-11-21 07:24:40'),
-(18, 'electrical', 15, 10, 'electrical', '', '/uploads/requirements/1763711156380_Untitled_design_17_.pdf', 'pdf', 1, 1, NULL, '2025-11-21 07:45:56', '2025-11-21 07:45:56'),
-(19, 'plumbingg', 15, 11, 'plumbing', '', '/uploads/requirements/1763738564034_November.pdf', 'pdf', 1, 1, NULL, '2025-11-21 15:22:44', '2025-11-21 15:22:44'),
-(20, 'cedula req 1', 14, 12, 'cedula', 'test', '/uploads/requirements/1764086788075_Untitled_design_9_.pdf', 'pdf', 1, 1, NULL, '2025-11-25 16:06:28', '2025-11-25 16:06:28'),
-(21, 'cedula requirem 2', 14, 12, 'cedula', 'test2', '/uploads/requirements/1764086819512_Untitled_design_7_.pdf', 'pdf', 1, 1, NULL, '2025-11-25 16:06:59', '2025-11-25 16:06:59'),
-(22, 'business Permit requirements', 14, 13, 'business', '', '/uploads/requirements/1765616240346_business_permit_full_template.pdf', 'pdf', 1, 1, NULL, '2025-12-13 08:57:20', '2025-12-13 08:57:20');
+(23, 'trial2', 14, 13, 'business', 'tae', '/uploads/requirements/1767891786379_province-_jex.pdf', 'pdf', 1, 1, NULL, '2026-01-08 17:03:06', '2026-01-08 17:11:58'),
+(24, 'e', 15, 7, 'electrical', '', '/uploads/requirements/1767892055507_province-_jex.pdf', 'pdf', 1, 1, NULL, '2026-01-08 17:07:35', '2026-01-08 17:07:35');
 
 -- --------------------------------------------------------
 
@@ -775,7 +779,7 @@ CREATE TABLE `tbl_electrical_permits` (
   `location_barangay` varchar(100) DEFAULT NULL,
   `location_city` varchar(100) DEFAULT NULL,
   `scope_of_work` enum('newInstallation','annualInspection','temporary','reconnection','separationOfService','upgradingOfService','relocation','others') NOT NULL,
-  `status` enum('pending','in-review','in-progress','requirements-completed','approved','rejected','ready-for-pickup') DEFAULT 'pending',
+  `status` enum('pending','in-review','in-progress','requirements-completed','approved','on-hold','pickup-document','ready-for-pickup','rejected') NOT NULL DEFAULT 'pending',
   `pickup_schedule` datetime DEFAULT NULL,
   `pickup_file_path` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -787,7 +791,7 @@ CREATE TABLE `tbl_electrical_permits` (
 --
 
 INSERT INTO `tbl_electrical_permits` (`id`, `application_no`, `ep_no`, `building_permit_no`, `user_id`, `last_name`, `first_name`, `middle_initial`, `tin`, `construction_owned`, `form_of_ownership`, `use_or_character`, `address_no`, `address_street`, `address_barangay`, `address_city`, `address_zip_code`, `telephone_no`, `location_street`, `location_lot_no`, `location_blk_no`, `location_tct_no`, `location_tax_dec_no`, `location_barangay`, `location_city`, `scope_of_work`, `status`, `pickup_schedule`, `pickup_file_path`, `created_at`, `updated_at`) VALUES
-(47, 'EP-APP-2025-000047', 'EP-2025-000047', 'BP-2025-000047', 35, 'Ge', 'Chris', 'P', 'Anim ut consequatur', 'Eveniet laborum Se', 'Vero facilis nulla q', 'Quia inventore ut qu', 'Quis saepe ea est qu', 'murcia', NULL, 'Hinigaran', '53355', '09458542757', 'Quibusdam aliquip ne', 'Ex assumenda nostrum', 'Eius expedita et min', 'Quis aut ab accusamu', 'Sit mollitia tempor', 'Laborum Ut enim nat', 'Nulla enim error dol', 'reconnection', 'approved', NULL, NULL, '2025-12-11 05:05:30', '2025-12-13 06:44:22');
+(47, 'EP-APP-2025-000047', 'EP-2025-000047', 'BP-2025-000047', 35, 'Ge', 'Chris', 'P', 'Anim ut consequatur', 'Eveniet laborum Se', 'Vero facilis nulla q', 'Quia inventore ut qu', 'Quis saepe ea est qu', 'murcia', NULL, 'Hinigaran', '53355', '09458542757', 'Quibusdam aliquip ne', 'Ex assumenda nostrum', 'Eius expedita et min', 'Quis aut ab accusamu', 'Sit mollitia tempor', 'Laborum Ut enim nat', 'Nulla enim error dol', 'reconnection', 'in-review', NULL, NULL, '2025-12-11 05:05:30', '2026-01-09 14:11:02');
 
 -- --------------------------------------------------------
 
@@ -822,7 +826,7 @@ CREATE TABLE `tbl_electronics_permits` (
   `location_barangay` varchar(100) DEFAULT NULL,
   `location_city` varchar(100) DEFAULT NULL,
   `scope_of_work` varchar(100) NOT NULL,
-  `status` enum('pending','in-review','in-progress','requirements-completed','ready-for-pickup','approved','rejected') DEFAULT 'pending',
+  `status` enum('pending','in-review','in-progress','requirements-completed','approved','on-hold','pickup-document','ready-for-pickup','rejected') NOT NULL DEFAULT 'pending',
   `pickup_schedule` datetime DEFAULT NULL,
   `pickup_file_path` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -834,7 +838,7 @@ CREATE TABLE `tbl_electronics_permits` (
 --
 
 INSERT INTO `tbl_electronics_permits` (`id`, `application_no`, `ep_no`, `building_permit_no`, `user_id`, `last_name`, `first_name`, `middle_initial`, `tin`, `construction_owned`, `form_of_ownership`, `use_or_character`, `address_no`, `address_street`, `address_barangay`, `address_city`, `address_zip_code`, `telephone_no`, `location_lot_no`, `location_blk_no`, `location_tct_no`, `location_tax_dec_no`, `location_street`, `location_barangay`, `location_city`, `scope_of_work`, `status`, `pickup_schedule`, `pickup_file_path`, `created_at`, `updated_at`) VALUES
-(8, 'ELC-APP-2025-000008', 'ELC-2025-000008', 'ELEC-2025-000008', 35, 'Ge', 'Chris', 'P', 'Unde excepturi saepe', 'd', 'd', 'd', '2', 'murcia', 'd', 'Hinigaran', '2', '09458542757', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'Installation of Equipment', 'approved', NULL, NULL, '2025-12-11 05:03:07', '2025-12-13 06:44:23');
+(8, 'ELC-APP-2025-000008', 'ELC-2025-000008', 'ELEC-2025-000008', 35, 'Ge', 'Chris', 'P', 'Unde excepturi saepe', 'd', 'd', 'd', '2', 'murcia', 'd', 'Hinigaran', '2', '09458542757', 'd', 'd', 'd', 'd', 'd', 'd', 'd', 'Installation of Equipment', 'in-review', NULL, NULL, '2025-12-11 05:03:07', '2026-01-09 12:55:07');
 
 -- --------------------------------------------------------
 
@@ -923,7 +927,7 @@ CREATE TABLE `tbl_fencing_permits` (
   `location_city` varchar(100) DEFAULT NULL,
   `scope_of_work` enum('new-construction','erection','addition','repair','demolition','others') NOT NULL,
   `other_scope_specify` varchar(255) DEFAULT NULL,
-  `status` enum('pending','in-review','in-progress','requirements-completed','ready-for-pickup','approved','rejected') DEFAULT 'pending',
+  `status` enum('pending','in-review','in-progress','requirements-completed','approved','on-hold','pickup-document','ready-for-pickup','rejected') NOT NULL DEFAULT 'pending',
   `pickup_schedule` datetime DEFAULT NULL,
   `pickup_file_path` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -935,7 +939,7 @@ CREATE TABLE `tbl_fencing_permits` (
 --
 
 INSERT INTO `tbl_fencing_permits` (`id`, `application_no`, `fp_no`, `building_permit_no`, `user_id`, `last_name`, `first_name`, `middle_initial`, `tin`, `construction_ownership`, `ownership_form`, `use_or_character`, `address_no`, `street`, `barangay`, `city_municipality`, `zip_code`, `telephone_no`, `location_street`, `lot_no`, `block_no1`, `block_no2`, `tax_dec_no`, `location_barangay`, `location_city`, `scope_of_work`, `other_scope_specify`, `status`, `pickup_schedule`, `pickup_file_path`, `created_at`, `updated_at`) VALUES
-(11, 'FP-APP-2025-000011', 'FP-2025-000011', 'FENC-2025-000011', 35, 'Ge', 'Chris', 'P', 'Magna quas minima vo', 'Et vitae voluptates ', 'Ut qui officiis repu', 'Suscipit veniam ips', 'Ex ducimus eum nisi', 'murcia', 'Rerum anim minim bea', 'Hinigaran', 'Sint incid', '09458542757', 'Dicta a totam commod', 'Quia aute nobis veli', 'Facere at amet iure', 'Nobis ex architecto ', 'Quidem laudantium n', 'Facere quisquam elig', 'Libero amet qui ita', 'new-construction', NULL, 'approved', NULL, NULL, '2025-12-11 16:53:37', '2025-12-13 06:44:24');
+(11, 'FP-APP-2025-000011', 'FP-2025-000011', 'FENC-2025-000011', 35, 'Ge', 'Chris', 'P', 'Magna quas minima vo', 'Et vitae voluptates ', 'Ut qui officiis repu', 'Suscipit veniam ips', 'Ex ducimus eum nisi', 'murcia', 'Rerum anim minim bea', 'Hinigaran', 'Sint incid', '09458542757', 'Dicta a totam commod', 'Quia aute nobis veli', 'Facere at amet iure', 'Nobis ex architecto ', 'Quidem laudantium n', 'Facere quisquam elig', 'Libero amet qui ita', 'new-construction', NULL, 'on-hold', NULL, NULL, '2025-12-11 16:53:37', '2026-01-08 18:26:47');
 
 -- --------------------------------------------------------
 
@@ -1005,7 +1009,8 @@ INSERT INTO `tbl_payment_receipts` (`receipt_id`, `user_id`, `application_type`,
 (89, 48, 'business', 'Business Permit', '/uploads/receipts/receipt-1765608779646-749955509.jpg', 'other', 400.00, 100.00, 400.00, 'approved', 'eeee', 30, '2025-12-13 06:53:22', 1, 1, '2025-12-13 06:54:12', 0, NULL, 1, '2025-12-13 06:54:12', 89, '2025-12-13 06:52:59', '2025-12-13 06:54:12'),
 (90, 48, 'cedula', 'Cedula Permit', '/uploads/receipts/receipt-1765609400371-441956285.png', 'other', 100.00, 100.00, 100.00, 'approved', 'test for sms in payment', 30, '2025-12-13 07:03:59', 1, 1, '2025-12-13 07:04:48', 0, NULL, 1, '2025-12-13 07:04:48', 27, '2025-12-13 07:03:20', '2025-12-13 07:04:48'),
 (91, 44, 'business', 'Business Permit', '/uploads/receipts/receipt-1765616752286-996917530.jpg', 'other', 400.00, 100.00, 400.00, 'approved', 'you payment was approve', 49, '2025-12-13 09:07:57', 1, 1, '2025-12-13 09:16:14', 0, NULL, 1, '2025-12-13 09:16:14', 90, '2025-12-13 09:05:52', '2025-12-13 09:16:14'),
-(92, 35, 'business', 'Business Permit', '/uploads/receipts/receipt-1767583988627-446836256.jpg', 'gcash', 400.00, 100.00, 400.00, 'approved', 'test', 30, '2026-01-05 03:35:25', 1, 1, '2026-01-05 03:36:58', 0, NULL, 1, '2026-01-05 03:36:58', 91, '2026-01-05 03:33:08', '2026-01-05 03:36:58');
+(92, 35, 'business', 'Business Permit', '/uploads/receipts/receipt-1767583988627-446836256.jpg', 'gcash', 400.00, 100.00, 400.00, 'approved', 'test', 30, '2026-01-05 03:35:25', 1, 1, '2026-01-05 03:36:58', 0, NULL, 1, '2026-01-05 03:36:58', 91, '2026-01-05 03:33:08', '2026-01-05 03:36:58'),
+(93, 52, 'business', 'Business Permit', '/uploads/receipts/receipt-1767966271097-151133259.jpg', 'other', 400.00, 100.00, 400.00, 'approved', 'test if sms works', 30, '2026-01-09 13:45:08', 1, 1, '2026-01-09 13:46:56', 0, NULL, 1, '2026-01-09 13:46:56', 92, '2026-01-09 13:44:31', '2026-01-09 13:46:56');
 
 -- --------------------------------------------------------
 
@@ -1040,7 +1045,7 @@ INSERT INTO `tbl_phone_verifications` (`id`, `user_id`, `phone_number`, `otp_cod
 (14, 35, '639458542757', '495009', '2025-12-13 14:38:42', 0, 0, '2025-12-13 06:28:42'),
 (15, 35, '639458542757', '598683', '2025-12-13 14:40:18', 1, 1, '2025-12-13 06:30:18'),
 (18, 48, '09458542757', '723706', '2025-12-13 14:45:04', 0, 1, '2025-12-13 06:35:04'),
-(19, 50, '09458542757', '740052', '2025-12-13 17:12:04', 0, 1, '2025-12-13 09:02:04');
+(21, 52, '09458542757', '327717', '2026-01-09 21:52:30', 0, 1, '2026-01-09 13:42:30');
 
 -- --------------------------------------------------------
 
@@ -1076,7 +1081,7 @@ CREATE TABLE `tbl_plumbing_permits` (
   `location_city` varchar(100) DEFAULT NULL,
   `scope_of_work` enum('newConstruction','erection','addition','alteration','renovation','moving','repair','conversion','accessoryBuilding','demolition','others') NOT NULL,
   `other_scope_specify` varchar(255) DEFAULT NULL,
-  `status` enum('pending','in-review','in-progress','requirements-completed','ready-for-pickup','approved','rejected') DEFAULT 'pending',
+  `status` enum('pending','in-review','in-progress','requirements-completed','approved','on-hold','pickup-document','ready-for-pickup','rejected') NOT NULL DEFAULT 'pending',
   `pickup_schedule` datetime DEFAULT NULL,
   `pickup_file_path` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -1088,7 +1093,7 @@ CREATE TABLE `tbl_plumbing_permits` (
 --
 
 INSERT INTO `tbl_plumbing_permits` (`id`, `application_no`, `pp_no`, `building_permit_no`, `user_id`, `last_name`, `first_name`, `middle_initial`, `tin`, `construction_owned`, `form_of_ownership`, `use_or_character`, `address_no`, `address_street`, `address_barangay`, `address_city`, `address_zip_code`, `telephone_no`, `location_street`, `location_lot_no`, `location_blk_no`, `location_tct_no`, `location_tax_dec_no`, `location_barangay`, `location_city`, `scope_of_work`, `other_scope_specify`, `status`, `pickup_schedule`, `pickup_file_path`, `created_at`, `updated_at`) VALUES
-(6, 'PP-APP-2025-000006', 'PP-2025-000006', 'PLMB-2025-000006', 35, 'Ge', 'Chris', 'P', 'Nemo qui saepe et as', 'Dolor minus elit be', 'Est libero et tempo', 'Perspiciatis pariat', 'Quas fugiat excepte', 'murcia', 'Exercitation velit ', 'Hinigaran', '25435', '09458542757', 'Necessitatibus quo d', 'Blanditiis saepe por', 'Sequi et in sed quia', 'Occaecat optio dolo', 'Aperiam obcaecati ea', 'Omnis dicta Nam anim', 'Doloremque qui ipsa', 'moving', NULL, 'approved', '2025-11-21 04:07:00', '/uploads/pickup_docs/plumbing/1764187634168_November.pdf', '2025-11-24 17:13:37', '2025-12-13 06:44:22');
+(6, 'PP-APP-2025-000006', 'PP-2025-000006', 'PLMB-2025-000006', 35, 'Ge', 'Chris', 'P', 'Nemo qui saepe et as', 'Dolor minus elit be', 'Est libero et tempo', 'Perspiciatis pariat', 'Quas fugiat excepte', 'murcia', 'Exercitation velit ', 'Hinigaran', '25435', '09458542757', 'Necessitatibus quo d', 'Blanditiis saepe por', 'Sequi et in sed quia', 'Occaecat optio dolo', 'Aperiam obcaecati ea', 'Omnis dicta Nam anim', 'Doloremque qui ipsa', 'moving', NULL, 'on-hold', '2025-11-21 04:07:00', '/uploads/pickup_docs/plumbing/1764187634168_November.pdf', '2025-11-24 17:13:37', '2026-01-09 13:31:18');
 
 -- --------------------------------------------------------
 
@@ -1151,7 +1156,7 @@ INSERT INTO `tbl_user_info` (`info_id`, `user_id`, `firstname`, `middlename`, `l
 (17, 43, 'diane', 'd', 'd', 'bago', '09666785458', 1),
 (18, 44, 'dave', 'gealolo', 'chester', 'hinigaran', '09534178798', 1),
 (19, 45, 'ralf', 'S', 'mathew', 'San Carlos City Negros Occidental', '09152410399', 1),
-(22, 50, 'dave', 's', 'gealolo', 'hinigaran', '09458542757', 1);
+(24, 52, 'Chris Art', 'P', 'Getida', 'brgy 2 hinigaran', '09458542757', 1);
 
 -- --------------------------------------------------------
 
@@ -1181,7 +1186,8 @@ INSERT INTO `tbl_user_nav_seen` (`user_id`, `last_seen_request_doc_at`, `last_se
 (37, '2025-11-27 15:03:46', '2025-11-27 15:06:43', '2025-11-27 15:03:46', '2025-11-27 15:06:43'),
 (44, '2025-12-13 17:33:00', '2025-12-13 17:26:25', '2025-12-04 03:47:52', '2025-12-13 17:33:00'),
 (45, '2025-12-13 11:54:44', '2025-12-13 12:02:42', '2025-12-13 11:54:44', '2025-12-13 12:02:42'),
-(48, '2025-12-13 15:13:59', '2025-12-13 15:11:42', '2025-12-13 14:35:48', '2025-12-13 15:13:59');
+(48, '2025-12-13 15:13:59', '2025-12-13 15:11:42', '2025-12-13 14:35:48', '2025-12-13 15:13:59'),
+(52, '2026-01-09 22:00:16', '2026-01-09 22:27:28', '2026-01-09 21:44:02', '2026-01-09 22:27:28');
 
 -- --------------------------------------------------------
 
@@ -1216,7 +1222,7 @@ INSERT INTO `tb_logins` (`user_id`, `email`, `password`, `role`, `created_at`) V
 (46, 'test123@gmail.com', '$2b$10$w8WXNOm/SNX12Pmy2QN43Ov75SDBaRYp8kSOBRiW7UBv6SbfO.eqi', 'employee', '2025-12-13 05:22:30'),
 (48, 'lenuel@gmail.com', '$2b$10$V5KW6WMDsuKyF4ewGWiaJesJYaVloglDOM5cm0Ce8Ro/Nrez1qwaC', 'citizen', '2025-12-13 06:35:04'),
 (49, 'cyso.clmmrh@gmail.com', '$2b$10$S1/iMw83WoRWQ4ioCcaXouojV.rhFSWzAk/2DqhVGry.NPqJp9XCu', 'employee', '2025-12-13 08:53:52'),
-(50, 'daavechester@gmail.com', '$2b$10$DAMdVae8jXxLd4ZyOsvKB.VPiw7sKb17J46Fb22jOy9tCRc.QUyXC', 'citizen', '2025-12-13 09:02:04');
+(52, 'newuser@gmail.com', '$2b$10$Lkq5bNzsDWT6Wia86S4ucuh3vcAKz8tbKvavvUw1nnHLsdOPaX/.a', 'citizen', '2026-01-09 13:42:30');
 
 --
 -- Indexes for dumped tables
@@ -1501,13 +1507,13 @@ ALTER TABLE `tb_logins`
 -- AUTO_INCREMENT for table `application_archives`
 --
 ALTER TABLE `application_archives`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `application_index`
 --
 ALTER TABLE `application_index`
-  MODIFY `app_uid` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=58;
+  MODIFY `app_uid` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=59;
 
 --
 -- AUTO_INCREMENT for table `application_lgu_checks`
@@ -1519,25 +1525,25 @@ ALTER TABLE `application_lgu_checks`
 -- AUTO_INCREMENT for table `business_activities`
 --
 ALTER TABLE `business_activities`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=98;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=99;
 
 --
 -- AUTO_INCREMENT for table `business_permits`
 --
 ALTER TABLE `business_permits`
-  MODIFY `BusinessP_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=92;
+  MODIFY `BusinessP_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=93;
 
 --
 -- AUTO_INCREMENT for table `business_permit_assessment`
 --
 ALTER TABLE `business_permit_assessment`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `business_permit_doc_verification`
 --
 ALTER TABLE `business_permit_doc_verification`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `electrical_form_submissions`
@@ -1555,7 +1561,7 @@ ALTER TABLE `electronics_form_submissions`
 -- AUTO_INCREMENT for table `tbl_application_requirements`
 --
 ALTER TABLE `tbl_application_requirements`
-  MODIFY `requirement_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=442;
+  MODIFY `requirement_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=447;
 
 --
 -- AUTO_INCREMENT for table `tbl_building_permits`
@@ -1579,7 +1585,7 @@ ALTER TABLE `tbl_document_prices`
 -- AUTO_INCREMENT for table `tbl_document_requirements`
 --
 ALTER TABLE `tbl_document_requirements`
-  MODIFY `requirement_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `requirement_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `tbl_electrical_permits`
@@ -1621,13 +1627,13 @@ ALTER TABLE `tbl_offices`
 -- AUTO_INCREMENT for table `tbl_payment_receipts`
 --
 ALTER TABLE `tbl_payment_receipts`
-  MODIFY `receipt_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=93;
+  MODIFY `receipt_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=94;
 
 --
 -- AUTO_INCREMENT for table `tbl_phone_verifications`
 --
 ALTER TABLE `tbl_phone_verifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `tbl_plumbing_permits`
@@ -1645,13 +1651,13 @@ ALTER TABLE `tbl_requirement_categories`
 -- AUTO_INCREMENT for table `tbl_user_info`
 --
 ALTER TABLE `tbl_user_info`
-  MODIFY `info_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `info_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `tb_logins`
 --
 ALTER TABLE `tb_logins`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- Constraints for dumped tables
