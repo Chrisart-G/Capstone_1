@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Eye, EyeOff, LogIn, Mail, Lock, LogOut, KeyRound, Phone } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -13,12 +13,11 @@ const Login = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const videoRef = useRef(null);
   const navigate = useNavigate();
 
   // ----- Forgot Password state -----
   const [forgotOpen, setForgotOpen] = useState(false);
-  const [fpStep, setFpStep] = useState(1);           // 1=request, 2=verify, 3=reset
+  const [fpStep, setFpStep] = useState(1); // 1=request, 2=verify, 3=reset
   const [fpIdentifier, setFpIdentifier] = useState(""); // email or phone
   const [fpUserId, setFpUserId] = useState(null);
   const [fpOtp, setFpOtp] = useState("");
@@ -28,8 +27,6 @@ const Login = () => {
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
-    if (videoRef.current) videoRef.current.load();
-
     const checkSession = async () => {
       try {
         setIsLoading(true);
@@ -114,7 +111,6 @@ const Login = () => {
         { identifier: fpIdentifier },
         { withCredentials: true }
       );
-      // kick off actual OTP send (server logs will show it)
       await axios.post(
         `${API_BASE_URL}/api/auth/forgot/resend`,
         { userId: data.userId },
@@ -123,11 +119,11 @@ const Login = () => {
 
       setFpUserId(data.userId);
       setFpStep(2);
-      setFpMsg("Code sent via SMS (or dev_otp if SMS disabled).");
+      setFpMsg("A verification code has been sent to your contact.");
       if (data.dev_otp) setFpOtp(data.dev_otp); // when SMS disabled
       setCooldown(30);
     } catch (err) {
-      setFpMsg(err.response?.data?.message || "Unable to start reset.");
+      setFpMsg(err.response?.data?.message || "Unable to start password reset.");
     }
   };
 
@@ -139,7 +135,7 @@ const Login = () => {
         { userId: fpUserId },
         { withCredentials: true }
       );
-      setFpMsg("Code re-sent.");
+      setFpMsg("A new code has been sent.");
       if (data.dev_otp) setFpOtp(data.dev_otp);
       setCooldown(30);
     } catch (err) {
@@ -156,9 +152,9 @@ const Login = () => {
         { withCredentials: true }
       );
       setFpStep(3);
-      setFpMsg("Verified. Set a new password.");
+      setFpMsg("Code verified. You can now set a new password.");
     } catch (err) {
-      setFpMsg(err.response?.data?.message || "Invalid code.");
+      setFpMsg(err.response?.data?.message || "Invalid or expired code.");
     }
   };
 
@@ -174,8 +170,7 @@ const Login = () => {
         { userId: fpUserId, newPassword: fpNewPass },
         { withCredentials: true }
       );
-      setFpMsg("Password updated. You can now log in.");
-      // cleanup + close
+      setFpMsg("Password updated successfully. You can now log in.");
       setTimeout(() => {
         setForgotOpen(false);
         setFpStep(1);
@@ -185,107 +180,151 @@ const Login = () => {
         setFpNewPass2("");
       }, 600);
     } catch (err) {
-      setFpMsg(err.response?.data?.message || "Reset failed.");
+      setFpMsg(err.response?.data?.message || "Password reset failed.");
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="w-full max-w-4xl flex rounded-xl overflow-hidden shadow-xl">
-        {/* Left Side - Video */}
-        <div className="w-1/2 hidden md:flex md:items-center md:justify-center bg-gray-200 relative">
-          <img 
-            src="/img/Logpic.png" 
-            alt="Fallback " 
+    <div
+      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4"
+      style={{ fontFamily: "'Poppins', sans-serif" }}
+    >
+      <div className="w-full max-w-5xl grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        {/* Left Side - NO VIDEO, background + transparent logo */}
+        <div className="relative hidden md:block">
+          {/* Background image */}
+          <img
+            src=""
+            alt=""
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <video 
-            ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover z-10"
-            autoPlay 
-            muted 
-            loop
-            playsInline
-          >
-            <source src="/img/municipality2.mp4" type="video/mp4" />
-            <source src="/videos/municipality2.mp4" type="video/mp4" />
-            <source src="/municipality2.mp4" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-black bg-opacity-20 z-20"></div>
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-slate-900" />
+
+          {/* Centered transparent logo + text */}
+          <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-white">
+            <img
+              src="/img/logo.png"
+              alt="Municipality of Hinigaran Seal"
+              className="h-60 w-30 "
+            />
+            <div className="mt-4 text-center">
+              <p className="text-xs md:text-sm uppercase tracking-[0.25em] text-slate-200/90">
+                Municipality of Hinigaran
+              </p>
+              <p className="text-[11px] md:text-xs text-slate-200/80 mt-1">
+                Province of Negros Occidental, Philippines
+              </p>
+            </div>
+
+            <p className="mt-6 max-w-sm text-[11px] md:text-xs text-slate-100/80 text-center leading-relaxed">
+              Access the Online Municipal Document Processing System to manage permits, licenses,
+              and official records in a secure and transparent way.
+            </p>
+          </div>
         </div>
 
         {/* Right Side - Login Form */}
-        <div className="w-full md:w-1/2 bg-white p-6 flex flex-col justify-center">
-          <div className="flex justify-center mb-4">
-            <img src="/img/logo.png" alt="Official Seal" className="h-20" />
+        <div className="bg-white px-6 py-8 md:px-8 md:py-10 flex flex-col justify-center">
+          {/* Logo for mobile */}
+          <div className="md:hidden flex flex-col items-center mb-4">
+            <img
+              src="/img/logo.png"
+              alt="Municipality of Hinigaran Seal"
+              className="h-20 w-20 opacity-80"
+            />
+            <p className="mt-2 text-[11px] uppercase tracking-[0.25em] text-slate-500 text-center">
+              Municipality of Hinigaran
+            </p>
           </div>
-          
-          <h2 className="text-xl font-bold text-gray-800 text-center mb-4">
-            Account Login
-          </h2>
-          
+
+          <div className="mb-2">
+            <p className="text-xs font-semibold tracking-[0.2em] text-slate-400 uppercase text-center md:text-left">
+              Account Access
+            </p>
+            <h2 className="text-2xl font-semibold text-slate-900 text-center md:text-left mt-1">
+              Sign in to your account
+            </h2>
+            <p className="text-xs text-slate-500 mt-1 text-center md:text-left">
+              Use your registered email and password to access municipal services.
+            </p>
+          </div>
+
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg mb-4">
+            <div className="mt-4 mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
-          
+
           {!isLoggedIn ? (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+              {/* Email */}
               <div>
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email Address
+                <label
+                  htmlFor="email"
+                  className="text-xs font-medium text-slate-700 flex items-center justify-between"
+                >
+                  <span>Email Address</span>
+                  <span className="text-[11px] text-slate-400">Example: user@municipality.gov</span>
                 </label>
                 <div className="relative mt-1">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
                     type="email"
                     id="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                     placeholder="Enter your email"
                     required
                   />
                 </div>
               </div>
-              
+
+              {/* Password */}
               <div>
-                <label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
+                <label
+                  htmlFor="password"
+                  className="text-xs font-medium text-slate-700 flex items-center justify-between"
+                >
+                  <span>Password</span>
+                  <span className="text-[11px] text-slate-400">Keep your password private.</span>
                 </label>
                 <div className="relative mt-1">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
                     type={showPassword ? "text" : "password"}
                     id="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-9 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                     placeholder="Enter your password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 hover:bg-slate-100"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-slate-400" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-slate-400" />
                     )}
                   </button>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              {/* Actions */}
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className={`flex-1 mr-2 flex justify-center items-center py-2 px-4 rounded-lg text-white ${
-                    isLoading ? "bg-blue-400" : "bg-blue-600 hover:bg-blue-700"
-                  } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  className={`inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-md transition ${
+                    isLoading
+                      ? "bg-blue-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 hover:shadow-lg"
+                  } focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1`}
                 >
                   {isLoading ? (
                     "Signing in..."
@@ -299,8 +338,12 @@ const Login = () => {
 
                 <button
                   type="button"
-                  onClick={() => { setForgotOpen(true); setFpStep(1); setFpMsg(""); }}
-                  className="ml-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+                  onClick={() => {
+                    setForgotOpen(true);
+                    setFpStep(1);
+                    setFpMsg("");
+                  }}
+                  className="inline-flex items-center justify-center text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline mt-1 sm:mt-0"
                 >
                   <KeyRound className="h-4 w-4 mr-1" />
                   Forgot password?
@@ -308,14 +351,21 @@ const Login = () => {
               </div>
             </form>
           ) : (
-            <div className="text-center">
-              <h3 className="text-lg font-semibold mb-4">You are logged in!</h3>
+            <div className="mt-6 text-center">
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                You are currently logged in
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">
+                If this is not you, please log out and sign in with the correct account.
+              </p>
               <button
                 onClick={handleLogout}
                 disabled={isLoading}
-                className={`w-full flex justify-center items-center py-2 px-4 rounded-lg text-white ${
-                  isLoading ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
-                } focus:outline-none focus:ring-2 focus:ring-red-500`}
+                className={`w-full inline-flex justify-center items-center rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-md transition ${
+                  isLoading
+                    ? "bg-red-400 cursor-not-allowed"
+                    : "bg-red-600 hover:bg-red-700 hover:shadow-lg"
+                } focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1`}
               >
                 {isLoading ? (
                   "Logging out..."
@@ -328,34 +378,60 @@ const Login = () => {
               </button>
             </div>
           )}
-          
-          <p className="mt-4 text-center text-sm text-gray-600">
-            Don't have an account?{" "}
-            <a href="/sign-up" className="font-medium text-blue-600 hover:text-blue-500">
-              Sign up now
+
+          {/* Sign up link */}
+          <p className="mt-6 text-center text-xs text-slate-500">
+            Don&apos;t have an account?{" "}
+            <a
+              href="/sign-up"
+              className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Create an account
             </a>
+          </p>
+
+          {/* Small footer */}
+          <p className="mt-3 text-[10px] text-center text-slate-400">
+            By signing in, you agree to comply with municipal policies and data privacy guidelines.
           </p>
 
           {/* Forgot Password Modal */}
           {forgotOpen && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-xl p-4 w-full max-w-md">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <KeyRound className="h-4 w-4 mr-2" /> Reset Password
-                  </h3>
-                  <button className="text-gray-500" onClick={() => setForgotOpen(false)}>✕</button>
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 md:p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-base md:text-lg font-semibold text-slate-900 flex items-center">
+                      <KeyRound className="h-4 w-4 mr-2 text-blue-600" />
+                      Reset Password
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Follow the steps below to securely recover your account.
+                    </p>
+                  </div>
+                  <button
+                    className="text-slate-400 hover:text-slate-600 text-lg"
+                    onClick={() => setForgotOpen(false)}
+                  >
+                    ✕
+                  </button>
                 </div>
 
-                {fpMsg && <div className="text-sm mb-2">{fpMsg}</div>}
+                {fpMsg && (
+                  <div className="mb-3 text-[11px] rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-slate-700">
+                    {fpMsg}
+                  </div>
+                )}
 
                 {fpStep === 1 && (
                   <>
-                    <label className="text-sm">Email or Phone</label>
+                    <label className="text-xs font-medium text-slate-700">
+                      Email or Mobile Number
+                    </label>
                     <div className="relative mt-1">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <input
-                        className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                         placeholder="email@example.com or +63xxxxxxxxxx"
                         value={fpIdentifier}
                         onChange={(e) => setFpIdentifier(e.target.value)}
@@ -363,35 +439,37 @@ const Login = () => {
                     </div>
                     <button
                       onClick={fpRequest}
-                      className="w-full mt-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                      className="w-full mt-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white shadow-md hover:shadow-lg transition"
                     >
-                      Send Code
+                      Send verification code
                     </button>
                   </>
                 )}
 
                 {fpStep === 2 && (
                   <>
-                    <label className="text-sm">Enter the 6-digit code</label>
+                    <label className="text-xs font-medium text-slate-700">
+                      Enter the 6-digit code
+                    </label>
                     <input
-                      className="w-full mt-1 px-3 py-2 border rounded-lg tracking-widest text-center"
+                      className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50/60 text-center tracking-[0.4em] text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                       maxLength={6}
                       value={fpOtp}
                       onChange={(e) => setFpOtp(e.target.value)}
                     />
-                    <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center justify-between mt-4">
                       <button
                         onClick={fpVerify}
-                        className="py-2 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                        className="py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white shadow-md hover:shadow-lg transition"
                       >
-                        Verify
+                        Verify code
                       </button>
                       <button
                         onClick={fpResend}
                         disabled={cooldown > 0}
-                        className="text-sm text-blue-600 hover:underline disabled:text-gray-400"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline disabled:text-slate-400 disabled:cursor-not-allowed"
                       >
-                        {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend"}
+                        {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
                       </button>
                     </div>
                   </>
@@ -399,25 +477,29 @@ const Login = () => {
 
                 {fpStep === 3 && (
                   <>
-                    <label className="text-sm">New Password</label>
+                    <label className="text-xs font-medium text-slate-700">
+                      New Password
+                    </label>
                     <input
-                      className="w-full mt-1 px-3 py-2 border rounded-lg"
+                      className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50/60 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                       type="password"
                       value={fpNewPass}
                       onChange={(e) => setFpNewPass(e.target.value)}
                     />
-                    <label className="text-sm mt-2 block">Confirm Password</label>
+                    <label className="text-xs font-medium text-slate-700 mt-3 block">
+                      Confirm Password
+                    </label>
                     <input
-                      className="w-full mt-1 px-3 py-2 border rounded-lg"
+                      className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50/60 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                       type="password"
                       value={fpNewPass2}
                       onChange={(e) => setFpNewPass2(e.target.value)}
                     />
                     <button
                       onClick={fpReset}
-                      className="w-full mt-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
+                      className="w-full mt-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-medium text-white shadow-md hover:shadow-lg transition"
                     >
-                      Update Password
+                      Update password
                     </button>
                   </>
                 )}
