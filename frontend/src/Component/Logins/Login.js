@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Eye, EyeOff, LogIn, Mail, Lock, LogOut, KeyRound, Phone } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  LogIn,
+  Mail,
+  Lock,
+  LogOut,
+  KeyRound,
+  Phone,
+  Loader2, // spinner icon
+} from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -78,7 +88,9 @@ const Login = () => {
         if (err.response.status === 401) {
           setError("Invalid email or password.");
         } else {
-          setError(`Error: ${err.response.data.message || "Something went wrong"}`);
+          setError(
+            `Error: ${err.response.data.message || "Something went wrong"}`
+          );
         }
       } else {
         setError("Failed to connect to the server. Please try again.");
@@ -91,7 +103,11 @@ const Login = () => {
   const handleLogout = async () => {
     try {
       setIsLoading(true);
-      await axios.post(`${API_BASE_URL}/api/logout`, {}, { withCredentials: true });
+      await axios.post(
+        `${API_BASE_URL}/api/logout`,
+        {},
+        { withCredentials: true }
+      );
       setIsLoggedIn(false);
       navigate("/");
     } catch (e) {
@@ -123,7 +139,9 @@ const Login = () => {
       if (data.dev_otp) setFpOtp(data.dev_otp); // when SMS disabled
       setCooldown(30);
     } catch (err) {
-      setFpMsg(err.response?.data?.message || "Unable to start password reset.");
+      setFpMsg(
+        err.response?.data?.message || "Unable to start password reset."
+      );
     }
   };
 
@@ -186,11 +204,12 @@ const Login = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4"
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-0 md:px-0"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
-      <div className="w-full max-w-5xl grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Left Side - NO VIDEO, background + transparent logo */}
+      {/* Full-screen card */}
+      <div className="w-full h-screen grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-none md:rounded-2xl shadow-2xl overflow-hidden">
+        {/* Left Side - background + transparent logo */}
         <div className="relative hidden md:block">
           {/* Background image */}
           <img
@@ -218,14 +237,15 @@ const Login = () => {
             </div>
 
             <p className="mt-6 max-w-sm text-[11px] md:text-xs text-slate-100/80 text-center leading-relaxed">
-              Access the Online Municipal Document Processing System to manage permits, licenses,
-              and official records in a secure and transparent way.
+              Access the Online Municipal Document Processing System to manage
+              permits, licenses, and official records in a secure and
+              transparent way.
             </p>
           </div>
         </div>
 
         {/* Right Side - Login Form */}
-        <div className="bg-white px-6 py-8 md:px-8 md:py-10 flex flex-col justify-center">
+        <div className="bg-white px-6 py-8 md:px-8 md:py-10 flex flex-col justify-center max-h-screen overflow-y-auto">
           {/* Logo for mobile */}
           <div className="md:hidden flex flex-col items-center mb-4">
             <img
@@ -246,7 +266,8 @@ const Login = () => {
               Sign in to your account
             </h2>
             <p className="text-xs text-slate-500 mt-1 text-center md:text-left">
-              Use your registered email and password to access municipal services.
+              Use your registered email and password to access municipal
+              services.
             </p>
           </div>
 
@@ -265,7 +286,9 @@ const Login = () => {
                   className="text-xs font-medium text-slate-700 flex items-center justify-between"
                 >
                   <span>Email Address</span>
-                  <span className="text-[11px] text-slate-400">Example: user@municipality.gov</span>
+                  <span className="text-[11px] text-slate-400">
+                    Example: user@municipality.gov
+                  </span>
                 </label>
                 <div className="relative mt-1">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -288,7 +311,9 @@ const Login = () => {
                   className="text-xs font-medium text-slate-700 flex items-center justify-between"
                 >
                   <span>Password</span>
-                  <span className="text-[11px] text-slate-400">Keep your password private.</span>
+                  <span className="text-[11px] text-slate-400">
+                    Keep your password private.
+                  </span>
                 </label>
                 <div className="relative mt-1">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -356,7 +381,8 @@ const Login = () => {
                 You are currently logged in
               </h3>
               <p className="text-xs text-slate-500 mb-4">
-                If this is not you, please log out and sign in with the correct account.
+                If this is not you, please log out and sign in with the correct
+                account.
               </p>
               <button
                 onClick={handleLogout}
@@ -392,7 +418,8 @@ const Login = () => {
 
           {/* Small footer */}
           <p className="mt-3 text-[10px] text-center text-slate-400">
-            By signing in, you agree to comply with municipal policies and data privacy guidelines.
+            By signing in, you agree to comply with municipal policies and data
+            privacy guidelines.
           </p>
 
           {/* Forgot Password Modal */}
@@ -469,7 +496,9 @@ const Login = () => {
                         disabled={cooldown > 0}
                         className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline disabled:text-slate-400 disabled:cursor-not-allowed"
                       >
-                        {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
+                        {cooldown > 0
+                          ? `Resend in ${cooldown}s`
+                          : "Resend code"}
                       </button>
                     </div>
                   </>
@@ -508,6 +537,18 @@ const Login = () => {
           )}
         </div>
       </div>
+
+      {/* Loading Spinner Modal (UI only) */}
+      {isLoading && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl px-6 py-4 flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+            <span className="text-sm font-medium text-slate-700">
+              Processing, please wait...
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

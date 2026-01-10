@@ -8,6 +8,7 @@ import {
   User,
   Smartphone,
   CheckCircle2,
+  Loader2, // ⬅️ spinner icon
 } from "lucide-react";
 
 const API = "http://localhost:8081/api/auth";
@@ -37,6 +38,13 @@ const SignUp = () => {
 
   // multi-step form (1 = names + email, 2 = contact + credentials)
   const [formStep, setFormStep] = useState(1);
+
+  // UI modals
+  const [showNextConfirm, setShowNextConfirm] = useState(false);
+  const [showCreateConfirm, setShowCreateConfirm] = useState(false);
+
+  // spinner for create-account request
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!otpPhase || resendCooldown <= 0) return;
@@ -105,7 +113,7 @@ const SignUp = () => {
     }
   };
 
-  // Step 1 -> Step 2 (validate name + email)
+  // STEP 1 button: validate then open custom modal
   const handleNextStep = () => {
     setError("");
 
@@ -124,10 +132,53 @@ const SignUp = () => {
       return;
     }
 
+    // Open modal instead of window.confirm
+    setShowNextConfirm(true);
+  };
+
+  const confirmNextStep = () => {
+    setShowNextConfirm(false);
     setFormStep(2);
   };
 
-  // Single form submit handler (handles step 2 and OTP phase)
+  // This function contains the original create-account API logic
+  const performCreateAccount = async () => {
+    try {
+      const resp = await fetch(`${API}/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          email,
+          password,
+          firstname,
+          middlename,
+          lastname,
+          address,
+          phoneNumber,
+        }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        setError(data.message || "Signup failed.");
+        return;
+      }
+
+      setUserId(data.userId);
+      setOtpPhase(true); // move to OTP step
+      setSuccess(
+        "Almost done! We’ve created your account record and sent a verification code to your phone."
+      );
+
+      // auto-send OTP
+      await handleSendOtp(data.userId);
+    } catch (err) {
+      console.error(err);
+      setError("Network error. Please try again.");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -139,9 +190,8 @@ const SignUp = () => {
       return;
     }
 
-    // STEP 2: create user + send OTP
+    // STEP 2: validate fields, then show Create Account modal
     if (!otpPhase && formStep === 2) {
-      // Validate fields before hitting API
       if (!address.trim()) {
         setError("Please enter your complete Address.");
         return;
@@ -174,40 +224,8 @@ const SignUp = () => {
         return;
       }
 
-      try {
-        const resp = await fetch(`${API}/signup`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            email,
-            password,
-            firstname,
-            middlename,
-            lastname,
-            address,
-            phoneNumber,
-          }),
-        });
-        const data = await resp.json();
-
-        if (!resp.ok) {
-          setError(data.message || "Signup failed.");
-          return;
-        }
-
-        setUserId(data.userId);
-        setOtpPhase(true); // move to OTP step
-        setSuccess(
-          "Almost done! We’ve created your account record and sent a verification code to your phone."
-        );
-
-        // auto-send OTP
-        await handleSendOtp(data.userId);
-      } catch (err) {
-        console.error(err);
-        setError("Network error. Please try again.");
-      }
+      // Open Create Account confirmation modal instead of window.confirm
+      setShowCreateConfirm(true);
       return;
     }
 
@@ -243,6 +261,17 @@ const SignUp = () => {
     }
   };
 
+  // When user clicks "Yes, create account" in modal
+  const confirmCreateAccount = async () => {
+    setCreating(true);
+    try {
+      await performCreateAccount();
+    } finally {
+      setCreating(false);
+      setShowCreateConfirm(false);
+    }
+  };
+
   // disable editing of account fields once we're in OTP phase
   const detailsDisabled = otpPhase;
 
@@ -266,10 +295,11 @@ const SignUp = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4"
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-0 md:px-0"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
-      <div className="w-full max-w-5xl grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      {/* Full-screen card */}
+      <div className="w-full h-screen grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden">
         {/* Left side - same UI as Login: background + transparent logo */}
         <div className="relative hidden md:block">
           {/* Background image */}
@@ -304,19 +334,9 @@ const SignUp = () => {
           </div>
         </div>
 
-        {/* Right side - form (same card style as Login) */}
+        {/* Right side - form (full height, scrollable if needed) */}
         <div className="bg-white px-6 py-8 md:px-8 md:py-10 flex flex-col justify-center max-h-screen overflow-y-auto">
-          {/* Logo for mobile */}
-          <div className="md:hidden flex flex-col items-center mb-4">
-            <img
-              src="/img/logo.png"
-              alt="Municipality of Hinigaran Seal"
-              className="h-20 w-20 opacity-80"
-            />
-            <p className="mt-2 text-[11px] uppercase tracking-[0.25em] text-slate-500 text-center">
-              Municipality of Hinigaran
-            </p>
-          </div>
+          {/* Small top-right / mobile logo removed */}
 
           <div className="mb-2">
             <p className="text-xs font-semibold tracking-[0.2em] text-slate-400 uppercase text-center md:text-left">
@@ -628,11 +648,78 @@ const SignUp = () => {
           </p>
 
           <p className="mt-3 text-[10px] text-center text-slate-400">
-            We will only use your information for official municipal transactions
-            and notifications.
+            We will only use your information for official municipal
+            transactions and notifications.
           </p>
         </div>
       </div>
+
+      {/* Modal: "Are you sure to next" */}
+      {showNextConfirm && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 mx-4">
+            <h3 className="text-lg font-semibold text-slate-900">
+              Proceed to the next step?
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Are you sure you want to continue to the next step? You can still
+              go back and edit your basic information later.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowNextConfirm(false)}
+                className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmNextStep}
+                className="px-4 py-2 text-sm font-medium rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md"
+              >
+                Yes, continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: "Are you sure to create this account" */}
+      {showCreateConfirm && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 mx-4">
+            <h3 className="text-lg font-semibold text-slate-900">
+              Create this account?
+            </h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Are you sure you want to create this account using the
+              information you provided?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => !creating && setShowCreateConfirm(false)}
+                className="px-4 py-2 text-sm font-medium rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                disabled={creating}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmCreateAccount}
+                disabled={creating}
+                className="px-4 py-2 text-sm font-medium rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md inline-flex items-center disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {creating && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                {creating ? "Creating..." : "Yes, create account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
