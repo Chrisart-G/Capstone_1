@@ -615,3 +615,98 @@ exports.acceptBusiness = (req, res) => {
       .catch((e) => console.error("[SMS] background error:", e?.response?.data || e));
   });
 };
+// Draft storage directory
+const DRAFT_DIR = path.join(__dirname, '../uploads/business_drafts');
+
+function ensureDraftDir() {
+  if (!fs.existsSync(DRAFT_DIR)) {
+    fs.mkdirSync(DRAFT_DIR, { recursive: true });
+  }
+}
+
+// ==================== BUSINESS PERMIT DRAFTS ====================
+
+// Save draft for current user (no DB write)
+exports.saveBusinessDraft = (req, res) => {
+  try {
+    if (!req.session?.user?.user_id) {
+      return res.status(401).json({ success: false, message: 'Unauthorized. Please log in.' });
+    }
+
+    const userId = req.session.user.user_id;
+    let draft = req.body?.data;
+
+    if (!draft) {
+      return res.status(400).json({ success: false, message: 'Missing draft data.' });
+    }
+
+    // If serialized as string, parse
+    if (typeof draft === 'string') {
+      try {
+        draft = JSON.parse(draft);
+      } catch (e) {
+        return res.status(400).json({ success: false, message: 'Invalid JSON draft format.' });
+      }
+    }
+
+    ensureDraftDir();
+    const filePath = path.join(DRAFT_DIR, `${userId}.json`);
+    const payload = {
+      formData: draft,
+      savedAt: new Date().toISOString(),
+    };
+
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+
+    return res.json({
+      success: true,
+      message: 'Draft saved successfully.',
+      savedAt: payload.savedAt,
+    });
+  } catch (err) {
+    console.error('Error saving business draft:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Unexpected server error while saving draft.',
+    });
+  }
+};
+
+// Get draft for current user
+exports.getBusinessDraft = (req, res) => {
+  try {
+    if (!req.session?.user?.user_id) {
+      return res.status(401).json({ success: false, message: 'Unauthorized. Please log in.' });
+    }
+
+    const userId = req.session.user.user_id;
+    ensureDraftDir();
+    const filePath = path.join(DRAFT_DIR, `${userId}.json`);
+
+    if (!fs.existsSync(filePath)) {
+      return res.json({ success: false, message: 'No draft found.' });
+    }
+
+    const raw = fs.readFileSync(filePath, 'utf8');
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch (e) {
+      console.warn('Invalid draft JSON, deleting:', filePath, e);
+      fs.unlinkSync(filePath);
+      return res.json({ success: false, message: 'No draft found.' });
+    }
+
+    return res.json({
+      success: true,
+      draft: payload.formData || {},
+      savedAt: payload.savedAt || null,
+    });
+  } catch (err) {
+    console.error('Error loading business draft:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Unexpected server error while loading draft.',
+    });
+  }
+};

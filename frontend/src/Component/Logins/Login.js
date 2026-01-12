@@ -40,9 +40,12 @@ const Login = () => {
     const checkSession = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
-          withCredentials: true,
-        });
+        const response = await axios.get(
+          `${API_BASE_URL}/api/check-session`,
+          {
+            withCredentials: true,
+          }
+        );
         if (response.data.loggedIn) {
           setIsLoggedIn(true);
           const role = response.data.user.role;
@@ -63,7 +66,10 @@ const Login = () => {
 
   useEffect(() => {
     if (!forgotOpen || cooldown <= 0) return;
-    const t = setInterval(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
+    const t = setInterval(
+      () => setCooldown((s) => Math.max(0, s - 1)),
+      1000
+    );
     return () => clearInterval(t);
   }, [forgotOpen, cooldown]);
 
@@ -89,7 +95,9 @@ const Login = () => {
           setError("Invalid email or password.");
         } else {
           setError(
-            `Error: ${err.response.data.message || "Something went wrong"}`
+            `Error: ${
+              err.response.data.message || "Something went wrong"
+            }`
           );
         }
       } else {
@@ -127,6 +135,7 @@ const Login = () => {
         { identifier: fpIdentifier },
         { withCredentials: true }
       );
+
       await axios.post(
         `${API_BASE_URL}/api/auth/forgot/resend`,
         { userId: data.userId },
@@ -218,25 +227,25 @@ const Login = () => {
             className="absolute inset-0 w-full h-full object-cover"
           />
           {/* Dark overlay */}
-          <div className="absolute inset-0 bg-slate-900" />
+          <div className="absolute inset-0 bg-white" />
 
           {/* Centered transparent logo + text */}
-          <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-white">
+          <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-black">
             <img
               src="/img/logo.png"
               alt="Municipality of Hinigaran Seal"
               className="h-60 w-30 "
             />
             <div className="mt-4 text-center">
-              <p className="text-xs md:text-sm uppercase tracking-[0.25em] text-slate-200/90">
+              <p className="text-xs md:text-sm uppercase tracking-[0.25em] text-black">
                 Municipality of Hinigaran
               </p>
-              <p className="text-[11px] md:text-xs text-slate-200/80 mt-1">
+              <p className="text-[11px] md:text-xs text-black mt-1">
                 Province of Negros Occidental, Philippines
               </p>
             </div>
 
-            <p className="mt-6 max-w-sm text-[11px] md:text-xs text-slate-100/80 text-center leading-relaxed">
+            <p className="mt-6 max-w-sm text-[11px] md:text-xs text-black text-center leading-relaxed">
               Access the Online Municipal Document Processing System to manage
               permits, licenses, and official records in a secure and
               transparent way.
@@ -381,8 +390,8 @@ const Login = () => {
                 You are currently logged in
               </h3>
               <p className="text-xs text-slate-500 mb-4">
-                If this is not you, please log out and sign in with the correct
-                account.
+                If this is not you, please log out and sign in with the
+                correct account.
               </p>
               <button
                 onClick={handleLogout}
@@ -418,8 +427,8 @@ const Login = () => {
 
           {/* Small footer */}
           <p className="mt-3 text-[10px] text-center text-slate-400">
-            By signing in, you agree to comply with municipal policies and data
-            privacy guidelines.
+            By signing in, you agree to comply with municipal policies and
+            data privacy guidelines.
           </p>
 
           {/* Forgot Password Modal */}
@@ -433,7 +442,8 @@ const Login = () => {
                       Reset Password
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Follow the steps below to securely recover your account.
+                      Follow the steps below to securely recover your
+                      account.
                     </p>
                   </div>
                   <button
@@ -461,7 +471,9 @@ const Login = () => {
                         className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                         placeholder="email@example.com or +63xxxxxxxxxx"
                         value={fpIdentifier}
-                        onChange={(e) => setFpIdentifier(e.target.value)}
+                        onChange={(e) =>
+                          setFpIdentifier(e.target.value)
+                        }
                       />
                     </div>
                     <button
@@ -522,7 +534,9 @@ const Login = () => {
                       className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl bg-slate-50/60 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                       type="password"
                       value={fpNewPass2}
-                      onChange={(e) => setFpNewPass2(e.target.value)}
+                      onChange={(e) =>
+                        setFpNewPass2(e.target.value)
+                      }
                     />
                     <button
                       onClick={fpReset}

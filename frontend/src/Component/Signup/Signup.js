@@ -309,7 +309,7 @@ const SignUp = () => {
             className="absolute inset-0 w-full h-full object-cover"
           />
           {/* Dark overlay */}
-          <div className="absolute inset-0 bg-slate-900" />
+          <div className="absolute inset-0 bg-white" />
 
           {/* Centered transparent logo + text */}
           <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-white">
@@ -319,15 +319,15 @@ const SignUp = () => {
               className="h-60 w-30"
             />
             <div className="mt-4 text-center">
-              <p className="text-xs md:text-sm uppercase tracking-[0.25em] text-slate-200/90">
+              <p className="text-xs md:text-sm uppercase tracking-[0.25em] text-black">
                 Municipality of Hinigaran
               </p>
-              <p className="text-[11px] md:text-xs text-slate-200/80 mt-1">
+              <p className="text-[11px] md:text-xs text-black mt-1">
                 Province of Negros Occidental, Philippines
               </p>
             </div>
 
-            <p className="mt-6 max-w-sm text-[11px] md:text-xs text-slate-100/80 text-center leading-relaxed">
+            <p className="mt-6 max-w-sm text-[11px] md:text-xs text-black text-center leading-relaxed">
               Create your account to request permits, track document status, and
               access municipal services securely from anywhere.
             </p>

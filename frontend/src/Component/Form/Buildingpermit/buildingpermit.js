@@ -1,70 +1,101 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Uheader from '../../Header/User_header';
-import UFooter from '../../Footer/User_Footer';
+// src/Component/Form/buildingpermit/BuildingPermitForm.js
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Uheader from "../../Header/User_header";
+import UFooter from "../../Footer/User_Footer";
 
 export default function BuildingPermitForm() {
   const navigate = useNavigate();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    appliesAlsoFor: '',
-    lastName: '',
-    firstName: '',
-    middleInitial: '',
-    tin: '',
-    forConstructionOwned: '',
-    formOfOwnership: '',
-    no: '',
-    street: '',
-    barangay: '',
-    cityMunicipality: '',
-    zipCode: '',
-    telephoneNo: '',
-    lotNo: '',
-    blkNo: '',
-    tctNo: '',
-    currentTaxDecNo: '',
-    constructionStreet: '',
-    constructionBarangay: '',
-    constructionCity: '',
-    scopeOfWork: '',
-    groupA: '',
-    groupG: '',
-    groupB: '',
-    groupH: '',
-    groupC: '',
-    groupI: '',
-    groupD: '',
-    groupJ1: '',
-    groupE: '',
-    groupJ2: '',
-    groupF: ''
+    appliesAlsoFor: "",
+    lastName: "",
+    firstName: "",
+    middleInitial: "",
+    tin: "",
+    forConstructionOwned: "",
+    formOfOwnership: "",
+    no: "",
+    street: "",
+    barangay: "",
+    cityMunicipality: "",
+    zipCode: "",
+    telephoneNo: "",
+    lotNo: "",
+    blkNo: "",
+    tctNo: "",
+    currentTaxDecNo: "",
+    constructionStreet: "",
+    constructionBarangay: "",
+    constructionCity: "",
+    scopeOfWork: "",
+    groupA: "",
+    groupG: "",
+    groupB: "",
+    groupH: "",
+    groupC: "",
+    groupI: "",
+    groupD: "",
+    groupJ1: "",
+    groupE: "",
+    groupJ2: "",
+    groupF: "",
   });
 
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
-  const [autoFillError, setAutoFillError] = useState('');
+  const [autoFillError, setAutoFillError] = useState("");
+
+  // NEW: review + confirm + status state
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [draftStatus, setDraftStatus] = useState("");
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    const processedValue = name === 'middleInitial' ? value.slice(0, 1) : value;
+    const processedValue = name === "middleInitial" ? value.slice(0, 1) : value;
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: processedValue
+      [name]: processedValue,
     }));
   };
 
+  // NEW: load draft from localStorage (if any)
+  useEffect(() => {
+    try {
+      const savedDraft = localStorage.getItem("buildingPermitDraft");
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        setFormData((prev) => ({
+          ...prev,
+          ...parsed,
+        }));
+        setDraftStatus("Loaded saved draft.");
+      }
+    } catch (err) {
+      console.error("Error loading building permit draft:", err);
+    }
+  }, []);
+
+  // Fetch user info for auto-fill (same fields as before)
   useEffect(() => {
     const fetchUserInfoForBuilding = async () => {
       setIsLoadingUserInfo(true);
-      setAutoFillError('');
+      setAutoFillError("");
 
       try {
-        const response = await fetch('http://localhost:8081/api/user-info-building', {
-          method: 'GET',
-          credentials: 'include'
-        });
+        const response = await fetch(
+          "http://localhost:8081/api/user-info-building",
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
 
         if (response.ok) {
           const data = await response.json();
@@ -72,7 +103,7 @@ export default function BuildingPermitForm() {
           if (data.success && data.userInfo) {
             const ui = data.userInfo;
 
-            setFormData(prev => ({
+            setFormData((prev) => ({
               ...prev,
               lastName: ui.lastName || prev.lastName,
               firstName: ui.firstName || prev.firstName,
@@ -80,19 +111,25 @@ export default function BuildingPermitForm() {
               street: ui.street || prev.street,
               // barangay manual
               cityMunicipality: ui.cityMunicipality || prev.cityMunicipality,
-              telephoneNo: ui.telephoneNo || prev.telephoneNo
+              telephoneNo: ui.telephoneNo || prev.telephoneNo,
             }));
           } else {
-            setAutoFillError(data.message || 'Could not auto-fill your information.');
+            setAutoFillError(
+              data.message || "Could not auto-fill your information."
+            );
           }
         } else if (response.status === 401) {
-          setAutoFillError('Please log in to auto-fill your information.');
+          setAutoFillError("Please log in to auto-fill your information.");
         } else {
-          setAutoFillError('Failed to load your profile information for auto-fill.');
+          setAutoFillError(
+            "Failed to load your profile information for auto-fill."
+          );
         }
       } catch (err) {
-        console.error('Error fetching user info for building:', err);
-        setAutoFillError('Unable to auto-fill your information. You can still fill the form manually.');
+        console.error("Error fetching user info for building:", err);
+        setAutoFillError(
+          "Unable to auto-fill your information. You can still fill the form manually."
+        );
       } finally {
         setIsLoadingUserInfo(false);
       }
@@ -101,78 +138,167 @@ export default function BuildingPermitForm() {
     fetchUserInfoForBuilding();
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  // NEW: validation before opening review modal
+  const validateForReview = () => {
     if (!formData.lastName || !formData.firstName || !formData.scopeOfWork) {
-      alert('Please fill in all required fields: Last Name, First Name, and Scope of Work');
-      return;
+      setSubmitMessage(
+        "Please fill in all required fields: Last Name, First Name, and Scope of Work."
+      );
+      setSubmitSuccess(false);
+      return false;
+    }
+    return true;
+  };
+
+  // NEW: open review modal
+  const handleReviewClick = () => {
+    if (!validateForReview()) return;
+    setSubmitMessage("");
+    setIsReviewOpen(true);
+  };
+
+  // NEW: Save as Draft
+  const handleSaveDraft = () => {
+    try {
+      localStorage.setItem("buildingPermitDraft", JSON.stringify(formData));
+      setDraftStatus("Draft saved locally on this device.");
+      setSubmitMessage("");
+    } catch (err) {
+      console.error("Error saving building permit draft:", err);
+      setDraftStatus(
+        "Failed to save draft. Please check your browser storage settings."
+      );
+    }
+  };
+
+  // Actual submit to backend (called after final confirmation)
+  const handleSubmit = async (e) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
     }
 
     setIsSubmitting(true);
+    setSubmitMessage("");
+    setSubmitSuccess(false);
 
     try {
-      const response = await fetch('http://localhost:8081/api/building-permits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(formData)
-      });
+      const response = await fetch(
+        "http://localhost:8081/api/building-permits",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(formData),
+        }
+      );
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        alert(`Building permit application submitted successfully!\nApplication No: ${data.data.applicationNo}`);
-        navigate('/Docutracker');
+        setSubmitSuccess(true);
+        setIsModalOpen(true);
+        setSubmitMessage(
+          `Building permit application submitted successfully! Application No: ${data.data.applicationNo}, BP No: ${data.data.bpNo}, Building Permit No: ${data.data.buildingPermitNo}`
+        );
+
+        // Clear draft on successful submission
+        localStorage.removeItem("buildingPermitDraft");
+        setDraftStatus("");
       } else {
-        alert(data.message || 'Failed to submit building permit application');
+        setSubmitMessage(
+          data.message || "Failed to submit building permit application."
+        );
       }
     } catch (error) {
-      console.error('Error submitting building permit:', error);
-      alert('An error occurred while submitting the application. Please try again.');
+      console.error("Error submitting building permit:", error);
+      setSubmitMessage(
+        "An error occurred while submitting the application. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Called when user confirms in the Confirm Submission modal
+  const handleConfirmSubmit = async () => {
+    setIsConfirmOpen(false);
+    await handleSubmit();
+  };
+
+  // Success modal (redirect to Docutracker on OK)
+  const renderFormStatus = () => {
+    if (submitSuccess && isModalOpen) {
+      return (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-green-600 mb-2">Success!</h2>
+            <p className="text-gray-700 mb-4">
+              Your building permit application has been submitted successfully.
+            </p>
+            <div className="flex justify-end">
+              <button
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setSubmitSuccess(false);
+                  navigate("/Docutracker");
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const scopeOfWorkOptions = [
-    'New Construction',
-    'Addition',
-    'Alteration',
-    'Renovation',
-    'Repair',
-    'Demolition',
-    'Change of Occupancy',
-    'Others'
+    "New Construction",
+    "Addition",
+    "Alteration",
+    "Renovation",
+    "Repair",
+    "Demolition",
+    "Change of Occupancy",
+    "Others",
   ];
 
   const occupancyGroups = {
-    groupA: ['Single Family Dwelling', 'Duplex', 'Townhouse', 'Apartment Building'],
-    groupG: ['Light Manufacturing', 'Processing Plant', 'Warehouse', 'Storage Facility'],
-    groupB: ['Boarding House', 'Hotel', 'Dormitory', 'Condominium'],
-    groupH: ['Factory', 'Heavy Industrial Plant', 'Manufacturing Facility'],
-    groupC: ['School', 'Library', 'Museum', 'Community Center'],
-    groupI: ['Hospital', 'Clinic', 'Laboratory', 'Assembly Hall'],
-    groupD: ['Government Building', 'Office Building', 'Bank', 'Municipal Hall'],
-    groupJ1: ['Farm Building', 'Agricultural Storage', 'Greenhouse'],
-    groupE: ['Store', 'Shopping Center', 'Market', 'Commercial Building'],
-    groupJ2: ['Garage', 'Carport', 'Tool Shed', 'Storage Shed'],
-    groupF: ['Workshop', 'Small Manufacturing', 'Service Shop']
+    groupA: [
+      "Single Family Dwelling",
+      "Duplex",
+      "Townhouse",
+      "Apartment Building",
+    ],
+    groupG: ["Light Manufacturing", "Processing Plant", "Warehouse", "Storage Facility"],
+    groupB: ["Boarding House", "Hotel", "Dormitory", "Condominium"],
+    groupH: ["Factory", "Heavy Industrial Plant", "Manufacturing Facility"],
+    groupC: ["School", "Library", "Museum", "Community Center"],
+    groupI: ["Hospital", "Clinic", "Laboratory", "Assembly Hall"],
+    groupD: ["Government Building", "Office Building", "Bank", "Municipal Hall"],
+    groupJ1: ["Farm Building", "Agricultural Storage", "Greenhouse"],
+    groupE: ["Store", "Shopping Center", "Market", "Commercial Building"],
+    groupJ2: ["Garage", "Carport", "Tool Shed", "Storage Shed"],
+    groupF: ["Workshop", "Small Manufacturing", "Service Shop"],
   };
 
   return (
     <div>
-      <Uheader/>
+      <Uheader />
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-8">
               <div className="flex justify-center items-center">
-                <img src="img/logo.png" alt="" className="w-40 h-30"/>
+                <img src="img/logo.png" alt="" className="w-40 h-30" />
               </div>
-              <h1 className="text-3xl font-bold text-gray-800">BUILDING PERMIT FORM</h1>
+              <h1 className="text-3xl font-bold text-gray-800">
+                BUILDING PERMIT FORM
+              </h1>
             </div>
 
             {(isLoadingUserInfo || autoFillError) && (
@@ -191,7 +317,11 @@ export default function BuildingPermitForm() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-6">
+            {/* Prevent default submit – we submit via modals */}
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="bg-white rounded-lg shadow-lg p-6"
+            >
               {/* This Applies Also For */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -260,7 +390,9 @@ export default function BuildingPermitForm() {
                     </div>
                     {/* M.I (auto-fill, read-only) */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">M.I</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        M.I
+                      </label>
                       <input
                         type="text"
                         name="middleInitial"
@@ -278,7 +410,9 @@ export default function BuildingPermitForm() {
                     </div>
                     {/* TIN */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">TIN</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        TIN
+                      </label>
                       <input
                         type="text"
                         name="tin"
@@ -292,7 +426,9 @@ export default function BuildingPermitForm() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">FOR CONSTRUCTION OWNED</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        FOR CONSTRUCTION OWNED
+                      </label>
                       <input
                         type="text"
                         name="forConstructionOwned"
@@ -303,7 +439,9 @@ export default function BuildingPermitForm() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">FORM OF OWNERSHIP</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        FORM OF OWNERSHIP
+                      </label>
                       <input
                         type="text"
                         name="formOfOwnership"
@@ -317,7 +455,9 @@ export default function BuildingPermitForm() {
 
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">NO.</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        NO.
+                      </label>
                       <input
                         type="text"
                         name="no"
@@ -329,7 +469,9 @@ export default function BuildingPermitForm() {
                     </div>
                     {/* STREET auto-filled */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">STREET</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        STREET
+                      </label>
                       <input
                         type="text"
                         name="street"
@@ -346,7 +488,9 @@ export default function BuildingPermitForm() {
                     </div>
                     {/* BARANGAY manual again */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">BARANGAY</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        BARANGAY
+                      </label>
                       <input
                         type="text"
                         name="barangay"
@@ -358,7 +502,9 @@ export default function BuildingPermitForm() {
                     </div>
                     {/* CITY auto-filled */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CITY / MUNICIPALITY</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        CITY / MUNICIPALITY
+                      </label>
                       <input
                         type="text"
                         name="cityMunicipality"
@@ -374,7 +520,9 @@ export default function BuildingPermitForm() {
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">ZIP CODE</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        ZIP CODE
+                      </label>
                       <input
                         type="text"
                         name="zipCode"
@@ -388,7 +536,9 @@ export default function BuildingPermitForm() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-start-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">TELEPHONE NO.</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        TELEPHONE NO.
+                      </label>
                       <input
                         type="text"
                         name="telephoneNo"
@@ -415,7 +565,9 @@ export default function BuildingPermitForm() {
                 <div className="border border-gray-300 border-t-0 p-4 rounded-b-md">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">LOT NO.</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        LOT NO.
+                      </label>
                       <input
                         type="text"
                         name="lotNo"
@@ -426,7 +578,9 @@ export default function BuildingPermitForm() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">BLK NO.</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        BLK NO.
+                      </label>
                       <input
                         type="text"
                         name="blkNo"
@@ -437,7 +591,9 @@ export default function BuildingPermitForm() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">TCT NO.</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        TCT NO.
+                      </label>
                       <input
                         type="text"
                         name="tctNo"
@@ -448,7 +604,9 @@ export default function BuildingPermitForm() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CURRENT TAX DEC. NO.</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        CURRENT TAX DEC. NO.
+                      </label>
                       <input
                         type="text"
                         name="currentTaxDecNo"
@@ -462,7 +620,9 @@ export default function BuildingPermitForm() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">STREET</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        STREET
+                      </label>
                       <input
                         type="text"
                         name="constructionStreet"
@@ -473,7 +633,9 @@ export default function BuildingPermitForm() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">BARANGAY</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        BARANGAY
+                      </label>
                       <input
                         type="text"
                         name="constructionBarangay"
@@ -484,7 +646,9 @@ export default function BuildingPermitForm() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CITY / MUNICIPALITY</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        CITY / MUNICIPALITY
+                      </label>
                       <input
                         type="text"
                         name="constructionCity"
@@ -505,7 +669,8 @@ export default function BuildingPermitForm() {
                 </div>
                 <div className="border border-gray-300 border-t-0 p-4 rounded-b-md">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    SELECT SCOPE OF WORK <span className="text-red-500">*</span>
+                    SELECT SCOPE OF WORK{" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="scopeOfWork"
@@ -516,7 +681,9 @@ export default function BuildingPermitForm() {
                   >
                     <option value="">-- Select an Option --</option>
                     {scopeOfWorkOptions.map((option) => (
-                      <option key={option} value={option}>{option}</option>
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -525,7 +692,9 @@ export default function BuildingPermitForm() {
               {/* Use or Character of Occupancy */}
               <div className="mb-6">
                 <div className="bg-blue-600 text-white px-4 py-2 rounded-t-md">
-                  <h2 className="font-semibold">USE OR CHARACTER OF OCCUPANCY</h2>
+                  <h2 className="font-semibold">
+                    USE OR CHARACTER OF OCCUPANCY
+                  </h2>
                 </div>
                 <div className="border border-gray-300 border-t-0 p-4 rounded-b-md">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -543,7 +712,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupA.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -560,7 +731,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupB.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -577,7 +750,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupC.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -594,7 +769,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupD.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -611,7 +788,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupE.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -628,7 +807,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupF.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -648,7 +829,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupG.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -665,7 +848,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupH.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -682,7 +867,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupI.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -699,7 +886,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupJ1.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -716,7 +905,9 @@ export default function BuildingPermitForm() {
                         >
                           <option value="">Select</option>
                           {occupancyGroups.groupJ2.map((option) => (
-                            <option key={option} value={option}>{option}</option>
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -725,25 +916,185 @@ export default function BuildingPermitForm() {
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <div className="text-center">
+              {/* Inline status message */}
+              {submitMessage && !isModalOpen && (
+                <div className="mt-4 p-3 rounded bg-yellow-50 text-gray-800 text-sm">
+                  {submitMessage}
+                </div>
+              )}
+
+              {/* Draft status */}
+              {draftStatus && (
+                <p className="mt-2 text-xs text-gray-600 text-right">
+                  {draftStatus}
+                </p>
+              )}
+
+              {/* Buttons: Save Draft + Review & Submit */}
+              <div className="flex justify-center space-x-4 mt-6">
                 <button
-                  type="submit"
-                  disabled={isSubmitting || isLoadingUserInfo}
-                  className={`${
-                    isSubmitting || isLoadingUserInfo 
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : 'bg-green-600 hover:bg-green-700'
-                  } text-white font-semibold px-8 py-3 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-green-500`}
+                  type="button"
+                  onClick={handleSaveDraft}
+                  className="px-6 py-2 rounded text-white bg-yellow-500 hover:bg-yellow-600"
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                  Save as Draft
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReviewClick}
+                  disabled={isSubmitting || isLoadingUserInfo}
+                  className={`px-6 py-2 rounded text-white ${
+                    isSubmitting || isLoadingUserInfo
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700"
+                  }`}
+                >
+                  {isSubmitting ? "Submitting..." : "Review & Submit"}
                 </button>
               </div>
             </form>
           </div>
         </div>
+
+        {/* SUCCESS MODAL */}
+        {renderFormStatus()}
+
+        {/* REVIEW MODAL */}
+        {isReviewOpen && (
+          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold mb-4">
+                Review Building Permit Application
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-sm text-gray-500">Applicant Name</p>
+                  <p className="font-semibold">
+                    {formData.lastName}, {formData.firstName}{" "}
+                    {formData.middleInitial}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">TIN</p>
+                  <p className="font-semibold">{formData.tin || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">For Construction Owned</p>
+                  <p className="font-semibold">
+                    {formData.forConstructionOwned || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Form of Ownership</p>
+                  <p className="font-semibold">
+                    {formData.formOfOwnership || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Scope of Work</p>
+                  <p className="font-semibold">
+                    {formData.scopeOfWork || "—"}
+                  </p>
+                </div>
+              </div>
+
+              <h3 className="font-bold mt-4 mb-2">Owner Address</h3>
+              <p className="text-sm mb-2">
+                {[
+                  formData.no,
+                  formData.street,
+                  formData.barangay,
+                  formData.cityMunicipality,
+                  formData.zipCode,
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "—"}
+              </p>
+
+              <h3 className="font-bold mt-4 mb-2">Location of Construction</h3>
+              <p className="text-sm mb-1">
+                <span className="font-semibold">Lot / Blk:</span>{" "}
+                {formData.lotNo || "—"} / {formData.blkNo || "—"}
+              </p>
+              <p className="text-sm mb-1">
+                <span className="font-semibold">TCT / Current Tax Dec:</span>{" "}
+                {formData.tctNo || "—"} / {formData.currentTaxDecNo || "—"}
+              </p>
+              <p className="text-sm mb-1">
+                <span className="font-semibold">Street:</span>{" "}
+                {formData.constructionStreet || "—"}
+              </p>
+              <p className="text-sm mb-1">
+                <span className="font-semibold">Barangay / City:</span>{" "}
+                {formData.constructionBarangay || "—"} /{" "}
+                {formData.constructionCity || "—"}
+              </p>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  onClick={() => setIsReviewOpen(false)}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmOpen(true)}
+                  disabled={isSubmitting}
+                  className={`px-6 py-2 rounded text-white ${
+                    isSubmitting
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700"
+                  }`}
+                >
+                  Submit Application
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CONFIRM SUBMISSION MODAL */}
+        {isConfirmOpen && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-60">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+              <h3 className="text-xl font-bold mb-3 text-center">
+                Confirm Submission
+              </h3>
+              <p className="text-sm text-gray-700 mb-6 text-center leading-relaxed">
+                Are you sure you want to submit this building permit application?
+                Once submitted, changes can only be made by coordinating with
+                the municipal office.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  onClick={() => setIsConfirmOpen(false)}
+                  disabled={isSubmitting}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmSubmit}
+                  disabled={isSubmitting}
+                  className={`px-6 py-2 rounded text-white ${
+                    isSubmitting
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700"
+                  }`}
+                >
+                  {isSubmitting ? "Submitting..." : "Yes, Submit Application"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      <UFooter/>
+      <UFooter />
     </div>
   );
 }

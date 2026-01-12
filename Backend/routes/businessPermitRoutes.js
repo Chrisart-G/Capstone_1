@@ -7,6 +7,11 @@ const BuspermitController = require('../Controller/buspermitController');
 
 // ======================= BUSINESS PERMIT ROUTES =======================
 router.post('/BusinessPermit', isAuthenticated, BuspermitController.SubmitBusinessPermit);
+
+// NEW: draft save/load
+router.post('/BusinessPermit/draft', isAuthenticated, BuspermitController.saveBusinessDraft);
+router.get('/BusinessPermit/draft', isAuthenticated, BuspermitController.getBusinessDraft);
+
 router.get('/businesspermits', isAuthenticated, BuspermitController.getAllPermits);
 
 router.get('/applications', isAuthenticated, BuspermitController.GetAllApplications);
