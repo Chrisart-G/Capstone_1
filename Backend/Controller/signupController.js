@@ -13,9 +13,22 @@ exports.Signup = async (req, res) => {
       lastname,
       address,
       phoneNumber,
+
+      // NEW: account type + business info
+      accountType,                 // 'citizen' | 'business_owner'
+      businessName,
+      businessTradeName,
+      businessType,                // 'single' | 'partnership' | 'corporation' | 'cooperative'
+      businessTinNo,
+      businessRegistrationNo,
+      businessAddress,
+      businessEmail,
+      businessTelephone,
+      businessMobile,
+      businessPostalCode,          // optional, front-end can add later
     } = req.body;
 
-    // basic server-side validation
+    // basic server-side validation (common to both account types)
     if (
       !email ||
       !password ||
@@ -36,6 +49,58 @@ exports.Signup = async (req, res) => {
     const trimmedPhone = String(phoneNumber).trim();
     const middleNameValue =
       middlename && middlename.trim() !== '' ? middlename.trim() : null;
+
+    // normalize account type
+    const trimmedAccountType =
+      accountType && accountType === 'business_owner'
+        ? 'business_owner'
+        : 'citizen';
+
+    // extra validation for business owners (minimal – only core items)
+    if (trimmedAccountType === 'business_owner') {
+      if (!businessName || String(businessName).trim() === '') {
+        return res.status(400).json({
+          message: 'Business Name is required for business owner accounts.',
+        });
+      }
+      if (!businessAddress || String(businessAddress).trim() === '') {
+        return res.status(400).json({
+          message: 'Business Address is required for business owner accounts.',
+        });
+      }
+    }
+
+    // trim business fields (optional)
+    const trimmedBusinessName = businessName
+      ? String(businessName).trim()
+      : null;
+    const trimmedBusinessTradeName = businessTradeName
+      ? String(businessTradeName).trim()
+      : null;
+    const trimmedBusinessType = businessType
+      ? String(businessType).trim()
+      : null;
+    const trimmedBusinessTinNo = businessTinNo
+      ? String(businessTinNo).trim()
+      : null;
+    const trimmedBusinessRegNo = businessRegistrationNo
+      ? String(businessRegistrationNo).trim()
+      : null;
+    const trimmedBusinessAddress = businessAddress
+      ? String(businessAddress).trim()
+      : null;
+    const trimmedBusinessEmail = businessEmail
+      ? String(businessEmail).trim()
+      : null;
+    const trimmedBusinessTelephone = businessTelephone
+      ? String(businessTelephone).trim()
+      : null;
+    const trimmedBusinessMobile = businessMobile
+      ? String(businessMobile).trim()
+      : null;
+    const trimmedBusinessPostalCode = businessPostalCode
+      ? String(businessPostalCode).trim()
+      : null;
 
     // 1) check email uniqueness
     db.query(
@@ -69,9 +134,13 @@ exports.Signup = async (req, res) => {
                 .json({ message: 'Phone number is already in use.' });
             }
 
-            // 3) create login + user_info
+            // 3) create login + user_info (+ optional business info)
             try {
               const hashedPassword = await bcrypt.hash(password, 10);
+
+              // NOTE: keep existing role behaviour so you do not break anything.
+              // If later you want a distinct role for business owners,
+              // you can change this to: trimmedAccountType === 'business_owner' ? 'business_owner' : 'citizen';
               const role = 'citizen';
 
               const loginQuery =
@@ -114,25 +183,103 @@ exports.Signup = async (req, res) => {
                       // optional flag for frontend (in case you want to hide OTP UI when SMS is off)
                       const smsEnabled = await isSmsEnabled().catch(() => false);
 
-                      console.log('[SIGNUP] New user created:', {
-                        userId,
-                        email: trimmedEmail,
-                        phone: trimmedPhone,
-                        smsEnabled,
-                      });
+                      const baseUserInfo = {
+                        firstname: trimmedFirst,
+                        middlename: middleNameValue,
+                        lastname: trimmedLast,
+                        address: trimmedAddress,
+                        phoneNumber: trimmedPhone,
+                      };
 
-                      return res.status(201).json({
-                        message:
-                          'Signup record created. Please verify your phone to activate your account.',
+                      // If NOT a business owner, we are done here
+                      if (trimmedAccountType !== 'business_owner') {
+                        console.log('[SIGNUP] New citizen account created:', {
+                          userId,
+                          email: trimmedEmail,
+                          phone: trimmedPhone,
+                          smsEnabled,
+                        });
+
+                        return res.status(201).json({
+                          message:
+                            'Signup record created. Please verify your phone to activate your account.',
+                          userId,
+                          smsEnabled,
+                          userInfo: baseUserInfo,
+                          accountType: trimmedAccountType,
+                          businessSaved: false,
+                        });
+                      }
+
+                      // If business owner, insert business info row
+                      const bizQuery = `
+                        INSERT INTO tbl_user_business_info (
+                          user_id,
+                          is_business_owner,
+                          business_name,
+                          trade_name,
+                          business_type,
+                          tin_no,
+                          registration_no,
+                          business_address,
+                          business_postal_code,
+                          business_email,
+                          business_telephone,
+                          business_mobile
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      `;
+
+                      const bizValues = [
                         userId,
-                        smsEnabled,
-                        userInfo: {
-                          firstname: trimmedFirst,
-                          middlename: middleNameValue,
-                          lastname: trimmedLast,
-                          address: trimmedAddress,
-                          phoneNumber: trimmedPhone,
-                        },
+                        1,
+                        trimmedBusinessName,
+                        trimmedBusinessTradeName,
+                        trimmedBusinessType,
+                        trimmedBusinessTinNo,
+                        trimmedBusinessRegNo,
+                        trimmedBusinessAddress,
+                        trimmedBusinessPostalCode,
+                        trimmedBusinessEmail,
+                        trimmedBusinessTelephone,
+                        trimmedBusinessMobile,
+                      ];
+
+                      db.query(bizQuery, bizValues, (bizErr) => {
+                        if (bizErr) {
+                          console.error(
+                            'Error inserting user business info:',
+                            bizErr
+                          );
+
+                          // Account is still created; only business profile failed.
+                          return res.status(201).json({
+                            message:
+                              'Signup record created, but we could not save your business details. You can update them later in your profile.',
+                            userId,
+                            smsEnabled,
+                            userInfo: baseUserInfo,
+                            accountType: trimmedAccountType,
+                            businessSaved: false,
+                          });
+                        }
+
+                        console.log('[SIGNUP] New business owner created:', {
+                          userId,
+                          email: trimmedEmail,
+                          phone: trimmedPhone,
+                          smsEnabled,
+                        });
+
+                        return res.status(201).json({
+                          message:
+                            'Signup record created. Please verify your phone to activate your account.',
+                          userId,
+                          smsEnabled,
+                          userInfo: baseUserInfo,
+                          accountType: trimmedAccountType,
+                          businessSaved: true,
+                        });
                       });
                     }
                   );

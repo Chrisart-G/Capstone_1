@@ -8,7 +8,7 @@ import {
   User,
   Smartphone,
   CheckCircle2,
-  Loader2, // ⬅️ spinner icon
+  Loader2,
 } from "lucide-react";
 
 const API = "http://localhost:8081/api/auth";
@@ -26,6 +26,19 @@ const SignUp = () => {
   const [address, setAddress] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
+  // NEW: account type + business profile
+  const [accountType, setAccountType] = useState("citizen"); // 'citizen' | 'business_owner'
+
+  const [businessName, setBusinessName] = useState("");
+  const [businessTradeName, setBusinessTradeName] = useState("");
+  const [businessType, setBusinessType] = useState("single");
+  const [businessTinNo, setBusinessTinNo] = useState("");
+  const [businessRegistrationNo, setBusinessRegistrationNo] = useState("");
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [businessTelephone, setBusinessTelephone] = useState("");
+  const [businessMobile, setBusinessMobile] = useState("");
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [otpPhase, setOtpPhase] = useState(false); // false = details steps, true = otp step
@@ -36,7 +49,7 @@ const SignUp = () => {
   const [verifying, setVerifying] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // multi-step form (1 = names + email, 2 = contact + credentials)
+  // multi-step form (1 = names + email, 2 = contact + credentials (+ business))
   const [formStep, setFormStep] = useState(1);
 
   // UI modals
@@ -64,6 +77,18 @@ const SignUp = () => {
     setLastname("");
     setAddress("");
     setPhoneNumber("");
+
+    setAccountType("citizen");
+    setBusinessName("");
+    setBusinessTradeName("");
+    setBusinessType("single");
+    setBusinessTinNo("");
+    setBusinessRegistrationNo("");
+    setBusinessAddress("");
+    setBusinessEmail("");
+    setBusinessTelephone("");
+    setBusinessMobile("");
+
     setOtpCode("");
     setUserId(null);
     setDevOtp("");
@@ -156,6 +181,18 @@ const SignUp = () => {
           lastname,
           address,
           phoneNumber,
+
+          // NEW payload to backend
+          accountType,
+          businessName,
+          businessTradeName,
+          businessType,
+          businessTinNo,
+          businessRegistrationNo,
+          businessAddress,
+          businessEmail,
+          businessTelephone,
+          businessMobile,
         }),
       });
       const data = await resp.json();
@@ -224,6 +261,18 @@ const SignUp = () => {
         return;
       }
 
+      // Extra validation when account type is business owner
+      if (accountType === "business_owner") {
+        if (!businessName.trim()) {
+          setError("Please enter your Business Name.");
+          return;
+        }
+        if (!businessAddress.trim()) {
+          setError("Please enter your Business Address.");
+          return;
+        }
+      }
+
       // Open Create Account confirmation modal instead of window.confirm
       setShowCreateConfirm(true);
       return;
@@ -285,12 +334,16 @@ const SignUp = () => {
     ? "Verify your mobile number"
     : formStep === 1
     ? "Tell us who you are"
+    : accountType === "business_owner"
+    ? "Set up your account & business"
     : "Set up your account";
 
   const headingSubtitle = otpPhase
     ? "Enter the verification code we sent to your registered mobile number."
     : formStep === 1
-    ? "Start by providing your name and email address."
+    ? "Start by providing your name and email address, then tell us if you are an individual citizen or a business owner."
+    : accountType === "business_owner"
+    ? "Fill in your address, mobile number, create a password, and add a few details about your business for faster permit applications."
     : "Fill in your address, mobile number, and create a password.";
 
   return (
@@ -336,8 +389,6 @@ const SignUp = () => {
 
         {/* Right side - form (full height, scrollable if needed) */}
         <div className="bg-white px-6 py-8 md:px-8 md:py-10 flex flex-col justify-center max-h-screen overflow-y-auto">
-          {/* Small top-right / mobile logo removed */}
-
           <div className="mb-2">
             <p className="text-xs font-semibold tracking-[0.2em] text-slate-400 uppercase text-center md:text-left">
               {headingLabel}
@@ -349,6 +400,36 @@ const SignUp = () => {
               {headingSubtitle}
             </p>
           </div>
+
+          {/* NEW: account-type selector under heading (only while not in OTP) */}
+          {!otpPhase && (
+            <div className="mt-3 mb-4 flex justify-center md:justify-start">
+              <div className="inline-flex items-center rounded-full bg-slate-100 p-1 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setAccountType("citizen")}
+                  className={`px-3 py-1 rounded-full font-medium transition ${
+                    accountType === "citizen"
+                      ? "bg-white shadow-sm text-slate-900"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  I’m an individual citizen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType("business_owner")}
+                  className={`px-3 py-1 rounded-full font-medium transition ${
+                    accountType === "business_owner"
+                      ? "bg-white shadow-sm text-slate-900"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  I’m a business owner
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mt-3 mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -450,7 +531,7 @@ const SignUp = () => {
               </>
             )}
 
-            {/* STEP 2: Address, Phone, Passwords */}
+            {/* STEP 2: Address, Phone, Passwords (+ Business section) */}
             {!otpPhase && formStep === 2 && (
               <>
                 {/* Address */}
@@ -490,6 +571,157 @@ const SignUp = () => {
                     />
                   </div>
                 </div>
+
+                {/* Business section – visible only for business owners */}
+                {accountType === "business_owner" && (
+                  <div className="mt-1 space-y-3 border border-slate-100 rounded-2xl px-3 py-3 bg-slate-50/80">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-600 uppercase">
+                        Business profile
+                      </p>
+                      <p className="text-[10px] text-slate-400 text-right">
+                        These fields will be used later to auto-fill your
+                        Business Permit application.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-slate-700">
+                        Business Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                        disabled={detailsDisabled}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                        placeholder="Registered business name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-slate-700">
+                        Trade Name / Franchise (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={businessTradeName}
+                        onChange={(e) => setBusinessTradeName(e.target.value)}
+                        disabled={detailsDisabled}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                        placeholder="Trade name or franchise"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-slate-700">
+                          Type of Business
+                        </label>
+                        <select
+                          value={businessType}
+                          onChange={(e) => setBusinessType(e.target.value)}
+                          disabled={detailsDisabled}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                        >
+                          <option value="single">Single</option>
+                          <option value="partnership">Partnership</option>
+                          <option value="corporation">Corporation</option>
+                          <option value="cooperative">Cooperative</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-700">
+                          Business TIN (optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={businessTinNo}
+                          onChange={(e) => setBusinessTinNo(e.target.value)}
+                          disabled={detailsDisabled}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                          placeholder="TIN number"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-slate-700">
+                        DTI / SEC / CDA Registration No. (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={businessRegistrationNo}
+                        onChange={(e) =>
+                          setBusinessRegistrationNo(e.target.value)
+                        }
+                        disabled={detailsDisabled}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                        placeholder="Registration number"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-slate-700">
+                        Business Address *
+                      </label>
+                      <input
+                        type="text"
+                        value={businessAddress}
+                        onChange={(e) => setBusinessAddress(e.target.value)}
+                        disabled={detailsDisabled}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                        placeholder="Business location / address"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-slate-700">
+                          Business Email (optional)
+                        </label>
+                        <input
+                          type="email"
+                          value={businessEmail}
+                          onChange={(e) => setBusinessEmail(e.target.value)}
+                          disabled={detailsDisabled}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                          placeholder="business@example.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-700">
+                          Telephone (optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={businessTelephone}
+                          onChange={(e) =>
+                            setBusinessTelephone(e.target.value)
+                          }
+                          disabled={detailsDisabled}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                          placeholder="Business telephone no."
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-medium text-slate-700">
+                        Business Mobile (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={businessMobile}
+                        onChange={(e) => setBusinessMobile(e.target.value)}
+                        disabled={detailsDisabled}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                        placeholder="Business mobile number"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Password */}
                 <div>
