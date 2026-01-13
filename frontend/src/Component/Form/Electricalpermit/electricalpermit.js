@@ -1,5 +1,5 @@
 // src/Component/Form/electricalpermit/ElectricalPermitForm.js
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Uheader from "../../Header/User_header";
 import UFooter from "../../Footer/User_Footer";
@@ -36,7 +36,7 @@ export default function ElectricalPermitForm() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // NEW: review + draft + confirm state
+  // review + draft + confirm state
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [draftStatus, setDraftStatus] = useState("");
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -54,6 +54,21 @@ export default function ElectricalPermitForm() {
     addressCity: "",
   });
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
+
+  const scopeLabelMap = useMemo(
+    () => ({
+      none: "-- Select an option --",
+      newInstallation: "NEW INSTALLATION",
+      annualInspection: "ANNUAL INSPECTION",
+      temporary: "TEMPORARY",
+      reconnection: "RECONNECTION OF SERVICE ENTRANCE",
+      separationOfService: "SEPARATION OF SERVICE ENTRANCE",
+      upgradingOfService: "UPGRADING OF SERVICE ENTRANCE",
+      relocation: "RELOCATION OF SERVICE ENTRANCE",
+      others: "OTHERS",
+    }),
+    []
+  );
 
   // Fetch user info for auto-fill
   useEffect(() => {
@@ -258,9 +273,7 @@ export default function ElectricalPermitForm() {
           scopeOfWork: "none",
         });
       } else {
-        setSubmitMessage(
-          `Error: ${result.message || "Unknown error occurred"}`
-        );
+        setSubmitMessage(`Error: ${result.message || "Unknown error occurred"}`);
       }
     } catch (error) {
       console.error("Submission error:", error);
@@ -282,16 +295,23 @@ export default function ElectricalPermitForm() {
   const renderFormStatus = () => {
     if (submitSuccess && isModalOpen) {
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-green-600 mb-2">Success!</h2>
-            <p className="text-gray-700 mb-4">
-              Your electrical permit application has been submitted
-              successfully.
-            </p>
-            <div className="flex justify-end">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-gray-100">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-green-700 mb-2">
+                Success!
+              </h2>
+              <p className="text-gray-700 mb-4">
+                Your electrical permit application has been submitted
+                successfully.
+              </p>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm text-gray-700">
+                {submitMessage}
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex justify-end">
               <button
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                className="rounded-lg bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 font-medium"
                 onClick={() => {
                   setIsModalOpen(false);
                   setSubmitSuccess(false);
@@ -308,532 +328,628 @@ export default function ElectricalPermitForm() {
     return null;
   };
 
+  // UI helper components (UI only)
+  const SectionTitle = ({ children }) => (
+    <div className="w-full rounded-lg bg-gray-100 border border-gray-200 px-4 py-3">
+      <p className="text-center font-semibold tracking-wide text-gray-800 uppercase text-sm">
+        {children}
+      </p>
+    </div>
+  );
+
+  const Field = ({ label, required, hint, children }) => (
+    <div className="space-y-1.5">
+      <div className="flex items-end justify-between gap-3">
+        <label className="text-xs font-semibold tracking-wide text-gray-700 uppercase">
+          {label} {required ? <span className="text-red-600">*</span> : null}
+        </label>
+        {hint ? <span className="text-[11px] text-gray-500">{hint}</span> : null}
+      </div>
+      {children}
+    </div>
+  );
+
+  const Input = (props) => (
+    <input
+      {...props}
+      className={[
+        "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900",
+        "placeholder:text-gray-400",
+        "focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400",
+        props.readOnly
+          ? "bg-gray-100 cursor-not-allowed text-gray-700"
+          : "bg-white",
+        props.className || "",
+      ].join(" ")}
+    />
+  );
+
+  const Select = (props) => (
+    <select
+      {...props}
+      className={[
+        "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-white",
+        "focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400",
+        props.className || "",
+      ].join(" ")}
+    />
+  );
+
+  const messageTone = submitSuccess ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800";
+
   return (
-    <div>
+    <div className="min-h-screen bg-gray-100">
       <Uheader />
-      <div className="max-w-4xl mx-auto p-4 bg-white">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="text-center space-y-1">
-            <div className="flex justify-center mb-2">
-              <div className="w-16 h-16 rounded-full border-2 border-red-500 flex items-center justify-center text-xs text-center">
-                Official Seal
-              </div>
-            </div>
-            <p className="text-sm font-semibold">Republic of the Philippines</p>
-            <p className="text-sm font-semibold">Municipality of Hinigaran</p>
-            <p className="text-sm font-semibold">
-              Province of Negros Occidental
-            </p>
-            <p className="text-sm font-semibold">
-              OFFICE OF THE BUILDING OFFICIAL
-            </p>
-            <p className="text-sm">Area Code 06034</p>
-            <h1 className="text-xl font-bold mt-4">ELECTRICAL PERMIT</h1>
-          </div>
 
-          {/* Loading indicator */}
-          {isLoadingUserInfo && (
-            <div className="flex justify-center items-center py-4 mb-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600">
-                Loading user information...
-              </span>
-            </div>
-          )}
-
-          {/* Info about auto-generated numbers */}
-          <div className="border border-gray-500 p-2">
-            <div className="text-center mb-4">
-              <p className="text-xs font-bold text-gray-600">
-                APPLICATION NO., EP NO., and BUILDING PERMIT NO. will be
-                generated automatically
-              </p>
-            </div>
-          </div>
-
-          {/* BOX 1 - Owner/Applicant Information */}
-          <div className="border border-gray-500 p-2">
-            <p className="text-sm font-bold mb-2">
-              BOX 1 (TO BE ACCOMPLISHED IN PRINT BY THE OWNER/APPLICANT)
-            </p>
-
-            {/* Name Fields - Auto-filled and Read-only */}
-            <div className="grid grid-cols-4 gap-2 mb-2">
-              <div className="col-span-2 border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs mb-1">LAST NAME *</p>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500 mt-1">* Auto-filled</p>
-              </div>
-              <div className="col-span-1 border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs mb-1">FIRST NAME *</p>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500 mt-1">* Auto-filled</p>
-              </div>
-              <div className="col-span-1 border border-gray-300 p-1">
-                <div className="grid grid-cols-2">
-                  <div className="bg-gray-50">
-                    <p className="text-xs">M.I.</p>
-                    <input
-                      type="text"
-                      name="middleInitial"
-                      value={formData.middleInitial}
-                      readOnly
-                      className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                      maxLength="5"
-                      title="This field is auto-filled from your account information and cannot be edited"
-                    />
-                    <p className="text-xs text-gray-500">* Auto-filled</p>
-                  </div>
-                  <div>
-                    <p className="text-xs">TIN</p>
-                    <input
-                      type="text"
-                      name="tin"
-                      value={formData.tin}
-                      onChange={handleChange}
-                      className="w-full focus:outline-none text-sm"
-                    />
-                  </div>
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        {/* Main Card */}
+        <div className="rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden">
+          {/* Header area (video-like) */}
+          <div className="px-6 pt-8 pb-6 text-center">
+            <div className="flex justify-center mb-3">
+              <div className="w-16 h-16 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full border-2 border-red-500 flex items-center justify-center text-[10px] text-gray-700 text-center leading-tight">
+                  Official
+                  <br />
+                  Seal
                 </div>
               </div>
             </div>
 
-            {/* Construction Info */}
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">FOR CONSTRUCTION OWNED</p>
-                <input
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-wide text-gray-900">
+              ELECTRICAL PERMIT APPLICATION
+            </h1>
+            <p className="mt-2 text-sm text-gray-600">
+              Republic of the Philippines · Municipality of Hinigaran · Province
+              of Negros Occidental
+            </p>
+
+            <div className="mt-5 flex justify-center">
+              <div className="max-w-3xl w-full">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-700">
+                  APPLICATION NO., EP NO., and BUILDING PERMIT NO. will be
+                  generated automatically
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="px-6 pb-8">
+            {/* Loading indicator */}
+            {isLoadingUserInfo && (
+              <div className="mb-6 flex items-center justify-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+                <span className="text-sm text-gray-700">
+                  Loading user information...
+                </span>
+              </div>
+            )}
+
+            {/* BASIC INFORMATION */}
+            <SectionTitle>BASIC INFORMATION</SectionTitle>
+
+            <div className="mt-5 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-2">
+                <Field label="Last Name" required hint="Auto-filled">
+                  <Input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    readOnly
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                </Field>
+              </div>
+
+              <div className="md:col-span-1">
+                <Field label="First Name" required hint="Auto-filled">
+                  <Input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    readOnly
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                </Field>
+              </div>
+
+              <div className="md:col-span-1 grid grid-cols-2 gap-3">
+                <Field label="M.I." hint="Auto-filled">
+                  <Input
+                    type="text"
+                    name="middleInitial"
+                    value={formData.middleInitial}
+                    readOnly
+                    maxLength="5"
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                </Field>
+
+                <Field label="TIN">
+                  <Input
+                    type="text"
+                    name="tin"
+                    value={formData.tin}
+                    onChange={handleChange}
+                    placeholder="Enter TIN (optional)"
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Field label="For Construction Owned">
+                <Input
                   type="text"
                   name="constructionOwned"
                   value={formData.constructionOwned}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  placeholder="e.g., John Doe"
                 />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">FORM OF OWNERSHIP</p>
-                <input
+              </Field>
+
+              <Field label="Form of Ownership">
+                <Input
                   type="text"
                   name="formOfOwnership"
                   value={formData.formOfOwnership}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  placeholder="e.g., Owned / Rented"
                 />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">USE OR CHARACTER OF OCCUPANCY</p>
-                <input
+              </Field>
+
+              <Field label="Use or Character of Occupancy">
+                <Input
                   type="text"
                   name="useOrCharacter"
                   value={formData.useOrCharacter}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  placeholder="e.g., Residential / Commercial"
                 />
+              </Field>
+            </div>
+
+            {/* OWNER ADDRESS */}
+            <div className="mt-8">
+              <SectionTitle>OWNER ADDRESS</SectionTitle>
+
+              <div className="mt-5 grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div className="md:col-span-1">
+                  <Field label="No.">
+                    <Input
+                      type="text"
+                      name="addressNo"
+                      value={formData.addressNo}
+                      onChange={handleChange}
+                      placeholder="No."
+                    />
+                  </Field>
+                </div>
+
+                <div className="md:col-span-2">
+                  <Field label="Street" hint="Auto-filled">
+                    <Input
+                      type="text"
+                      name="addressStreet"
+                      value={formData.addressStreet}
+                      readOnly
+                      title="This field is auto-filled from your account information and cannot be edited"
+                    />
+                  </Field>
+                </div>
+
+                <div className="md:col-span-1">
+                  <Field label="Barangay" hint="Auto-filled">
+                    <Input
+                      type="text"
+                      name="addressBarangay"
+                      value={formData.addressBarangay}
+                      readOnly
+                      title="This field is auto-filled from your account information and cannot be edited"
+                    />
+                  </Field>
+                </div>
+
+                <div className="md:col-span-1">
+                  <Field label="City/Municipality" hint="Auto-filled">
+                    <Input
+                      type="text"
+                      name="addressCity"
+                      value={formData.addressCity}
+                      readOnly
+                      title="This field is auto-filled from your account information and cannot be edited"
+                    />
+                  </Field>
+                </div>
+
+                <div className="md:col-span-1">
+                  <Field label="Zip Code">
+                    <Input
+                      type="text"
+                      name="addressZipCode"
+                      value={formData.addressZipCode}
+                      onChange={handleChange}
+                      placeholder="Zip"
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <Field label="Telephone No." hint="Auto-filled from account">
+                  <Input
+                    type="text"
+                    name="telephoneNo"
+                    value={formData.telephoneNo}
+                    readOnly
+                    className="text-center"
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                </Field>
               </div>
             </div>
 
-            {/* Address Fields */}
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">NO.</p>
-                <input
-                  type="text"
-                  name="addressNo"
-                  value={formData.addressNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
+            {/* LOCATION OF CONSTRUCTION */}
+            <div className="mt-8">
+              <SectionTitle>LOCATION OF CONSTRUCTION</SectionTitle>
+
+              <div className="mt-5 grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div className="md:col-span-2">
+                  <Field label="Street">
+                    <Input
+                      type="text"
+                      name="locationStreet"
+                      value={formData.locationStreet}
+                      onChange={handleChange}
+                      placeholder="Street"
+                    />
+                  </Field>
+                </div>
+
+                <div className="md:col-span-1">
+                  <Field label="Lot No.">
+                    <Input
+                      type="text"
+                      name="locationLotNo"
+                      value={formData.locationLotNo}
+                      onChange={handleChange}
+                      placeholder="Lot"
+                    />
+                  </Field>
+                </div>
+
+                <div className="md:col-span-1">
+                  <Field label="Blk No.">
+                    <Input
+                      type="text"
+                      name="locationBlkNo"
+                      value={formData.locationBlkNo}
+                      onChange={handleChange}
+                      placeholder="Block"
+                    />
+                  </Field>
+                </div>
+
+                <div className="md:col-span-1">
+                  <Field label="TCT No.">
+                    <Input
+                      type="text"
+                      name="locationTctNo"
+                      value={formData.locationTctNo}
+                      onChange={handleChange}
+                      placeholder="TCT"
+                    />
+                  </Field>
+                </div>
+
+                <div className="md:col-span-1">
+                  <Field label="Tax Dec. No.">
+                    <Input
+                      type="text"
+                      name="locationTaxDecNo"
+                      value={formData.locationTaxDecNo}
+                      onChange={handleChange}
+                      placeholder="Tax Dec."
+                    />
+                  </Field>
+                </div>
               </div>
-              <div className="col-span-2 border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs">STREET</p>
-                <input
-                  type="text"
-                  name="addressStreet"
-                  value={formData.addressStreet}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500">* Auto-filled</p>
-              </div>
-              <div className="border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs">BARANGAY</p>
-                <input
-                  type="text"
-                  name="addressBarangay"
-                  value={formData.addressBarangay}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500">* Auto-filled</p>
-              </div>
-              <div className="border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs">CITY/MUNICIPALITY</p>
-                <input
-                  type="text"
-                  name="addressCity"
-                  value={formData.addressCity}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500">* Auto-filled</p>
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">ZIP CODE</p>
-                <input
-                  type="text"
-                  name="addressZipCode"
-                  value={formData.addressZipCode}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label="Barangay">
+                  <Input
+                    type="text"
+                    name="locationBarangay"
+                    value={formData.locationBarangay}
+                    onChange={handleChange}
+                    placeholder="Barangay"
+                  />
+                </Field>
+
+                <Field label="City/Municipality">
+                  <Input
+                    type="text"
+                    name="locationCity"
+                    value={formData.locationCity}
+                    onChange={handleChange}
+                    placeholder="City/Municipality"
+                  />
+                </Field>
               </div>
             </div>
 
-            {/* Phone Number */}
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-6 border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs text-center">TELEPHONE NO.</p>
-                <input
-                  type="text"
-                  name="telephoneNo"
-                  value={formData.telephoneNo}
-                  readOnly
-                  className="w-1/2 mx-auto block text-center border-b border-gray-300 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500 text-center mt-1">
-                  * Auto-filled from account
-                </p>
+            {/* SCOPE OF WORK */}
+            <div className="mt-8">
+              <SectionTitle>SCOPE OF WORK</SectionTitle>
+
+              <div className="mt-5">
+                <Field label="Select Scope of Work" required>
+                  <Select
+                    name="scopeOfWork"
+                    value={formData.scopeOfWork}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="none">-- Select an option --</option>
+                    <option value="newInstallation">NEW INSTALLATION</option>
+                    <option value="annualInspection">ANNUAL INSPECTION</option>
+                    <option value="temporary">TEMPORARY</option>
+                    <option value="reconnection">
+                      RECONNECTION OF SERVICE ENTRANCE
+                    </option>
+                    <option value="separationOfService">
+                      SEPARATION OF SERVICE ENTRANCE
+                    </option>
+                    <option value="upgradingOfService">
+                      UPGRADING OF SERVICE ENTRANCE
+                    </option>
+                    <option value="relocation">RELOCATION OF SERVICE ENTRANCE</option>
+                  </Select>
+                </Field>
               </div>
             </div>
 
-            {/* Location of Construction */}
-            <div className="mb-1">
-              <p className="text-xs font-bold">LOCATION OF CONSTRUCTION:</p>
-            </div>
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-2 border border-gray-300 p-1">
-                <p className="text-xs">STREET</p>
-                <input
-                  type="text"
-                  name="locationStreet"
-                  value={formData.locationStreet}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
+            {/* Status Message */}
+            {submitMessage && !isModalOpen && (
+              <div className={`mt-6 rounded-lg border px-4 py-3 text-sm ${messageTone}`}>
+                {submitMessage}
               </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">LOT NO.</p>
-                <input
-                  type="text"
-                  name="locationLotNo"
-                  value={formData.locationLotNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">BLK NO.</p>
-                <input
-                  type="text"
-                  name="locationBlkNo"
-                  value={formData.locationBlkNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">TCT NO.</p>
-                <input
-                  type="text"
-                  name="locationTctNo"
-                  value={formData.locationTctNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">TAX DEC. NO.</p>
-                <input
-                  type="text"
-                  name="locationTaxDecNo"
-                  value={formData.locationTaxDecNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-3 border border-gray-300 p-1">
-                <p className="text-xs">BARANGAY</p>
-                <input
-                  type="text"
-                  name="locationBarangay"
-                  value={formData.locationBarangay}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="col-span-3 border border-gray-300 p-1">
-                <p className="text-xs">CITY/MUNICIPALITY</p>
-                <input
-                  type="text"
-                  name="locationCity"
-                  value={formData.locationCity}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
+            )}
 
-            {/* Scope of Work */}
-            <div className="mb-1">
-              <p className="text-xs font-bold">SCOPE OF WORK *</p>
-            </div>
-            <div className="border border-gray-300 p-2">
-              <div className="mb-2">
-                <label className="block text-xs mb-1">
-                  Select Scope of Work:
-                </label>
-                <select
-                  name="scopeOfWork"
-                  value={formData.scopeOfWork}
-                  onChange={handleChange}
-                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
+            {/* Draft status */}
+            {draftStatus && (
+              <p className="mt-3 text-xs text-gray-600 text-right">
+                {draftStatus}
+              </p>
+            )}
+
+            {/* Bottom action bar (video-like) */}
+            <div className="mt-8 rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="rounded-lg bg-gray-600 hover:bg-gray-700 text-white px-6 py-2.5 font-medium"
+              >
+                Cancel
+              </button>
+
+              <div className="flex items-center gap-3 flex-wrap justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  className="rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2.5 font-medium"
                 >
-                  <option value="none">-- Select an option --</option>
-                  <option value="newInstallation">NEW INSTALLATION</option>
-                  <option value="annualInspection">ANNUAL INSPECTION</option>
-                  <option value="temporary">TEMPORARY</option>
-                  <option value="reconnection">
-                    RECONNECTION OF SERVICE ENTRANCE
-                  </option>
-                  <option value="separationOfService">
-                    SEPARATION OF SERVICE ENTRANCE
-                  </option>
-                  <option value="upgradingOfService">
-                    UPGRADING OF SERVICE ENTRANCE
-                  </option>
-                  <option value="relocation">
-                    RELOCATION OF SERVICE ENTRANCE
-                  </option>
-                </select>
+                  Save as Draft
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleReviewClick}
+                  disabled={isSubmitting || isLoadingUserInfo}
+                  className={[
+                    "rounded-lg px-6 py-2.5 font-medium text-white",
+                    isSubmitting || isLoadingUserInfo
+                      ? "bg-green-300 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700",
+                  ].join(" ")}
+                >
+                  {isSubmitting ? "Submitting..." : "Review & Submit"}
+                </button>
               </div>
             </div>
+
+            {/* Success Modal */}
+            {renderFormStatus()}
+
+            {/* REVIEW MODAL */}
+            {isReviewOpen && (
+              <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+                <div className="w-full max-w-5xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-xl border border-gray-100">
+                  <div className="p-6 md:p-8">
+                    <h2 className="text-2xl font-extrabold text-gray-900">
+                      Review Electrical Permit Application
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-600">
+                      Please verify all details before submitting.
+                    </p>
+
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase">
+                          Applicant Name
+                        </p>
+                        <p className="mt-1 font-semibold text-gray-900">
+                          {formData.lastName}, {formData.firstName}{" "}
+                          {formData.middleInitial}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase">
+                          Scope of Work
+                        </p>
+                        <p className="mt-1 font-semibold text-gray-900">
+                          {scopeLabelMap[formData.scopeOfWork] ||
+                            formData.scopeOfWork ||
+                            "—"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase">
+                          TIN
+                        </p>
+                        <p className="mt-1 font-semibold text-gray-900">
+                          {formData.tin || "—"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase">
+                          Use/Character of Occupancy
+                        </p>
+                        <p className="mt-1 font-semibold text-gray-900">
+                          {formData.useOrCharacter || "—"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase">
+                          Construction Owned
+                        </p>
+                        <p className="mt-1 font-semibold text-gray-900">
+                          {formData.constructionOwned || "—"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase">
+                          Form of Ownership
+                        </p>
+                        <p className="mt-1 font-semibold text-gray-900">
+                          {formData.formOfOwnership || "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="rounded-xl border border-gray-200 p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase">
+                          Owner Address
+                        </p>
+                        <p className="mt-2 text-sm text-gray-800">
+                          {[
+                            formData.addressNo,
+                            formData.addressStreet,
+                            formData.addressBarangay,
+                            formData.addressCity,
+                            formData.addressZipCode,
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || "—"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase">
+                          Location of Construction
+                        </p>
+                        <div className="mt-2 space-y-1 text-sm text-gray-800">
+                          <p>
+                            <span className="font-semibold">Street:</span>{" "}
+                            {formData.locationStreet || "—"}
+                          </p>
+                          <p>
+                            <span className="font-semibold">Lot/Blk:</span>{" "}
+                            {formData.locationLotNo || "—"} /{" "}
+                            {formData.locationBlkNo || "—"}
+                          </p>
+                          <p>
+                            <span className="font-semibold">TCT / Tax Dec:</span>{" "}
+                            {formData.locationTctNo || "—"} /{" "}
+                            {formData.locationTaxDecNo || "—"}
+                          </p>
+                          <p>
+                            <span className="font-semibold">Barangay / City:</span>{" "}
+                            {formData.locationBarangay || "—"} /{" "}
+                            {formData.locationCity || "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 flex justify-end gap-3">
+                      <button
+                        type="button"
+                        className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
+                        onClick={() => setIsReviewOpen(false)}
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsConfirmOpen(true)}
+                        disabled={isSubmitting}
+                        className={[
+                          "px-6 py-2.5 rounded-lg font-medium text-white",
+                          isSubmitting
+                            ? "bg-green-300 cursor-not-allowed"
+                            : "bg-green-600 hover:bg-green-700",
+                        ].join(" ")}
+                      >
+                        Submit Application
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CONFIRMATION MODAL */}
+            {isConfirmOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-gray-100">
+                  <div className="p-6">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      Confirm Submission
+                    </h3>
+                    <p className="mt-2 text-sm text-gray-700">
+                      Are you sure you want to submit this electrical permit
+                      application? Once submitted, changes can only be made by
+                      coordinating with the municipal office.
+                    </p>
+                  </div>
+
+                  <div className="px-6 pb-6 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
+                      onClick={() => setIsConfirmOpen(false)}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={handleConfirmSubmit}
+                      className={[
+                        "px-5 py-2.5 rounded-lg font-medium text-white",
+                        isSubmitting
+                          ? "bg-green-300 cursor-not-allowed"
+                          : "bg-green-600 hover:bg-green-700",
+                      ].join(" ")}
+                    >
+                      {isSubmitting ? "Submitting..." : "Yes, Submit Application"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-
-          {/* Status Message */}
-          {submitMessage && !isModalOpen && (
-            <div className="mt-4 p-3 rounded bg-green-100 text-gray-800">
-              {submitMessage}
-            </div>
-          )}
-
-          {/* Draft status */}
-          {draftStatus && (
-            <p className="mt-2 text-xs text-gray-600 text-right">
-              {draftStatus}
-            </p>
-          )}
-
-          {/* Buttons: Save Draft + Review & Submit */}
-          <div className="flex justify-center space-x-4 mt-4">
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              className="px-6 py-2 rounded text-white bg-yellow-500 hover:bg-yellow-600"
-            >
-              Save as Draft
-            </button>
-            <button
-              type="button"
-              onClick={handleReviewClick}
-              disabled={isSubmitting || isLoadingUserInfo}
-              className={`px-6 py-2 rounded text-white ${
-                isSubmitting || isLoadingUserInfo
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
-            >
-              {isSubmitting ? "Submitting..." : "Review & Submit"}
-            </button>
-          </div>
-
-          {/* Success Modal */}
-          {renderFormStatus()}
-
-          {/* REVIEW MODAL */}
-          {isReviewOpen && (
-            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-4">
-                  Review Electrical Permit Application
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Applicant Name</p>
-                    <p className="font-semibold">
-                      {formData.lastName}, {formData.firstName}{" "}
-                      {formData.middleInitial}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">TIN</p>
-                    <p className="font-semibold">{formData.tin || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      Construction Owned
-                    </p>
-                    <p className="font-semibold">
-                      {formData.constructionOwned || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      Form of Ownership
-                    </p>
-                    <p className="font-semibold">
-                      {formData.formOfOwnership || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      Use/Character of Occupancy
-                    </p>
-                    <p className="font-semibold">
-                      {formData.useOrCharacter || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Scope of Work</p>
-                    <p className="font-semibold uppercase">
-                      {formData.scopeOfWork}
-                    </p>
-                  </div>
-                </div>
-
-                <h3 className="font-bold mt-4 mb-2">Owner Address</h3>
-                <p className="text-sm mb-2">
-                  {[
-                    formData.addressNo,
-                    formData.addressStreet,
-                    formData.addressBarangay,
-                    formData.addressCity,
-                    formData.addressZipCode,
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || "—"}
-                </p>
-
-                <h3 className="font-bold mt-4 mb-2">
-                  Location of Construction
-                </h3>
-                <p className="text-sm mb-1">
-                  <span className="font-semibold">Street:</span>{" "}
-                  {formData.locationStreet || "—"}
-                </p>
-                <p className="text-sm mb-1">
-                  <span className="font-semibold">Lot/Blk:</span>{" "}
-                  {formData.locationLotNo || "—"} /{" "}
-                  {formData.locationBlkNo || "—"}
-                </p>
-                <p className="text-sm mb-1">
-                  <span className="font-semibold">TCT / Tax Dec:</span>{" "}
-                  {formData.locationTctNo || "—"} /{" "}
-                  {formData.locationTaxDecNo || "—"}
-                </p>
-                <p className="text-sm mb-1">
-                  <span className="font-semibold">Barangay / City:</span>{" "}
-                  {formData.locationBarangay || "—"} /{" "}
-                  {formData.locationCity || "—"}
-                </p>
-
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsReviewOpen(false)}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsConfirmOpen(true)}
-                    disabled={isSubmitting}
-                    className={`px-6 py-2 rounded text-white ${
-                      isSubmitting
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-green-600 hover:bg-green-700"
-                    }`}
-                  >
-                    Submit Application
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* CONFIRMATION MODAL */}
-          {isConfirmOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-                <h3 className="text-lg font-semibold mb-2">
-                  Confirm Submission
-                </h3>
-                <p className="text-sm text-gray-700 mb-4">
-                  Are you sure you want to submit this electrical permit
-                  application? Once submitted, changes can only be made by
-                  coordinating with the municipal office.
-                </p>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsConfirmOpen(false)}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={handleConfirmSubmit}
-                    className={`px-4 py-2 rounded text-white ${
-                      isSubmitting
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-green-600 hover:bg-green-700"
-                    }`}
-                  >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : "Yes, Submit Application"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      </main>
+
       <UFooter />
     </div>
   );
