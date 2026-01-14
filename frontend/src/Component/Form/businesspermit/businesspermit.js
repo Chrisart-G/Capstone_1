@@ -76,47 +76,130 @@ export default function BusinessPermitForm() {
     lastName: '',
     email: '',
     phoneNumber: '',
+     address: '', 
   });
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
 
-  // Fetch user info for auto-fill
+  // =========================
+  // 1) FETCH USER + BUSINESS INFO FOR AUTOFILL
+  // =========================
   useEffect(() => {
-    const fetchUserInfo = async () => {
-      setIsLoadingUserInfo(true);
-      try {
-        const response = await axios.get('http://localhost:8081/api/user-info', {
+  const fetchUserAndBusinessInfo = async () => {
+    setIsLoadingUserInfo(true);
+    try {
+      const [userRes, businessRes] = await Promise.all([
+        axios.get('http://localhost:8081/api/user-info', {
           withCredentials: true,
-        });
+        }),
+        axios
+          .get('http://localhost:8081/api/user-business-info', {
+            withCredentials: true,
+          })
+          .catch((err) => {
+            console.error('Error fetching user business info:', err);
+            return { data: { success: false } };
+          }),
+      ]);
 
-        if (response.data.success) {
-          const userData = response.data.userInfo;
-          setUserInfo(userData);
+      // ---------- USER BASIC INFO (NAME, EMAIL, MOBILE, OWNER ADDRESS) ----------
+      if (userRes.data?.success) {
+        const userData = userRes.data.userInfo;
+        setUserInfo(userData);
 
-          // Auto-fill the form with user data
-          setFormData((prevData) => ({
-            ...prevData,
-            firstName: userData.firstName,
-            middleName: userData.middleName,
-            lastName: userData.lastName,
-            businessEmail: userData.email,
-            ownerEmail: userData.email,
-            emergencyEmail: userData.email,
-            businessMobile: userData.phoneNumber,
-            ownerMobile: userData.phoneNumber,
-            emergencyPhone: userData.phoneNumber,
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching user info:', error);
-      } finally {
-        setIsLoadingUserInfo(false);
+        setFormData((prevData) => ({
+          ...prevData,
+          firstName: userData.firstName,
+          middleName: userData.middleName,
+          lastName: userData.lastName,
+
+          // business owner contact from account
+          businessEmail: prevData.businessEmail || userData.email,
+          ownerEmail: prevData.ownerEmail || userData.email,
+          emergencyEmail: prevData.emergencyEmail || userData.email,
+
+          businessMobile: prevData.businessMobile || userData.phoneNumber,
+          ownerMobile: prevData.ownerMobile || userData.phoneNumber,
+          emergencyPhone: prevData.emergencyPhone || userData.phoneNumber,
+
+          // 👇 NEW: owner address from tbl_user_info.address
+          ownerAddress: prevData.ownerAddress || userData.address || '',
+        }));
       }
-    };
 
-    fetchUserInfo();
-  }, []);
+      // ---------- BUSINESS INFO (tbl_user_business_info) ----------
+      if (businessRes.data?.success && businessRes.data.businessInfo) {
+        const b = businessRes.data.businessInfo;
 
-  // load draft from localStorage (after autofill)
+        setFormData((prevData) => ({
+          ...prevData,
+          // Application / registration
+          applicationType: b.applicationType || prevData.applicationType,
+          tinNo: b.tinNo || prevData.tinNo,
+          registrationNo: b.registrationNo || prevData.registrationNo,
+          registrationDate: b.registrationDate || prevData.registrationDate,
+          businessType: b.businessType || prevData.businessType,
+
+          // Business identity
+          businessName: b.businessName || prevData.businessName,
+          tradeName: b.tradeName || prevData.tradeName,
+
+          // Business address + contact
+          businessAddress: b.businessAddress || prevData.businessAddress,
+          businessPostalCode:
+            b.businessPostalCode || prevData.businessPostalCode,
+          businessEmail: b.businessEmail || prevData.businessEmail,
+          businessTelephone:
+            b.businessTelephone || prevData.businessTelephone,
+          businessMobile: b.businessMobile || prevData.businessMobile,
+
+          // 👇 NEW: mirror business postal code + telephone to OWNER section
+          ownerPostalCode:
+            prevData.ownerPostalCode ||
+            b.businessPostalCode ||
+            prevData.businessPostalCode,
+          ownerTelephone:
+            prevData.ownerTelephone ||
+            b.businessTelephone ||
+            prevData.businessTelephone,
+
+          // the rest stays the same
+          ownerAddress: prevData.ownerAddress, // already set from user info above
+          ownerEmail: prevData.ownerEmail,
+          ownerMobile: prevData.ownerMobile,
+
+          emergencyContact:
+            b.emergencyContact || prevData.emergencyContact,
+          emergencyPhone: prevData.emergencyPhone, // already from user
+          emergencyEmail: prevData.emergencyEmail,
+
+          businessArea: b.businessArea || prevData.businessArea,
+          maleEmployees: b.maleEmployees || prevData.maleEmployees,
+          femaleEmployees:
+            b.femaleEmployees || prevData.femaleEmployees,
+          localEmployees:
+            b.localEmployees || prevData.localEmployees,
+
+          lessorName: b.lessorName || prevData.lessorName,
+          lessorAddress: b.lessorAddress || prevData.lessorAddress,
+          lessorPhone: b.lessorPhone || prevData.lessorPhone,
+          lessorEmail: b.lessorEmail || prevData.lessorEmail,
+          monthlyRental: b.monthlyRental || prevData.monthlyRental,
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user / business info:', error);
+    } finally {
+      setIsLoadingUserInfo(false);
+    }
+  };
+
+  fetchUserAndBusinessInfo();
+}, []);
+
+
+  // =========================
+  // 2) LOAD DRAFT FROM LOCALSTORAGE (kept same)
+  // =========================
   useEffect(() => {
     try {
       const savedDraft = localStorage.getItem('businessPermitDraft');

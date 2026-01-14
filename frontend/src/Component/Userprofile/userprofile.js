@@ -11,17 +11,36 @@ export default function MunicipalUserProfileDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [notifications, setNotifications] = useState(true);
   const [privacy, setPrivacy] = useState('public');
+
+  // 🔹 extended userInfo to include business + lessor fields
   const [userInfo, setUserInfo] = useState({
     name: '',
     email: '',
     phone: '',
     address: '',
+    memberSince: '',
+    avatar: null,
+
+    // business profile
     businessName: '',
     businessType: '',
     tinNumber: '',
-    memberSince: '',
-    avatar: null
+    tradeName: '',
+    registrationNo: '',
+    businessAddress: '',
+    businessPostalCode: '',
+    businessEmail: '',
+    businessTelephone: '',
+    businessMobile: '',
+
+    // lessor
+    lessorFullName: '',
+    lessorAddress: '',
+    lessorPhone: '',
+    lessorEmail: '',
+    monthlyRental: '',
   });
+
   const [tempUserInfo, setTempUserInfo] = useState(userInfo);
   const [recentActivity, setRecentActivity] = useState([]);
   const [permitHistory, setPermitHistory] = useState([]);
@@ -53,24 +72,48 @@ export default function MunicipalUserProfileDashboard() {
         const data = await response.json();
         console.log('Profile data received:', data);
 
-        const { userInfo: fetchedUserInfo, permits, recentActivity: fetchedActivity, statistics } = data;
+        const {
+          userInfo: fetchedUserInfo,
+          permits,
+          recentActivity: fetchedActivity,
+          statistics
+        } = data;
 
-        // Set user info
+        // 🔹 Map backend userInfo → local userInfo state (including business + lessor)
         const userData = {
           name: fetchedUserInfo.full_name || '',
           email: localStorage.getItem('email') || '',
           phone: fetchedUserInfo.phone_number || '',
           address: fetchedUserInfo.address || '',
+          memberSince: fetchedUserInfo.member_since || 'N/A',
+          avatar: null,
+
           businessName: fetchedUserInfo.business_name || '',
           businessType: fetchedUserInfo.business_type || '',
           tinNumber: fetchedUserInfo.tin_number || '',
-          memberSince: fetchedUserInfo.member_since || 'N/A',
-          avatar: null
+          tradeName: fetchedUserInfo.trade_name || '',
+          registrationNo: fetchedUserInfo.registration_no || '',
+          businessAddress: fetchedUserInfo.business_address || '',
+          businessPostalCode: fetchedUserInfo.business_postal_code || '',
+          businessEmail: fetchedUserInfo.business_email || '',
+          businessTelephone: fetchedUserInfo.business_telephone || '',
+          businessMobile: fetchedUserInfo.business_mobile || '',
+
+          lessorFullName: fetchedUserInfo.lessor_full_name || '',
+          lessorAddress: fetchedUserInfo.lessor_address || '',
+          lessorPhone: fetchedUserInfo.lessor_phone || '',
+          lessorEmail: fetchedUserInfo.lessor_email || '',
+          monthlyRental:
+            fetchedUserInfo.monthly_rental !== null &&
+            fetchedUserInfo.monthly_rental !== undefined
+              ? String(fetchedUserInfo.monthly_rental)
+              : '',
         };
+
         setUserInfo(userData);
         setTempUserInfo(userData);
 
-        // Process permit history  (✅ includes pickupFileUrl from backend)
+        // Process permit history
         const processedPermits = permits.map(p => ({
           permitType: p.permitType,
           applicationDate: p.application_date,
@@ -78,7 +121,7 @@ export default function MunicipalUserProfileDashboard() {
           expiryDate: p.expiry_date || '2025-12-31',
           referenceNo: `${p.permit_category.toUpperCase()}-${String(p.referenceNo).toString().padStart(6, '0')}`,
           businessName: p.business_name,
-          pickupFileUrl: p.pickup_file_url || null, // <— used for view/download
+          pickupFileUrl: p.pickup_file_url || null,
         }));
         setPermitHistory(processedPermits);
 
@@ -94,7 +137,9 @@ export default function MunicipalUserProfileDashboard() {
           }),
           type: a.type,
           status: a.status,
-          referenceNo: a.referenceNo ? `REC-${String(a.referenceNo).toString().padStart(6, '0')}` : null
+          referenceNo: a.referenceNo
+            ? `REC-${String(a.referenceNo).toString().padStart(6, '0')}`
+            : null
         }));
         setRecentActivity(processedActivity);
 
@@ -124,14 +169,7 @@ export default function MunicipalUserProfileDashboard() {
 
   const handleSave = async () => {
     try {
-      // You can add API call here to update user info
-      // const response = await fetch("http://localhost:8081/api/user/profile", {
-      //   method: 'PUT',
-      //   credentials: 'include',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(tempUserInfo)
-      // });
-
+      // Note: still only updating locally. API update can be added later.
       setUserInfo(tempUserInfo);
       setIsEditing(false);
       alert('Profile updated successfully!');
@@ -171,7 +209,6 @@ export default function MunicipalUserProfileDashboard() {
       return;
     }
 
-    // Simple: open in new tab; user can download from browser
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -358,87 +395,160 @@ export default function MunicipalUserProfileDashboard() {
     </div>
   );
 
-  const PersonalInfoTab = () => (
-    <div className="bg-white rounded-lg p-6 shadow-sm border">
-      <h3 className="text-lg font-semibold mb-6">Personal Information</h3>
-      <div className="max-w-3xl mx-auto">
-        <div className="space-y-6">
-          <h4 className="font-medium text-gray-900 border-b pb-2">Personal Details</h4>
+  const PersonalInfoTab = () => {
+    const hasBusinessInfo =
+      userInfo.businessName ||
+      userInfo.businessType ||
+      userInfo.tinNumber ||
+      userInfo.tradeName ||
+      userInfo.businessAddress ||
+      userInfo.businessEmail ||
+      userInfo.businessMobile;
 
-          <div className="grid md:grid-cols-2 gap-4">
-            {[
-              { field: 'name', label: 'Full Name', type: 'text', icon: User },
-              { field: 'email', label: 'Email Address', type: 'email', icon: Mail },
-              { field: 'phone', label: 'Phone Number', type: 'tel', icon: Phone },
-              { field: 'address', label: 'Address', type: 'textarea', icon: MapPin, fullWidth: true }
-            ].map(({ field, label, type, icon: Icon, fullWidth }) => (
-              <div key={field} className={fullWidth ? 'md:col-span-2' : ''}>
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                  <Icon size={16} className="text-gray-500" />
-                  {label}
-                </label>
-                {isEditing ? (
-                  type === 'textarea' ? (
-                    <textarea
-                      value={tempUserInfo[field] || ''}
-                      onChange={(e) => handleInputChange(field, e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
-                      placeholder={`Enter your ${label.toLowerCase()}`}
-                    />
-                  ) : (
-                    <input
-                      type={type}
-                      value={tempUserInfo[field] || ''}
-                      onChange={(e) => handleInputChange(field, e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder={`Enter your ${label.toLowerCase()}`}
-                    />
-                  )
-                ) : (
-                  <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md min-h-[42px] flex items-center">
-                    {userInfo[field] || <span className="text-gray-400">Not provided</span>}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+    const hasLessorInfo =
+      userInfo.lessorFullName ||
+      userInfo.lessorAddress ||
+      userInfo.lessorPhone ||
+      userInfo.lessorEmail ||
+      userInfo.monthlyRental;
 
-          {(userInfo.businessName || isEditing) && (
-            <>
-              <h4 className="font-medium text-gray-900 border-b pb-2 mt-6">Business Information</h4>
-              <div className="grid md:grid-cols-2 gap-4">
-                {[
-                  { field: 'businessName', label: 'Business Name', type: 'text', icon: Building },
-                  { field: 'businessType', label: 'Business Type', type: 'text', icon: FileText },
-                  { field: 'tinNumber', label: 'TIN Number', type: 'text', icon: FileText }
-                ].map(({ field, label, type, icon: Icon }) => (
-                  <div key={field}>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                      <Icon size={16} className="text-gray-500" />
-                      {label}
-                    </label>
-                    {isEditing ? (
+    return (
+      <div className="bg-white rounded-lg p-6 shadow-sm border">
+        <h3 className="text-lg font-semibold mb-6">Personal Information</h3>
+        <div className="max-w-3xl mx-auto">
+          <div className="space-y-6">
+            <h4 className="font-medium text-gray-900 border-b pb-2">
+              Personal Details
+            </h4>
+
+            {/* Personal fields */}
+            <div className="grid md:grid-cols-2 gap-4">
+              {[
+                { field: 'name', label: 'Full Name', type: 'text', icon: User },
+                { field: 'email', label: 'Email Address', type: 'email', icon: Mail },
+                { field: 'phone', label: 'Phone Number', type: 'tel', icon: Phone },
+                { field: 'address', label: 'Address', type: 'textarea', icon: MapPin, fullWidth: true }
+              ].map(({ field, label, type, icon: Icon, fullWidth }) => (
+                <div key={field} className={fullWidth ? 'md:col-span-2' : ''}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <Icon size={16} className="text-gray-500" />
+                    {label}
+                  </label>
+                  {isEditing ? (
+                    type === 'textarea' ? (
+                      <textarea
+                        value={tempUserInfo[field] || ''}
+                        onChange={(e) => handleInputChange(field, e.target.value)}
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
+                        placeholder={`Enter your ${label.toLowerCase()}`}
+                      />
+                    ) : (
                       <input
                         type={type}
                         value={tempUserInfo[field] || ''}
                         onChange={(e) => handleInputChange(field, e.target.value)}
                         className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder={`Enter ${label.toLowerCase()}`}
+                        placeholder={`Enter your ${label.toLowerCase()}`}
                       />
-                    ) : (
-                      <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md min-h-[42px] flex items-center">
-                        {userInfo[field] || <span className="text-gray-400">Not provided</span>}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+                    )
+                  ) : (
+                    <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md min-h-[42px] flex items-center">
+                      {userInfo[field] || <span className="text-gray-400">Not provided</span>}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Business Information */}
+            {(hasBusinessInfo || isEditing) && (
+              <>
+                <h4 className="font-medium text-gray-900 border-b pb-2 mt-6">
+                  Business Information
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {[
+                    { field: 'businessName', label: 'Business Name', icon: Building },
+                    { field: 'businessType', label: 'Business Type', icon: FileText },
+                    { field: 'tinNumber', label: 'TIN Number', icon: FileText },
+                    { field: 'registrationNo', label: 'Registration No.', icon: FileText },
+                    { field: 'tradeName', label: 'Trade Name / Franchise', icon: FileText, fullWidth: true },
+                    { field: 'businessAddress', label: 'Business Address', icon: MapPin, fullWidth: true },
+                    { field: 'businessPostalCode', label: 'Postal Code', icon: FileText },
+                    { field: 'businessEmail', label: 'Business Email', icon: Mail },
+                    { field: 'businessTelephone', label: 'Telephone', icon: Phone },
+                    { field: 'businessMobile', label: 'Business Mobile', icon: Phone },
+                  ].map(({ field, label, icon: Icon, fullWidth }) => (
+                    <div key={field} className={fullWidth ? 'md:col-span-2' : ''}>
+                      <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <Icon size={16} className="text-gray-500" />
+                        {label}
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={tempUserInfo[field] || ''}
+                          onChange={(e) => handleInputChange(field, e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder={`Enter ${label.toLowerCase()}`}
+                        />
+                      ) : (
+                        <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md min-h-[42px] flex items-center">
+                          {userInfo[field] || (
+                            <span className="text-gray-400">Not provided</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Lessor Information */}
+            {(hasLessorInfo || isEditing) && (
+              <>
+                <h4 className="font-medium text-gray-900 border-b pb-2 mt-6">
+                  Lessor Information (if business place is rented)
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {[
+                    { field: 'lessorFullName', label: "Lessor's Full Name", icon: User },
+                    { field: 'lessorAddress', label: "Lessor's Address", icon: MapPin, fullWidth: true },
+                    { field: 'lessorPhone', label: "Lessor's Phone", icon: Phone },
+                    { field: 'lessorEmail', label: "Lessor's Email", icon: Mail },
+                    { field: 'monthlyRental', label: 'Monthly Rental (₱)', icon: FileText },
+                  ].map(({ field, label, icon: Icon, fullWidth }) => (
+                    <div key={field} className={fullWidth ? 'md:col-span-2' : ''}>
+                      <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <Icon size={16} className="text-gray-500" />
+                        {label}
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={tempUserInfo[field] || ''}
+                          onChange={(e) => handleInputChange(field, e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder={`Enter ${label.toLowerCase()}`}
+                        />
+                      ) : (
+                        <p className="text-gray-900 bg-gray-50 px-3 py-2 rounded-md min-h-[42px] flex items-center">
+                          {userInfo[field] || (
+                            <span className="text-gray-400">Not provided</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const PermitsTab = () => (
     <div className="bg-white rounded-lg p-6 shadow-sm border">
@@ -632,7 +742,7 @@ export default function MunicipalUserProfileDashboard() {
         </div>
       </div>
 
-      {/* ===== NEW: View Document Modal ===== */}
+      {/* ===== View Document Modal ===== */}
       {viewModalOpen && viewDocumentUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 overflow-hidden flex flex-col">

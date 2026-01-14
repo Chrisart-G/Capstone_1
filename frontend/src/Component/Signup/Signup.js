@@ -17,6 +17,7 @@ const SignUp = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // BASIC + CONTACT + CREDENTIALS
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,7 +27,7 @@ const SignUp = () => {
   const [address, setAddress] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
 
-  // NEW: account type + business profile
+  // ACCOUNT TYPE + BUSINESS PROFILE
   const [accountType, setAccountType] = useState("citizen"); // 'citizen' | 'business_owner'
 
   const [businessName, setBusinessName] = useState("");
@@ -38,6 +39,14 @@ const SignUp = () => {
   const [businessEmail, setBusinessEmail] = useState("");
   const [businessTelephone, setBusinessTelephone] = useState("");
   const [businessMobile, setBusinessMobile] = useState("");
+  const [businessPostalCode, setBusinessPostalCode] = useState("");
+
+  // LESSOR INFO (optional – only if rented)
+  const [lessorFullName, setLessorFullName] = useState("");
+  const [lessorAddress, setLessorAddress] = useState("");
+  const [lessorPhone, setLessorPhone] = useState("");
+  const [lessorEmail, setLessorEmail] = useState("");
+  const [lessorMonthlyRental, setLessorMonthlyRental] = useState("");
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -49,15 +58,22 @@ const SignUp = () => {
   const [verifying, setVerifying] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // multi-step form (1 = names + email, 2 = contact + credentials (+ business))
+  // GLOBAL form steps:
+  // 1 = basic + contact + password
+  // 2 = business (only when accountType === 'business_owner')
   const [formStep, setFormStep] = useState(1);
 
-  // UI modals
-  const [showNextConfirm, setShowNextConfirm] = useState(false);
-  const [showCreateConfirm, setShowCreateConfirm] = useState(false);
+  // mini steps inside Business step
+  // 1 = Business profile
+  // 2 = Business contact
+  // 3 = Lessor
+  const [businessSubStep, setBusinessSubStep] = useState(1);
 
-  // spinner for create-account request
-  const [creating, setCreating] = useState(false);
+  // UI modals
+  const [showNextConfirm, setShowNextConfirm] = useState(false); // for going to business step
+  const [showCreateConfirm, setShowCreateConfirm] = useState(false); // for actual create-account
+
+  const [creating, setCreating] = useState(false); // spinner for create-account request
 
   useEffect(() => {
     if (!otpPhase || resendCooldown <= 0) return;
@@ -88,12 +104,20 @@ const SignUp = () => {
     setBusinessEmail("");
     setBusinessTelephone("");
     setBusinessMobile("");
+    setBusinessPostalCode("");
+
+    setLessorFullName("");
+    setLessorAddress("");
+    setLessorPhone("");
+    setLessorEmail("");
+    setLessorMonthlyRental("");
 
     setOtpCode("");
     setUserId(null);
     setDevOtp("");
     setOtpPhase(false);
     setFormStep(1);
+    setBusinessSubStep(1);
   };
 
   // Simple validators
@@ -138,35 +162,96 @@ const SignUp = () => {
     }
   };
 
-  // STEP 1 button: validate then open custom modal
+  // STEP 1 button: validate basic + contact + password
   const handleNextStep = () => {
     setError("");
+    setSuccess("");
 
+    // names
     if (!firstname.trim() || !lastname.trim()) {
       setError("Please fill in at least your First Name and Last Name.");
       return;
     }
 
+    // email
     if (!email.trim()) {
       setError("Please enter your Email Address.");
       return;
     }
-
     if (!isValidEmail(email.trim())) {
       setError("Please enter a valid Email Address (e.g., user@example.com).");
       return;
     }
 
-    // Open modal instead of window.confirm
-    setShowNextConfirm(true);
+    // address
+    if (!address.trim()) {
+      setError("Please enter your complete Address.");
+      return;
+    }
+
+    // phone
+    if (!phoneNumber.trim()) {
+      setError("Please enter your Mobile Number.");
+      return;
+    }
+    if (!isValidPhone(phoneNumber.trim())) {
+      setError(
+        "Please enter a valid Philippine mobile number (e.g., 09123456789 or +639123456789)."
+      );
+      return;
+    }
+
+    // password
+    if (!password) {
+      setError("Please create a Password.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    // if BUSINESS OWNER → go to Step 2 (business info) with confirm modal
+    if (accountType === "business_owner") {
+      setShowNextConfirm(true);
+      return;
+    }
+
+    // if CITIZEN → skip business step and go straight to create-account modal
+    setShowCreateConfirm(true);
   };
 
   const confirmNextStep = () => {
     setShowNextConfirm(false);
     setFormStep(2);
+    setBusinessSubStep(1);
   };
 
-  // This function contains the original create-account API logic
+  // Step 2 (business) "Create Account" click handler
+  const handleBusinessCreateClick = () => {
+    setError("");
+    setSuccess("");
+
+    if (accountType === "business_owner") {
+      if (!businessName.trim()) {
+        setError("Please enter your Business Name.");
+        return;
+      }
+      if (!businessAddress.trim()) {
+        setError("Please enter your Business Address.");
+        return;
+      }
+    }
+
+    // show create-account confirmation modal
+    setShowCreateConfirm(true);
+  };
+
+  // create-account API logic (same base idea as old code, but now with lessor fields)
   const performCreateAccount = async () => {
     try {
       const resp = await fetch(`${API}/signup`, {
@@ -182,7 +267,7 @@ const SignUp = () => {
           address,
           phoneNumber,
 
-          // NEW payload to backend
+          // account type + business
           accountType,
           businessName,
           businessTradeName,
@@ -193,8 +278,17 @@ const SignUp = () => {
           businessEmail,
           businessTelephone,
           businessMobile,
+          businessPostalCode,
+
+          // LESSOR INFO
+          lessorFullName,
+          lessorAddress,
+          lessorPhone,
+          lessorEmail,
+          lessorMonthlyRental,
         }),
       });
+
       const data = await resp.json();
 
       if (!resp.ok) {
@@ -216,101 +310,45 @@ const SignUp = () => {
     }
   };
 
+  // OTP verification submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    // If we're still on step 1, just trigger next with validation
-    if (!otpPhase && formStep === 1) {
-      handleNextStep();
+    // only handle OTP here
+    if (!otpPhase) return;
+
+    if (!otpCode || !userId) {
+      setError("Please enter the code we sent to your phone.");
       return;
     }
 
-    // STEP 2: validate fields, then show Create Account modal
-    if (!otpPhase && formStep === 2) {
-      if (!address.trim()) {
-        setError("Please enter your complete Address.");
-        return;
+    setVerifying(true);
+    try {
+      const r = await fetch(`${API}/otp/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ userId, code: otpCode }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.success) {
+        setError(j.message || "Verification failed.");
+      } else {
+        setError("");
+        setSuccess("Account created successfully! You can now log in.");
+        clearForm();
       }
-
-      if (!phoneNumber.trim()) {
-        setError("Please enter your Mobile Number.");
-        return;
-      }
-
-      if (!isValidPhone(phoneNumber.trim())) {
-        setError(
-          "Please enter a valid Philippine mobile number (e.g., 09123456789 or +639123456789)."
-        );
-        return;
-      }
-
-      if (!password) {
-        setError("Please create a Password.");
-        return;
-      }
-
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters long.");
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        setError("Passwords do not match.");
-        return;
-      }
-
-      // Extra validation when account type is business owner
-      if (accountType === "business_owner") {
-        if (!businessName.trim()) {
-          setError("Please enter your Business Name.");
-          return;
-        }
-        if (!businessAddress.trim()) {
-          setError("Please enter your Business Address.");
-          return;
-        }
-      }
-
-      // Open Create Account confirmation modal instead of window.confirm
-      setShowCreateConfirm(true);
-      return;
-    }
-
-    // STEP 3: verify OTP and finalize account
-    if (otpPhase) {
-      if (!otpCode || !userId) {
-        setError("Please enter the code we sent to your phone.");
-        return;
-      }
-
-      setVerifying(true);
-      try {
-        const r = await fetch(`${API}/otp/verify`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ userId, code: otpCode }),
-        });
-        const j = await r.json();
-        if (!r.ok || !j.success) {
-          setError(j.message || "Verification failed.");
-        } else {
-          setError("");
-          setSuccess("Account created successfully! You can now log in.");
-          clearForm();
-        }
-      } catch (err) {
-        console.error(err);
-        setError("Verification error.");
-      } finally {
-        setVerifying(false);
-      }
+    } catch (err) {
+      console.error(err);
+      setError("Verification error.");
+    } finally {
+      setVerifying(false);
     }
   };
 
-  // When user clicks "Yes, create account" in modal
+  // When user clicks "Yes, create account" confirm modal
   const confirmCreateAccount = async () => {
     setCreating(true);
     try {
@@ -321,30 +359,30 @@ const SignUp = () => {
     }
   };
 
-  // disable editing of account fields once we're in OTP phase
+  // disable editing once we're in OTP phase
   const detailsDisabled = otpPhase;
 
   const headingLabel = otpPhase
     ? "Phone Verification"
-    : formStep === 1
-    ? "Basic Information"
-    : "Account Details";
+    : accountType === "business_owner" && formStep === 2
+    ? "Business Information"
+    : "Basic Information";
 
   const headingTitle = otpPhase
     ? "Verify your mobile number"
-    : formStep === 1
-    ? "Tell us who you are"
-    : accountType === "business_owner"
-    ? "Set up your account & business"
-    : "Set up your account";
+    : accountType === "business_owner" && formStep === 2
+    ? "Tell us about your business"
+    : "Tell us who you are";
 
   const headingSubtitle = otpPhase
     ? "Enter the verification code we sent to your registered mobile number."
-    : formStep === 1
-    ? "Start by providing your name and email address, then tell us if you are an individual citizen or a business owner."
-    : accountType === "business_owner"
-    ? "Fill in your address, mobile number, create a password, and add a few details about your business for faster permit applications."
-    : "Fill in your address, mobile number, and create a password.";
+    : accountType === "business_owner" && formStep === 2
+    ? "Provide your business details, contact information, and lessor information if your place is rented."
+    : "Start by providing your name, contact details, and account password.";
+
+  // global step indicator (1 - 2 - OTP)
+  const currentStepNumber = otpPhase ? 3 : formStep; // 1,2,3
+  const stepLabels = ["Account", "Business", "Verify"];
 
   return (
     <div
@@ -353,18 +391,15 @@ const SignUp = () => {
     >
       {/* Full-screen card */}
       <div className="w-full h-screen grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden">
-        {/* Left side - same UI as Login: background + transparent logo */}
+        {/* Left side */}
         <div className="relative hidden md:block">
-          {/* Background image */}
           <img
             src=""
             alt=""
             className="absolute inset-0 w-full h-full object-cover"
           />
-          {/* Dark overlay */}
           <div className="absolute inset-0 bg-white" />
 
-          {/* Centered transparent logo + text */}
           <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-white">
             <img
               src="/img/logo.png"
@@ -387,9 +422,48 @@ const SignUp = () => {
           </div>
         </div>
 
-        {/* Right side - form (full height, scrollable if needed) */}
+        {/* Right side - form */}
         <div className="bg-white px-6 py-8 md:px-8 md:py-10 flex flex-col justify-center max-h-screen overflow-y-auto">
-          <div className="mb-2">
+          {/* GLOBAL STEPPER */}
+          <div className="mb-4">
+            <div className="flex items-center justify-center md:justify-start mb-3">
+              <div className="flex items-center gap-3">
+                {stepLabels.map((label, index) => {
+                  const stepIndex = index + 1;
+                  const active = currentStepNumber === stepIndex;
+                  const completed = currentStepNumber > stepIndex;
+
+                  return (
+                    <React.Fragment key={label}>
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-semibold border ${
+                            active
+                              ? "bg-emerald-500 text-white border-emerald-500"
+                              : completed
+                              ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                              : "bg-slate-100 text-slate-400 border-slate-200"
+                          }`}
+                        >
+                          {completed ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            stepIndex
+                          )}
+                        </div>
+                        <span className="mt-1 text-[10px] uppercase tracking-[0.15em] text-slate-400">
+                          {label}
+                        </span>
+                      </div>
+                      {stepIndex < stepLabels.length && (
+                        <div className="h-[1px] w-8 bg-slate-200" />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+
             <p className="text-xs font-semibold tracking-[0.2em] text-slate-400 uppercase text-center md:text-left">
               {headingLabel}
             </p>
@@ -401,9 +475,9 @@ const SignUp = () => {
             </p>
           </div>
 
-          {/* NEW: account-type selector under heading (only while not in OTP) */}
+          {/* account-type selector (only while not in OTP) */}
           {!otpPhase && (
-            <div className="mt-3 mb-4 flex justify-center md:justify-start">
+            <div className="mt-1 mb-4 flex justify-center md:justify-start">
               <div className="inline-flex items-center rounded-full bg-slate-100 p-1 text-[11px]">
                 <button
                   type="button"
@@ -413,6 +487,7 @@ const SignUp = () => {
                       ? "bg-white shadow-sm text-slate-900"
                       : "text-slate-500 hover:text-slate-700"
                   }`}
+                  disabled={detailsDisabled}
                 >
                   I’m an individual citizen
                 </button>
@@ -424,6 +499,7 @@ const SignUp = () => {
                       ? "bg-white shadow-sm text-slate-900"
                       : "text-slate-500 hover:text-slate-700"
                   }`}
+                  disabled={detailsDisabled}
                 >
                   I’m a business owner
                 </button>
@@ -442,11 +518,12 @@ const SignUp = () => {
             </div>
           )}
 
-          {/* One form handling both steps & OTP */}
+          {/* One form handling OTP (details handled by buttons) */}
           <form onSubmit={handleSubmit} className="mt-2 space-y-3">
-            {/* STEP 1: First, Last, Middle Name, Email */}
+            {/* STEP 1: Basic + contact + password */}
             {!otpPhase && formStep === 1 && (
               <>
+                {/* Names */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-slate-700">
@@ -459,7 +536,8 @@ const SignUp = () => {
                         value={firstname}
                         onChange={(e) => setFirstname(e.target.value)}
                         required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        disabled={detailsDisabled}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                         placeholder="First name"
                       />
                     </div>
@@ -475,13 +553,15 @@ const SignUp = () => {
                         value={lastname}
                         onChange={(e) => setLastname(e.target.value)}
                         required
-                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        disabled={detailsDisabled}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                         placeholder="Last name"
                       />
                     </div>
                   </div>
                 </div>
 
+                {/* Middle name */}
                 <div>
                   <label className="text-xs font-medium text-slate-700">
                     Middle Name (Optional)
@@ -492,13 +572,14 @@ const SignUp = () => {
                       type="text"
                       value={middlename}
                       onChange={(e) => setMiddlename(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      disabled={detailsDisabled}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                       placeholder="Middle name (optional)"
                     />
                   </div>
                 </div>
 
-                {/* Email (step 1) */}
+                {/* Email */}
                 <div>
                   <label className="text-xs font-medium text-slate-700 flex items-center justify-between">
                     <span>Email Address *</span>
@@ -512,32 +593,18 @@ const SignUp = () => {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/60 pl-9 pr-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
                       placeholder="Enter your email"
                       required
+                      disabled={detailsDisabled}
                     />
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleNextStep}
-                    className="w-full inline-flex justify-center items-center rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-md transition bg-blue-600 hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
-                  >
-                    Next
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* STEP 2: Address, Phone, Passwords (+ Business section) */}
-            {!otpPhase && formStep === 2 && (
-              <>
                 {/* Address */}
                 <div>
                   <label className="text-xs font-medium text-slate-700">
-                    Address
+                    Address *
                   </label>
                   <input
                     type="text"
@@ -550,10 +617,10 @@ const SignUp = () => {
                   />
                 </div>
 
-                {/* Phone */}
+                {/* Mobile number */}
                 <div>
                   <label className="text-xs font-medium text-slate-700 flex items-center justify-between">
-                    <span>Mobile Number</span>
+                    <span>Mobile Number *</span>
                     <span className="text-[11px] text-slate-400">
                       Use an active number for OTP
                     </span>
@@ -572,161 +639,10 @@ const SignUp = () => {
                   </div>
                 </div>
 
-                {/* Business section – visible only for business owners */}
-                {accountType === "business_owner" && (
-                  <div className="mt-1 space-y-3 border border-slate-100 rounded-2xl px-3 py-3 bg-slate-50/80">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-600 uppercase">
-                        Business profile
-                      </p>
-                      <p className="text-[10px] text-slate-400 text-right">
-                        These fields will be used later to auto-fill your
-                        Business Permit application.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-slate-700">
-                        Business Name *
-                      </label>
-                      <input
-                        type="text"
-                        value={businessName}
-                        onChange={(e) => setBusinessName(e.target.value)}
-                        disabled={detailsDisabled}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                        placeholder="Registered business name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-slate-700">
-                        Trade Name / Franchise (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={businessTradeName}
-                        onChange={(e) => setBusinessTradeName(e.target.value)}
-                        disabled={detailsDisabled}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                        placeholder="Trade name or franchise"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-medium text-slate-700">
-                          Type of Business
-                        </label>
-                        <select
-                          value={businessType}
-                          onChange={(e) => setBusinessType(e.target.value)}
-                          disabled={detailsDisabled}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                        >
-                          <option value="single">Single</option>
-                          <option value="partnership">Partnership</option>
-                          <option value="corporation">Corporation</option>
-                          <option value="cooperative">Cooperative</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-xs font-medium text-slate-700">
-                          Business TIN (optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={businessTinNo}
-                          onChange={(e) => setBusinessTinNo(e.target.value)}
-                          disabled={detailsDisabled}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                          placeholder="TIN number"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-slate-700">
-                        DTI / SEC / CDA Registration No. (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={businessRegistrationNo}
-                        onChange={(e) =>
-                          setBusinessRegistrationNo(e.target.value)
-                        }
-                        disabled={detailsDisabled}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                        placeholder="Registration number"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-slate-700">
-                        Business Address *
-                      </label>
-                      <input
-                        type="text"
-                        value={businessAddress}
-                        onChange={(e) => setBusinessAddress(e.target.value)}
-                        disabled={detailsDisabled}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                        placeholder="Business location / address"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs font-medium text-slate-700">
-                          Business Email (optional)
-                        </label>
-                        <input
-                          type="email"
-                          value={businessEmail}
-                          onChange={(e) => setBusinessEmail(e.target.value)}
-                          disabled={detailsDisabled}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                          placeholder="business@example.com"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-slate-700">
-                          Telephone (optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={businessTelephone}
-                          onChange={(e) =>
-                            setBusinessTelephone(e.target.value)
-                          }
-                          disabled={detailsDisabled}
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                          placeholder="Business telephone no."
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-medium text-slate-700">
-                        Business Mobile (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={businessMobile}
-                        onChange={(e) => setBusinessMobile(e.target.value)}
-                        disabled={detailsDisabled}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
-                        placeholder="Business mobile number"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 {/* Password */}
                 <div>
                   <label className="text-xs font-medium text-slate-700">
-                    Password
+                    Password *
                   </label>
                   <div className="relative mt-1">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -760,7 +676,7 @@ const SignUp = () => {
                 {/* Confirm Password */}
                 <div>
                   <label className="text-xs font-medium text-slate-700">
-                    Confirm Password
+                    Confirm Password *
                   </label>
                   <div className="relative mt-1">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -790,26 +706,360 @@ const SignUp = () => {
                   </div>
                 </div>
 
-                {/* Back + Submit */}
-                <div className="pt-2 flex items-center justify-between gap-3">
+                {/* Next button */}
+                <div className="pt-2">
                   <button
                     type="button"
-                    onClick={() => setFormStep(1)}
-                    className="text-xs font-medium text-slate-500 hover:text-slate-700 hover:underline"
+                    onClick={handleNextStep}
+                    disabled={detailsDisabled}
+                    className="w-full inline-flex justify-center items-center rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-md transition bg-blue-600 hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Back to basic information
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={verifying || sending}
-                    className="inline-flex justify-center items-center rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-md transition bg-blue-600 hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Create Account
+                    Next
                   </button>
                 </div>
               </>
             )}
+
+            {/* STEP 2: Business (split into mini-steps) */}
+            {!otpPhase &&
+              formStep === 2 &&
+              accountType === "business_owner" && (
+                <>
+                  {/* BUSINESS SUB-STEP INDICATOR */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-center md:justify-start gap-3">
+                      {["Business", "Contact", "Lessor"].map((label, idx) => {
+                        const step = idx + 1;
+                        const active = businessSubStep === step;
+                        return (
+                          <React.Fragment key={label}>
+                            <div className="flex flex-col items-center">
+                              <div
+                                className={`h-6 w-6 rounded-full text-[11px] flex items-center justify-center font-semibold border ${
+                                  active
+                                    ? "bg-emerald-500 text-white border-emerald-500"
+                                    : "bg-white text-slate-400 border-slate-200"
+                                }`}
+                              >
+                                {step}
+                              </div>
+                              <span className="mt-1 text-[10px] uppercase tracking-[0.15em] text-slate-400">
+                                {label}
+                              </span>
+                            </div>
+                            {idx < 2 && (
+                              <div className="h-[1px] w-8 bg-emerald-100" />
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* SUB-STEP 1: BUSINESS PROFILE */}
+                  {businessSubStep === 1 && (
+                    <div className="mt-1 space-y-3 border border-slate-100 rounded-2xl px-3 py-3 bg-slate-50/80">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-600 uppercase">
+                          Business profile
+                        </p>
+                        <p className="text-[10px] text-slate-400 text-right">
+                          These fields will be used to auto-fill your Business
+                          Permit application.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-700">
+                          Business Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={businessName}
+                          onChange={(e) => setBusinessName(e.target.value)}
+                          disabled={detailsDisabled}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                          placeholder="Registered business name"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-700">
+                          Trade Name / Franchise (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={businessTradeName}
+                          onChange={(e) => setBusinessTradeName(e.target.value)}
+                          disabled={detailsDisabled}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                          placeholder="Trade name or franchise"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="md:col-span-1">
+                          <label className="text-xs font-medium text-slate-700">
+                            Type of Business
+                          </label>
+                          <select
+                            value={businessType}
+                            onChange={(e) => setBusinessType(e.target.value)}
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                          >
+                            <option value="single">Single</option>
+                            <option value="partnership">Partnership</option>
+                            <option value="corporation">Corporation</option>
+                            <option value="cooperative">Cooperative</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-slate-700">
+                            Business TIN (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={businessTinNo}
+                            onChange={(e) => setBusinessTinNo(e.target.value)}
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="TIN number"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-medium text-slate-700">
+                            Registration No. (DTI / SEC / CDA)
+                          </label>
+                          <input
+                            type="text"
+                            value={businessRegistrationNo}
+                            onChange={(e) =>
+                              setBusinessRegistrationNo(e.target.value)
+                            }
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="Registration number"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="md:col-span-2">
+                          <label className="text-xs font-medium text-slate-700">
+                            Business Address *
+                          </label>
+                          <input
+                            type="text"
+                            value={businessAddress}
+                            onChange={(e) =>
+                              setBusinessAddress(e.target.value)
+                            }
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="Business location / address"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-700">
+                            Postal Code (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={businessPostalCode}
+                            onChange={(e) =>
+                              setBusinessPostalCode(e.target.value)
+                            }
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="e.g. 6104"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-STEP 2: BUSINESS CONTACT */}
+                  {businessSubStep === 2 && (
+                    <div className="mt-1 space-y-3 border border-slate-100 rounded-2xl px-3 py-3 bg-slate-50/80">
+                      <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-600 uppercase">
+                        Business contact
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="md:col-span-2">
+                          <label className="text-xs font-medium text-slate-700">
+                            Business Email (optional)
+                          </label>
+                          <input
+                            type="email"
+                            value={businessEmail}
+                            onChange={(e) => setBusinessEmail(e.target.value)}
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="business@example.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-700">
+                            Telephone (optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={businessTelephone}
+                            onChange={(e) =>
+                              setBusinessTelephone(e.target.value)
+                            }
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="Business telephone no."
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-medium text-slate-700">
+                          Business Mobile (optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={businessMobile}
+                          onChange={(e) => setBusinessMobile(e.target.value)}
+                          disabled={detailsDisabled}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                          placeholder="Business mobile number"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-STEP 3: LESSOR */}
+                  {businessSubStep === 3 && (
+                    <div className="mt-3 border border-slate-100 rounded-2xl px-4 py-4 bg-slate-50/80">
+                      <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-600 uppercase text-center mb-3">
+                        Fill up only if business place is rented
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-slate-700">
+                            Lessor&apos;s Full Name
+                          </label>
+                          <input
+                            type="text"
+                            value={lessorFullName}
+                            onChange={(e) => setLessorFullName(e.target.value)}
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="Full name of the lessor"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-700">
+                            Lessor&apos;s Full Address
+                          </label>
+                          <input
+                            type="text"
+                            value={lessorAddress}
+                            onChange={(e) => setLessorAddress(e.target.value)}
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="Complete address of the lessor"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        <div>
+                          <label className="text-xs font-medium text-slate-700">
+                            Lessor&apos;s Telephone / Mobile No.
+                          </label>
+                          <input
+                            type="text"
+                            value={lessorPhone}
+                            onChange={(e) => setLessorPhone(e.target.value)}
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="Contact number of the lessor"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-700">
+                            Lessor&apos;s Email Address
+                          </label>
+                          <input
+                            type="email"
+                            value={lessorEmail}
+                            onChange={(e) => setLessorEmail(e.target.value)}
+                            disabled={detailsDisabled}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                            placeholder="Email of the lessor"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <label className="text-xs font-medium text-slate-700">
+                          Monthly Rental
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={lessorMonthlyRental}
+                          onChange={(e) => setLessorMonthlyRental(e.target.value)}
+                          disabled={detailsDisabled}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 mt-1 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100"
+                          placeholder="Amount of monthly rental (₱)"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Navigation buttons inside Step 2 */}
+                  <div className="pt-3 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (businessSubStep === 1) {
+                          setFormStep(1);
+                        } else {
+                          setBusinessSubStep((s) => Math.max(1, s - 1));
+                        }
+                      }}
+                      className="text-xs font-medium text-slate-500 hover:text-slate-700 hover:underline"
+                    >
+                      {businessSubStep === 1
+                        ? "Back to basic information"
+                        : "Back"}
+                    </button>
+
+                    {businessSubStep < 3 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setBusinessSubStep((s) => Math.min(3, s + 1))
+                        }
+                        className="inline-flex justify-center items-center rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-md transition bg-blue-600 hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleBusinessCreateClick}
+                        disabled={verifying || sending}
+                        className="inline-flex justify-center items-center rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-md transition bg-blue-600 hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Create Account
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
 
             {/* OTP section – only when otpPhase === true */}
             {otpPhase && (
@@ -886,16 +1136,16 @@ const SignUp = () => {
         </div>
       </div>
 
-      {/* Modal: "Are you sure to next" */}
+      {/* Modal: "Are you sure to next" – only for business owners going to Step 2 */}
       {showNextConfirm && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 mx-4">
             <h3 className="text-lg font-semibold text-slate-900">
-              Proceed to the next step?
+              Proceed to business details?
             </h3>
             <p className="mt-2 text-sm text-slate-500">
-              Are you sure you want to continue to the next step? You can still
-              go back and edit your basic information later.
+              You&apos;re about to continue to the business information section.
+              You can still go back and edit your basic information later.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button

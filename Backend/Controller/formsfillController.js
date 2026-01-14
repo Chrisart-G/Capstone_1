@@ -1,62 +1,68 @@
+// Controller/formsfillController.js
 const db = require('../db/dbconnect');
 
 exports.getUserInfo = (req, res) => {
-    console.log("Session in getUserInfo:", req.session);
-    console.log("User in session:", req.session?.user);
-    console.log("User ID in session:", req.session?.user?.user_id);
+  console.log("Session in getUserInfo:", req.session);
+  console.log("User in session:", req.session?.user);
+  console.log("User ID in session:", req.session?.user?.user_id);
 
-    if (!req.session || !req.session.user || !req.session.user.user_id) {
-        console.log("User not authenticated or missing user_id");
-        return res.status(401).json({ message: "Unauthorized. Please log in." });
+  if (!req.session || !req.session.user || !req.session.user.user_id) {
+    console.log("User not authenticated or missing user_id");
+    return res.status(401).json({ message: "Unauthorized. Please log in." });
+  }
+
+  const userId = req.session.user.user_id;
+  console.log("Using user_id for user info:", userId);
+
+  const sql = `
+      SELECT ui.firstname,
+             ui.middlename,
+             ui.lastname,
+             ui.address,
+             ui.phone_number,
+             l.email
+      FROM tbl_user_info ui
+      LEFT JOIN tb_logins l ON ui.user_id = l.user_id
+      WHERE ui.user_id = ?
+  `;
+
+  db.query(sql, [userId], (err, results) => {
+    if (err) {
+      console.error("Error fetching user info:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Error retrieving user information",
+        error: err.message,
+      });
     }
-    
-    // Get user_id from session
-    const userId = req.session.user.user_id;
-    console.log("Using user_id for user info:", userId);
 
-    const sql = `
-        SELECT ui.firstname, ui.middlename, ui.lastname, ui.phone_number, l.email
-        FROM tbl_user_info ui
-        LEFT JOIN tb_logins l ON ui.user_id = l.user_id
-        WHERE ui.user_id = ?
-    `;
+    if (results.length === 0) {
+      console.log("No user info found for user_id:", userId);
+      return res.status(404).json({
+        success: false,
+        message: "User information not found",
+      });
+    }
 
-    db.query(sql, [userId], (err, results) => {
-        if (err) {
-            console.error("Error fetching user info:", err);
-            return res.status(500).json({ 
-                success: false, 
-                message: "Error retrieving user information", 
-                error: err.message 
-            });
-        }
+    const userInfo = results[0];
 
-        if (results.length === 0) {
-            console.log("No user info found for user_id:", userId);
-            return res.status(404).json({ 
-                success: false, 
-                message: "User information not found" 
-            });
-        }
+    const userData = {
+      firstName: userInfo.firstname || "",
+      middleName: userInfo.middlename || "",
+      lastName: userInfo.lastname || "",
+      email: userInfo.email || "",
+      phoneNumber: userInfo.phone_number || "",
+      address: userInfo.address || "",
+    };
 
-        const userInfo = results[0];
-        
-        // Since the database now has separate columns, we can directly use them
-        const userData = {
-            firstName: userInfo.firstname || '',
-            middleName: userInfo.middlename || '',
-            lastName: userInfo.lastname || '',
-            email: userInfo.email || '',
-            phoneNumber: userInfo.phone_number || ''
-        };
-
-        console.log("Returning user data:", userData);
-        res.json({ 
-            success: true, 
-            userInfo: userData 
-        });
+    console.log("Returning user data:", userData);
+    res.json({
+      success: true,
+      userInfo: userData,
     });
+  });
 };
+
 
 // this line of code are for electrical permit auto fill -------------------------------------//
 exports.getUserInfoForElectrical = (req, res) => {
@@ -185,6 +191,7 @@ exports.getUserInfoForCedula = (req, res) => {
         });
     });
 };
+
 // this line of code are for fencing permit auto fill -------------------------------------//
 exports.getUserInfoForFencing = (req, res) => {
   console.log("Session in getUserInfoForFencing:", req.session);
@@ -265,6 +272,7 @@ exports.getUserInfoForFencing = (req, res) => {
     });
   });
 };
+
 // this line of code are for electronics permit auto fill -------------------------------------//
 exports.getUserInfoForElectronics = (req, res) => {
   console.log("Session in getUserInfoForElectronics:", req.session);
@@ -418,6 +426,7 @@ exports.getUserInfoForBuilding = (req, res) => {
     });
   });
 };
+
 // this line of code is for plumbing permit auto fill -------------------------------------//
 exports.getUserInfoForPlumbing = (req, res) => {
   console.log("Session in getUserInfoForPlumbing:", req.session);
@@ -491,6 +500,99 @@ exports.getUserInfoForPlumbing = (req, res) => {
     res.json({
       success: true,
       userInfo: userData
+    });
+  });
+};
+
+// ==================== BUSINESS PERMIT AUTO-FILL (BUSINESS INFO) ==================== //
+// ==================== BUSINESS PERMIT AUTO-FILL (BUSINESS INFO) ==================== //
+exports.getBusinessInfoForBusinessPermit = (req, res) => {
+  console.log("Session in getBusinessInfoForBusinessPermit:", req.session);
+  console.log("User in session:", req.session?.user);
+  console.log("User ID in session:", req.session?.user?.user_id);
+
+  if (!req.session || !req.session.user || !req.session.user.user_id) {
+    console.log("User not authenticated or missing user_id");
+    return res.status(401).json({ message: "Unauthorized. Please log in." });
+  }
+
+  const userId = req.session.user.user_id;
+  console.log("Using user_id for business info:", userId);
+
+  // ⚠️ IMPORTANT: only use columns that actually exist in tbl_user_business_info
+  const sql = `
+      SELECT
+        business_name,
+        trade_name,
+        business_address,
+        business_postal_code,
+        business_email,
+        business_telephone,
+        business_mobile,
+        lessor_full_name,
+        lessor_address,
+        lessor_phone,
+        lessor_email,
+        monthly_rental,
+        business_type,
+        tin_no,
+        registration_no
+      FROM tbl_user_business_info
+      WHERE user_id = ?
+      ORDER BY id DESC
+      LIMIT 1
+  `;
+
+  db.query(sql, [userId], (err, results) => {
+    if (err) {
+      console.error("Error fetching business info:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Error retrieving business information",
+        error: err.message,
+      });
+    }
+
+    if (results.length === 0) {
+      console.log("No business info found for user_id:", userId);
+      return res.status(404).json({
+        success: false,
+        message: "Business information not found",
+      });
+    }
+
+    const row = results[0];
+
+    // Map DB columns -> frontend form field names
+    const businessData = {
+      businessName: row.business_name || "",
+      tradeName: row.trade_name || "",
+
+      businessAddress: row.business_address || "",
+      businessPostalCode: row.business_postal_code || "",
+      businessEmail: row.business_email || "",
+      businessTelephone: row.business_telephone || "",
+      businessMobile: row.business_mobile || "",
+
+      lessorName: row.lessor_full_name || "",
+      lessorAddress: row.lessor_address || "",
+      lessorPhone: row.lessor_phone || "",
+      lessorEmail: row.lessor_email || "",
+      monthlyRental:
+        row.monthly_rental === null || row.monthly_rental === undefined
+          ? ""
+          : String(row.monthly_rental),
+
+      businessType: row.business_type || "",
+      tinNo: row.tin_no || "",
+      registrationNo: row.registration_no || "",
+    };
+
+    console.log("Returning business data for permit form:", businessData);
+
+    res.json({
+      success: true,
+      businessInfo: businessData,
     });
   });
 };

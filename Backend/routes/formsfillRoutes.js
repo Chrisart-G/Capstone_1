@@ -20,4 +20,10 @@ router.get('/user-info-electronics', isAuthenticated, formsfillController.getUse
 router.get('/user-info-building', isAuthenticated, formsfillController.getUserInfoForBuilding);
 router.get('/user-info-plumbing', isAuthenticated, formsfillController.getUserInfoForPlumbing);
 
+/* NEW: business-owner info for Business Permit autofill */
+router.get(
+  '/user-business-info',
+  isAuthenticated,
+  formsfillController.getBusinessInfoForBusinessPermit
+);
 module.exports = router;
