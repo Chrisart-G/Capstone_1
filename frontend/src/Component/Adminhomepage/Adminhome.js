@@ -104,94 +104,156 @@ const AdminDashboard = () => {
   const statusCounts = dashboardStats?.statusCounts || {};
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <AdminSidebar handleLogout={handleLogout} isLoading={isLoading} />
+  <div
+    className="flex h-screen bg-white text-slate-900 overflow-hidden"
+    style={{
+      fontFamily:
+        'Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    }}
+  >
+    {/* Sidebar */}
+    <AdminSidebar handleLogout={handleLogout} isLoading={isLoading} />
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        <header className="bg-white shadow">
-          <div className="p-4 flex justify-between items-center">
-            <h1 className="text-xl font-semibold">Dashboard Overview</h1>
-            <div className="flex items-center">
-              {/* Notification icon removed for now */}
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-300 rounded-full mr-2"></div>
-                <span>{userEmail || 'Admin User'}</span>
+    {/* Main Content */}
+    <div className="flex-1 flex flex-col">
+      {/* ...the rest is the same */}
+        {/* Header */}
+        <header className="bg-white/90 border-b border-slate-200 backdrop-blur sticky top-0 z-10">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap gap-3 sm:gap-0 items-center justify-between">
+            <div>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight">
+                Dashboard Overview
+              </h1>
+              <p className="text-[11px] sm:text-xs md:text-sm text-slate-500 mt-1">
+                Quick summary of employees, offices, and citizen applications.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Simple avatar */}
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-200 flex items-center justify-center text-[11px] sm:text-xs font-semibold text-slate-700">
+                {userEmail ? userEmail.charAt(0).toUpperCase() : 'A'}
+              </div>
+              <div className="text-right">
+                <p className="text-xs sm:text-sm font-medium leading-tight">
+                  {userEmail || 'Admin User'}
+                </p>
+                <p className="text-[11px] sm:text-xs text-slate-400 leading-tight">
+                  System Administrator
+                </p>
               </div>
             </div>
           </div>
         </header>
 
-        <main className="p-6">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">Admin Dashboard</h2>
-            <p className="text-gray-600 mb-6">
-              Overview of employees, offices, and citizen applications.
-            </p>
+        {/* Content */}
+        <main className="px-4 sm:px-6 py-4 sm:py-6 md:py-8 overflow-y-auto">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-5 sm:mb-6">
+              <h2 className="text-base sm:text-lg md:text-xl font-semibold tracking-tight">
+                Admin Dashboard
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                Monitor overall activity and status of municipal document processing.
+              </p>
+            </div>
 
-            {/* Cards: employees / offices / total apps */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold">Total Employees</h3>
-                  <Users size={20} className="text-blue-500" />
+            {/* Top stats cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 sm:mb-8">
+              {/* Employees */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-slate-500">
+                      Total Employees
+                    </p>
+                    <p className="mt-3 text-2xl sm:text-3xl font-semibold">
+                      {statsLoading ? '…' : totals.totalEmployees ?? 0}
+                    </p>
+                  </div>
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Users size={18} className="sm:size-[20px] text-blue-500" />
+                  </div>
                 </div>
-                <p className="text-2xl font-bold">
-                  {statsLoading ? '…' : totals.totalEmployees ?? 0}
-                </p>
               </div>
 
-              <div className="bg-white p-4 rounded-lg shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold">Total Offices</h3>
-                  <Building size={20} className="text-green-500" />
+              {/* Offices */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-slate-500">
+                      Total Offices
+                    </p>
+                    <p className="mt-3 text-2xl sm:text-3xl font-semibold">
+                      {statsLoading ? '…' : totals.totalOffices ?? 0}
+                    </p>
+                  </div>
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                    <Building size={18} className="sm:size-[20px] text-emerald-500" />
+                  </div>
                 </div>
-                <p className="text-2xl font-bold">
-                  {statsLoading ? '…' : totals.totalOffices ?? 0}
-                </p>
               </div>
 
-              <div className="bg-white p-4 rounded-lg shadow">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold">Total Applications</h3>
-                  <FileText size={20} className="text-purple-500" />
+              {/* Applications */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[11px] sm:text-xs uppercase tracking-wide text-slate-500">
+                      Total Applications
+                    </p>
+                    <p className="mt-3 text-2xl sm:text-3xl font-semibold">
+                      {statsLoading ? '…' : totals.totalApplications ?? 0}
+                    </p>
+                  </div>
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                    <FileText size={18} className="sm:size-[20px] text-violet-500" />
+                  </div>
                 </div>
-                <p className="text-2xl font-bold">
-                  {statsLoading ? '…' : totals.totalApplications ?? 0}
-                </p>
               </div>
             </div>
 
             {/* Applications by status */}
-            <div className="mt-8 bg-white p-4 rounded-lg shadow">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Applications by Status</h3>
+            <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
+              <div className="flex flex-wrap gap-2 items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm md:text-base font-semibold">
+                    Applications by Status
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
+                    Track how many applications are in each processing stage.
+                  </p>
+                </div>
                 {statsLoading && (
-                  <span className="text-xs text-gray-400">Loading…</span>
+                  <span className="text-[11px] sm:text-xs text-slate-400">
+                    Loading…
+                  </span>
                 )}
               </div>
 
               {statsError && (
-                <p className="text-sm text-red-500 mb-2">{statsError}</p>
+                <p className="text-xs sm:text-sm text-red-500 mb-3">
+                  {statsError}
+                </p>
               )}
 
-              <div className="flex flex-wrap gap-4">
-                {STATUS_CONFIG.map(status => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {STATUS_CONFIG.map((status) => (
                   <div
                     key={status.key}
-                    className="flex items-center space-x-2 text-sm"
+                    className="flex flex-col gap-1 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5"
                   >
-                    <span>{status.label}</span>
+                    <span className="text-[11px] sm:text-xs font-medium text-slate-600 break-words">
+                      {status.label}
+                    </span>
                     <span
-                      className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-semibold ${status.badgeClass}`}
+                      className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-[11px] sm:text-xs font-semibold ${status.badgeClass}`}
                     >
                       {statusCounts[status.key] ?? 0}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           </div>
         </main>
       </div>

@@ -53,8 +53,6 @@ export default function Viewemployee() {
       await axios.post(`${API_BASE_URL}/api/logout`, {}, { 
         withCredentials: true 
       });
-      
-      // Redirect to login page
       navigate('/');
     } catch (error) {
       console.error("Logout error:", error);
@@ -71,7 +69,6 @@ export default function Viewemployee() {
         await axios.delete(`${API_BASE_URL}/api/employees/${employeeId}`, {
           withCredentials: true
         });
-        // Refresh employee list
         fetchEmployees();
       } catch (error) {
         console.error("Error deleting employee:", error);
@@ -114,7 +111,6 @@ export default function Viewemployee() {
     if (!formData.department) errors.department = "Department is required";
     if (!formData.email) errors.email = "Email is required";
     
-    // Only validate password if it's being changed
     if (formData.password) {
       if (formData.password.length < 6) {
         errors.password = "Password must be at least 6 characters";
@@ -145,7 +141,6 @@ export default function Viewemployee() {
         email: formData.email
       };
       
-      // Only include password if it's being changed
       if (formData.password) {
         updateData.password = formData.password;
       }
@@ -165,231 +160,372 @@ export default function Viewemployee() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div
+      className="flex min-h-screen bg-white text-slate-900"
+      style={{
+        fontFamily: 'Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      }}
+    >
       {/* Sidebar */}
       <AdminSidebar 
         handleLogout={handleLogout}
         isLoading={isLoading}
       />
-      <div className="flex-1 overflow-y-auto">
-        <header className="bg-white shadow">
-          <div className="p-4 flex justify-between items-center">
-            <h1 className="text-xl font-semibold">Manage Employee</h1>
-            <div className="flex items-center">
-              <div className="relative mr-4">
-                <Bell size={20} className="cursor-pointer" />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">5</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-300 rounded-full mr-2"></div>
-                <span>{userEmail || 'Admin User'}</span>
+
+      {/* Main area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-white/90 border-b border-slate-200 backdrop-blur sticky top-0 z-10">
+          <div className="px-6 py-4 flex justify-between items-center">
+            <div>
+              <h1 className="text-xl md:text-2xl font-semibold tracking-tight">
+                Manage Employee
+              </h1>
+              <p className="text-xs md:text-sm text-slate-500 mt-1">
+                View, edit, and manage municipal staff accounts.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {/* Notification icon */}
+              <button className="relative flex items-center justify-center w-9 h-9 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors">
+                <Bell size={18} className="text-slate-500" />
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-[10px] w-4 h-4 flex items-center justify-center">
+                  5
+                </span>
+              </button>
+
+              {/* User info */}
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-700">
+                  {userEmail ? userEmail.charAt(0).toUpperCase() : 'A'}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium leading-tight">
+                    {userEmail || 'Admin User'}
+                  </p>
+                  <p className="text-xs text-slate-400 leading-tight">
+                    System Administrator
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </header>
         
-        <main className="p-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-medium">Employee List</h2>
-              <button
-                onClick={() => navigate('/addemploy')}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Add New Employee
-              </button>
-            </div>
-            
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700"></div>
+        {/* Content */}
+        <main className="px-6 py-6 md:py-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-7">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-lg md:text-xl font-semibold tracking-tight">
+                    Employee List
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Manage registered employees assigned to different municipal departments.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/addemploy')}
+                  className="inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  + Add New Employee
+                </button>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr>
-                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
-                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                      <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {employees.length > 0 ? (
-                      employees.map((employee) => (
-                        <tr key={employee.employee_id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{employee.employee_id}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.first_name} {employee.last_name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.email}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.phone}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.position}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.department}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button
-                              onClick={() => handleEdit(employee)}
-                              className="text-blue-600 hover:text-blue-900 mr-3"
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(employee.employee_id)}
-                              className="text-red-600 hover:text-red-900"
-                              disabled={isDeleting}
-                            >
-                              <Trash2 size={18} />
-                            </button>
+              
+              {isLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700"></div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          Employee ID
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          Phone
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          Position
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          Department
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-100">
+                      {employees.length > 0 ? (
+                        employees.map((employee) => (
+                          <tr
+                            key={employee.employee_id}
+                            className="hover:bg-slate-50/80 transition-colors"
+                          >
+                            <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-slate-900">
+                              {employee.employee_id}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm text-slate-700">
+                              {employee.first_name} {employee.last_name}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm text-slate-600">
+                              {employee.email}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm text-slate-600">
+                              {employee.phone}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm text-slate-600">
+                              {employee.position}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm text-slate-600">
+                              {employee.department}
+                            </td>
+                            <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
+                              <button
+                                onClick={() => handleEdit(employee)}
+                                className="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 mr-3"
+                              >
+                                <Edit size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(employee.employee_id)}
+                                className="inline-flex items-center justify-center text-red-600 hover:text-red-800 disabled:opacity-60"
+                                disabled={isDeleting}
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan="7"
+                            className="px-6 py-6 text-center text-sm text-slate-500"
+                          >
+                            No employees found.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                          No employees found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </main>
       </div>
       
       {/* Edit Employee Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg">
-            <div className="flex justify-between items-center border-b p-4">
-              <h3 className="text-lg font-medium">Edit Employee</h3>
-              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-500">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl border border-slate-200">
+            <div className="flex justify-between items-center border-b border-slate-200 px-5 py-4">
+              <div>
+                <h3 className="text-base md:text-lg font-semibold tracking-tight">
+                  Edit Employee
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Update employee details or change credentials.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
             
-            <form onSubmit={handleUpdate} className="p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+            <form onSubmit={handleUpdate} className="px-5 py-4 md:py-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    First Name
+                  </label>
                   <input
                     type="text"
                     name="first_name"
                     value={formData.first_name}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded ${formErrors.first_name ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                      formErrors.first_name ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
-                  {formErrors.first_name && <p className="mt-1 text-sm text-red-500">{formErrors.first_name}</p>}
+                  {formErrors.first_name && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {formErrors.first_name}
+                    </p>
+                  )}
                 </div>
                 
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Last Name
+                  </label>
                   <input
                     type="text"
                     name="last_name"
                     value={formData.last_name}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded ${formErrors.last_name ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                      formErrors.last_name ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
-                  {formErrors.last_name && <p className="mt-1 text-sm text-red-500">{formErrors.last_name}</p>}
+                  {formErrors.last_name && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {formErrors.last_name}
+                    </p>
+                  )}
                 </div>
                 
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Phone
+                  </label>
                   <input
                     type="text"
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500/60"
                   />
                 </div>
                 
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Position
+                  </label>
                   <input
                     type="text"
                     name="position"
                     value={formData.position}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded ${formErrors.position ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                      formErrors.position ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
-                  {formErrors.position && <p className="mt-1 text-sm text-red-500">{formErrors.position}</p>}
+                  {formErrors.position && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {formErrors.position}
+                    </p>
+                  )}
                 </div>
                 
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Department
+                  </label>
                   <select
                     name="department"
                     value={formData.department}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded ${formErrors.department ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                      formErrors.department ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   >
                     <option value="">Select Department</option>
                     <option value="BLPO">Business And Licensing Office</option>
                     <option value="MDO">Municipal Planning and Development Office</option>
                     <option value="MHO">Municipal Health Office</option>
-                    
                   </select>
-                  {formErrors.department && <p className="mt-1 text-sm text-red-500">{formErrors.department}</p>}
+                  {formErrors.department && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {formErrors.department}
+                    </p>
+                  )}
                 </div>
                 
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Email
+                  </label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded ${formErrors.email ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                      formErrors.email ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
-                  {formErrors.email && <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>}
+                  {formErrors.email && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {formErrors.email}
+                    </p>
+                  )}
                 </div>
                 
-                <div className="col-span-2">
-                  <div className="border-t border-gray-200 my-4"></div>
-                  <p className="text-sm text-gray-600 mb-2">Change Password (leave blank to keep current password)</p>
+                <div className="md:col-span-2">
+                  <div className="border-t border-slate-200 my-3"></div>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Change Password <span className="text-slate-400">(leave blank to keep current password)</span>
+                  </p>
                 </div>
                 
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    New Password
+                  </label>
                   <input
                     type="password"
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded ${formErrors.password ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                      formErrors.password ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
-                  {formErrors.password && <p className="mt-1 text-sm text-red-500">{formErrors.password}</p>}
+                  {formErrors.password && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {formErrors.password}
+                    </p>
+                  )}
                 </div>
                 
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Confirm Password
+                  </label>
                   <input
                     type="password"
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
-                    className={`w-full p-2 border rounded ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                      formErrors.confirmPassword ? 'border-red-500' : 'border-slate-300'
+                    }`}
                   />
-                  {formErrors.confirmPassword && <p className="mt-1 text-sm text-red-500">{formErrors.confirmPassword}</p>}
+                  {formErrors.confirmPassword && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {formErrors.confirmPassword}
+                    </p>
+                  )}
                 </div>
               </div>
               
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="mr-3 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  className="px-4 py-2 rounded-full border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
+                  className="px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors inline-flex items-center"
                   disabled={isLoading}
                 >
                   {isLoading ? (

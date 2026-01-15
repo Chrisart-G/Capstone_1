@@ -70,17 +70,14 @@ export default function AddEmployeeForm() {
     
     if (Object.keys(newErrors).length === 0) {
       try {
-        // Send form data directly - matches the controller's expected structure
-        const response = await axios.post(
+        await axios.post(
           `${API_BASE_URL}/api/addemployee`, 
           formData,
           { withCredentials: true }
         );
         
-        // Handle success
         setIsSuccess(true);
         
-        // Reset form after successful submission
         setFormData({
           email: '',
           password: '',
@@ -92,7 +89,6 @@ export default function AddEmployeeForm() {
           startDate: '',
         });
         
-        // Hide success message after 3 seconds
         setTimeout(() => setIsSuccess(false), 3000);
         
       } catch (error) {
@@ -116,8 +112,6 @@ export default function AddEmployeeForm() {
       await axios.post(`${API_BASE_URL}/api/logout`, {}, { 
         withCredentials: true 
       });
-      
-      // Redirect to login page
       navigate('/');
     } catch (error) {
       console.error("Logout error:", error);
@@ -127,11 +121,13 @@ export default function AddEmployeeForm() {
     }
   };
   
-  // Rest of the component remains the same
-  // ...
-  
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div
+      className="flex min-h-screen bg-white text-slate-900 overflow-x-hidden"
+      style={{
+        fontFamily: 'Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      }}
+    >
       {/* Sidebar */}
       <AdminSidebar 
         handleLogout={handleLogout}
@@ -139,206 +135,275 @@ export default function AddEmployeeForm() {
       />
       
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
-        <header className="bg-white shadow">
-          <div className="p-4 flex justify-between items-center">
-            <h1 className="text-xl font-semibold">Add New Employee</h1>
-            <div className="flex items-center">
-              <div className="relative mr-4">
-                <Bell size={20} className="cursor-pointer" />
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">5</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-gray-300 rounded-full mr-2"></div>
-                <span>{userEmail || 'Admin User'}</span>
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-white/90 border-b border-slate-200 backdrop-blur sticky top-0 z-10">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+            <div>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight">
+                Add New Employee
+              </h1>
+              <p className="text-[11px] sm:text-xs md:text-sm text-slate-500 mt-1">
+                Create a new employee account and assign them to a department.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 sm:gap-4">
+              {/* Notification icon */}
+              <button className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors">
+                <Bell size={16} className="text-slate-500 sm:size-[18px]" />
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-[9px] w-4 h-4 flex items-center justify-center">
+                  5
+                </span>
+              </button>
+
+              {/* User info */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-200 flex items-center justify-center text-[11px] sm:text-xs font-semibold text-slate-700">
+                  {userEmail ? userEmail.charAt(0).toUpperCase() : 'A'}
+                </div>
+                <div className="hidden sm:block text-right">
+                  <p className="text-xs sm:text-sm font-medium leading-tight">
+                    {userEmail || 'Admin User'}
+                  </p>
+                  <p className="text-[11px] text-slate-400 leading-tight">
+                    System Administrator
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </header>
         
-        <main className="p-6">
-          <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Add New Employee</h2>
-            
-            {isSuccess && (
-              <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-                Employee added successfully!
+        {/* Form Content */}
+        <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-4 py-5 sm:px-6 sm:py-6 md:px-8 md:py-7">
+              <div className="mb-4 sm:mb-5">
+                <h2 className="text-base sm:text-lg md:text-xl font-semibold tracking-tight">
+                  Employee Details
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  Fill in the required information to register a new employee.
+                </p>
               </div>
-            )}
-            
-            {isError && (
-              <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                {errorMessage}
-              </div>
-            )}
-            
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Email */}
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2" htmlFor="email">
-                    Email Address*
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      errors.email ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
-                    }`}
-                  />
-                  {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+
+              {isSuccess && (
+                <div className="mb-4 sm:mb-5 p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-xs sm:text-sm text-emerald-700">
+                  Employee added successfully!
                 </div>
-                
-                {/* Password */}
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2" htmlFor="password">
-                    Password*
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      errors.password ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
-                    }`}
-                  />
-                  {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
-                </div>
-                
-                {/* Remaining form fields stay the same */}
-                {/* ... */}
-                {/* First Name */}
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2" htmlFor="firstName">
-                    First Name*
-                  </label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      errors.firstName ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
-                    }`}
-                  />
-                  {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
-                </div>
-                
-                {/* Last Name */}
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2" htmlFor="lastName">
-                    Last Name*
-                  </label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      errors.lastName ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
-                    }`}
-                  />
-                  {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
-                </div>
-                
-                {/* Phone */}
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2" htmlFor="phone">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  />
-                </div>
-                
-                {/* Position */}
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2" htmlFor="position">
-                    Position*
-                  </label>
-                  <input
-                    type="text"
-                    id="position"
-                    name="position"
-                    value={formData.position}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      errors.position ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
-                    }`}
-                  />
-                  {errors.position && <p className="text-red-500 text-sm mt-1">{errors.position}</p>}
-                </div>
-                
-                {/* Department */}
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2" htmlFor="department">
-                    Department*
-                  </label>
-                  <select
-                    id="department"
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      errors.department ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
-                    }`}
-                  >
-                    <option value="">Select Department</option>
-                    <option value="BLPO">Business And Licensing Office</option>
-                    <option value="MPDO">Municipal Planning and Development Office</option>
-                    <option value="HMO">Municipal Health Office</option>
-                  </select>
-                  {errors.department && <p className="text-red-500 text-sm mt-1">{errors.department}</p>}
-                </div>
-                
-                {/* Start Date */}
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2" htmlFor="startDate">
-                    Start Date*
-                  </label>
-                  <input
-                    type="date"
-                    id="startDate"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                      errors.startDate ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-200'
-                    }`}
-                  />
-                  {errors.startDate && <p className="text-red-500 text-sm mt-1">{errors.startDate}</p>}
-                </div>
-              </div>
+              )}
               
-              <div className="mt-8 flex justify-end">
-                <button
-                  type="button"
-                  className="px-6 py-2 mr-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  onClick={() => navigate('/admin/employees')}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:bg-blue-300"
-                >
-                  {isSubmitting ? 'Adding...' : 'Add Employee'}
-                </button>
-              </div>
-            </form>
+              {isError && (
+                <div className="mb-4 sm:mb-5 p-3 rounded-xl border border-red-200 bg-red-50 text-xs sm:text-sm text-red-700">
+                  {errorMessage}
+                </div>
+              )}
+              
+              <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                  {/* Email */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="email"
+                    >
+                      Email Address<span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                        errors.email ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    {errors.email && (
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.email}</p>
+                    )}
+                  </div>
+                  
+                  {/* Password */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="password"
+                    >
+                      Password<span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      id="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                        errors.password ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    {errors.password && (
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.password}</p>
+                    )}
+                  </div>
+                  
+                  {/* First Name */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="firstName"
+                    >
+                      First Name<span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="firstName"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                        errors.firstName ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    {errors.firstName && (
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.firstName}</p>
+                    )}
+                  </div>
+                  
+                  {/* Last Name */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="lastName"
+                    >
+                      Last Name<span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                        errors.lastName ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    {errors.lastName && (
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.lastName}</p>
+                    )}
+                  </div>
+                  
+                  {/* Phone */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="phone"
+                    >
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500/60"
+                    />
+                  </div>
+                  
+                  {/* Position */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="position"
+                    >
+                      Position<span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="position"
+                      name="position"
+                      value={formData.position}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                        errors.position ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    {errors.position && (
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.position}</p>
+                    )}
+                  </div>
+                  
+                  {/* Department */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="department"
+                    >
+                      Department<span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="department"
+                      name="department"
+                      value={formData.department}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                        errors.department ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    >
+                      <option value="">Select Department</option>
+                      <option value="BLPO">Business And Licensing Office</option>
+                      <option value="MPDO">Municipal Planning and Development Office</option>
+                      <option value="HMO">Municipal Health Office</option>
+                    </select>
+                    {errors.department && (
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.department}</p>
+                    )}
+                  </div>
+                  
+                  {/* Start Date */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="startDate"
+                    >
+                      Start Date<span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      id="startDate"
+                      name="startDate"
+                      value={formData.startDate}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                        errors.startDate ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    {errors.startDate && (
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.startDate}</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="pt-2 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    className="w-full sm:w-auto px-4 sm:px-5 py-2 rounded-full border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                    onClick={() => navigate('/admin/employees')}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full sm:w-auto px-4 sm:px-5 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:bg-blue-300"
+                  >
+                    {isSubmitting ? 'Adding...' : 'Add Employee'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </main>
       </div>
