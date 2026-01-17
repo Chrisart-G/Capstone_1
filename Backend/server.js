@@ -192,6 +192,10 @@ app.use((err, req, res, next) => {
 });
 const employeeArchiveRoutes = require("./routes/employeeArchiveRoutes");
 app.use("/api", employeeArchiveRoutes);
+const adminnotifRoutes = require('./routes/adminnotifRoutes');
+app.use('/api', adminnotifRoutes);
+const chomeRoutes = require('./routes/chomeRoutes');
+app.use('/api', chomeRoutes);
 /* ===================== START HTTP SERVER WITH LONGER TIMEOUTS ===================== */
 const PORT = process.env.PORT || 8081;
 const server = http.createServer(app);

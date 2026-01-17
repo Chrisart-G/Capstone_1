@@ -19,7 +19,10 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
 
   const employeesActive = isAnyPathActive(['/viewemploy', '/addemploy']);
   const officesActive = isAnyPathActive(['/AddOffice', '/ManageOffice']);
-  const notificationsActive = isAnyPathActive(['/', '/AdminDocumentRequirments']);
+  const notificationsActive = isAnyPathActive([
+  '/AdminNotifications',
+  '/AdminCreateAnnouncement',
+]);
   const requirmentsActive = isAnyPathActive([
     '/AdminDocumentRequirments',
     '/Documentprice',
@@ -170,40 +173,40 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
 
           {/* Notifications Section */}
           <div className="mt-0.5 sm:mt-1">
-            <div
-              className={sectionHeaderClasses(notificationsActive)}
-              onClick={() => toggleExpand('notifications')}
-            >
-              <div className="flex items-center gap-2">
-                <Bell size={16} className="sm:size-[18px] text-slate-300" />
-                <span className="font-medium truncate">Notifications</span>
-              </div>
-              {expanded.notifications ? (
-                <ChevronDown size={14} className="text-slate-400" />
-              ) : (
-                <ChevronRight size={14} className="text-slate-400" />
-              )}
-            </div>
+  <div
+    className={sectionHeaderClasses(notificationsActive)}
+    onClick={() => toggleExpand('notifications')}
+  >
+    <div className="flex items-center gap-2">
+      <Bell size={16} className="sm:size-[18px] text-slate-300" />
+      <span className="font-medium truncate">Notifications</span>
+    </div>
+    {expanded.notifications ? (
+      <ChevronDown size={14} className="text-slate-400" />
+    ) : (
+      <ChevronRight size={14} className="text-slate-400" />
+    )}
+  </div>
 
-            {expanded.notifications && (
-              <div className="mt-1 ml-4 sm:ml-6 space-y-1 border-l border-slate-700/60 pl-2 sm:pl-3">
-                <a href="/" className="block">
-                  <div className={subItemClasses(isPathActive('/'))}>
-                    <span>All Notifications</span>
-                  </div>
-                </a>
-                <a href="/AdminDocumentRequirments" className="block">
-                  <div
-                    className={subItemClasses(
-                      isPathActive('/AdminDocumentRequirments')
-                    )}
-                  >
-                    <span>Create Announcement</span>
-                  </div>
-                </a>
-              </div>
-            )}
-          </div>
+  {expanded.notifications && (
+    <div className="mt-1 ml-4 sm:ml-6 space-y-1 border-l border-slate-700/60 pl-2 sm:pl-3">
+      <Link to="/AdminNotifications" className="block">
+        <div className={subItemClasses(isPathActive('/AdminNotifications'))}>
+          <span>All Notifications</span>
+        </div>
+      </Link>
+      <Link to="/AdminCreateAnnouncement" className="block">
+        <div
+          className={subItemClasses(
+            isPathActive('/AdminCreateAnnouncement')
+          )}
+        >
+          <span>Create Announcement</span>
+        </div>
+      </Link>
+    </div>
+  )}
+</div>
 
           {/* Document Requirements Section */}
           <div className="mt-0.5 sm:mt-1">

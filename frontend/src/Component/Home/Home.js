@@ -12,6 +12,11 @@ const MunicipalLandingPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  // 🔹 NEW: announcements as an array
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementLoading, setAnnouncementLoading] = useState(true);
+  const [announcementError, setAnnouncementError] = useState("");
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -35,6 +40,36 @@ const MunicipalLandingPage = () => {
 
     checkAuth();
   }, [navigate]);
+
+  // 🔹 Fetch ALL latest announcements once user is authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchAnnouncement = async () => {
+      try {
+        setAnnouncementLoading(true);
+        setAnnouncementError("");
+
+        const res = await axios.get(`${API_BASE_URL}/api/home-announcement`, {
+          withCredentials: true,
+        });
+
+        if (res.data && res.data.success && Array.isArray(res.data.announcements)) {
+          setAnnouncements(res.data.announcements);
+        } else {
+          setAnnouncements([]);
+        }
+      } catch (err) {
+        console.error("Error loading announcement:", err);
+        setAnnouncementError("Failed to load latest announcements.");
+        setAnnouncements([]);
+      } finally {
+        setAnnouncementLoading(false);
+      }
+    };
+
+    fetchAnnouncement();
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -106,23 +141,54 @@ const MunicipalLandingPage = () => {
               </p>
             </div>
 
+            {announcementError && (
+              <p className="mb-3 text-xs text-red-500 text-center">
+                {announcementError}
+              </p>
+            )}
+
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
               <div className="border-l-4 border-blue-600 px-5 py-4 md:px-6 md:py-5 bg-gradient-to-r from-blue-50 to-white">
-                <h3 className="text-base md:text-lg font-semibold text-slate-900">
-                  Document Processing Schedule
-                </h3>
-                <span className="text-[11px] md:text-xs text-slate-500">
-                  Posted: May 1, 2025
-                </span>
-                <p className="mt-2 text-sm md:text-[13px] text-slate-700 leading-relaxed">
-                  The Municipal Office processes online document requests from{" "}
-                  <span className="font-semibold text-slate-900">
-                    7:00 AM to 5:00 PM
-                  </span>
-                  , Monday to Friday. While our system accepts submissions 24/7,
-                  requests submitted after office hours will be processed on the
-                  next business day.
-                </p>
+                {announcementLoading ? (
+                  // 🔹 Skeleton while loading
+                  <>
+                    <div className="h-4 w-40 bg-slate-200 rounded animate-pulse mb-2" />
+                    <div className="h-3 w-24 bg-slate-100 rounded animate-pulse mb-3" />
+                    <div className="h-3 w-full bg-slate-100 rounded animate-pulse mb-1" />
+                    <div className="h-3 w-5/6 bg-slate-100 rounded animate-pulse" />
+                  </>
+                ) : announcements.length > 0 ? (
+                  // 🔹 Render ALL announcements
+                  <div className="space-y-5">
+                    {announcements.map((item) => (
+                      <div
+                        key={item.id}
+                        className="border border-slate-200/60 rounded-xl bg-white/70 px-4 py-3 shadow-sm"
+                      >
+                        <h3 className="text-base md:text-lg font-semibold text-slate-900">
+                          {item.title}
+                        </h3>
+                        <span className="text-[11px] md:text-xs text-slate-500">
+                          Posted: {item.postedAt}
+                        </span>
+                        <p className="mt-2 text-sm md:text-[13px] text-slate-700 leading-relaxed">
+                          {item.body}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  // 🔹 No active announcement
+                  <>
+                    <h3 className="text-base md:text-lg font-semibold text-slate-900">
+                      No Active Announcements
+                    </h3>
+                    <p className="mt-2 text-sm md:text-[13px] text-slate-600 leading-relaxed">
+                      There are currently no municipal announcements. Please
+                      check back later.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>

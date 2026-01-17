@@ -678,3 +678,159 @@ exports.moveCedulaToReadyForPickup = (req, res) => {
     await sendCedulaStatusSms(cedulaId, 'ready-for-pickup', schedule || null);
   });
 };
+// ======================= CEDULA DRAFTS (NEW) =======================
+exports.saveCedulaDraft = async (req, res) => {
+  try {
+    if (!req.session?.user?.user_id) {
+      return res.status(401).json({ success: false, message: "Unauthorized. Please log in." });
+    }
+
+    const userId = req.session.user.user_id;
+    const payload = req.body || {};
+
+    // Simple validation: we at least need name & address (auto-filled) to tie to user
+    if (!payload || typeof payload !== 'object') {
+      return res.status(400).json({ success: false, message: "Invalid draft payload." });
+    }
+
+    // Check if user already has a draft
+    const selectSql = `SELECT id FROM tbl_cedula_drafts WHERE user_id = ? LIMIT 1`;
+
+    db.query(selectSql, [userId], (selectErr, rows) => {
+      if (selectErr) {
+        console.error("Cedula draft select failed:", selectErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to save cedula draft (select error).",
+          error: selectErr.message,
+        });
+      }
+
+      const jsonData = JSON.stringify(payload);
+
+      if (rows && rows.length > 0) {
+        // Update existing draft
+        const draftId = rows[0].id;
+        const updateSql = `
+          UPDATE tbl_cedula_drafts
+          SET data = ?, updated_at = NOW()
+          WHERE id = ?
+        `;
+
+        db.query(updateSql, [jsonData, draftId], (updateErr) => {
+          if (updateErr) {
+            console.error("Cedula draft update failed:", updateErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to update cedula draft.",
+              error: updateErr.message,
+            });
+          }
+
+          return res.status(200).json({
+            success: true,
+            message: "Cedula draft updated successfully.",
+            draftId,
+          });
+        });
+      } else {
+        // Insert new draft
+        const insertSql = `
+          INSERT INTO tbl_cedula_drafts (user_id, data)
+          VALUES (?, ?)
+        `;
+
+        db.query(insertSql, [userId, jsonData], (insertErr, result) => {
+          if (insertErr) {
+            console.error("Cedula draft insert failed:", insertErr);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to save cedula draft.",
+              error: insertErr.message,
+            });
+          }
+
+          return res.status(201).json({
+            success: true,
+            message: "Cedula draft saved successfully.",
+            draftId: result.insertId,
+          });
+        });
+      }
+    });
+  } catch (err) {
+    console.error("Unexpected error saving cedula draft:", err);
+    res.status(500).json({
+      success: false,
+      message: "Unexpected server error while saving cedula draft.",
+      error: err.message,
+    });
+  }
+};
+
+// ======================= GET CEDULA DRAFT (NEW) =======================
+exports.getCedulaDraft = (req, res) => {
+  try {
+    if (!req.session?.user?.user_id) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Unauthorized. Please log in." });
+    }
+
+    const userId = req.session.user.user_id;
+
+    const sql = `
+      SELECT id, data, updated_at
+      FROM tbl_cedula_drafts
+      WHERE user_id = ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `;
+
+    db.query(sql, [userId], (err, rows) => {
+      if (err) {
+        console.error("Cedula draft fetch failed:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to load cedula draft.",
+          error: err.message,
+        });
+      }
+
+      if (!rows || rows.length === 0) {
+        // No draft yet – not an error
+        return res.status(200).json({
+          success: false,
+          message: "No draft found.",
+        });
+      }
+
+      const row = rows[0];
+      let draftPayload = null;
+
+      try {
+        draftPayload = JSON.parse(row.data);
+      } catch (parseErr) {
+        console.error("Failed to parse cedula draft JSON:", parseErr);
+        return res.status(500).json({
+          success: false,
+          message: "Draft data is corrupted.",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        draft: draftPayload,
+        draftId: row.id,
+        updatedAt: row.updated_at,
+      });
+    });
+  } catch (err) {
+    console.error("Unexpected error loading cedula draft:", err);
+    res.status(500).json({
+      success: false,
+      message: "Unexpected server error while loading cedula draft.",
+      error: err.message,
+    });
+  }
+};

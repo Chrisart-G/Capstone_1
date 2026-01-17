@@ -10,6 +10,9 @@ router.put('/cedula/move-to-requirements-completed', CedulaController.moveCedula
 router.put('/cedula/move-to-inprogress', CedulaController.moveCedulaToInProgress);
 router.put('/cedula/move-to-approved', CedulaController.moveCedulaToApproved);
 router.put('/cedula/set-pickup', CedulaController.moveCedulaToReadyForPickup);
+//for drafts
+router.post('/cedula/draft', isAuthenticated, CedulaController.saveCedulaDraft);
+router.get('/cedula/draft', isAuthenticated, CedulaController.getCedulaDraft);
 
 // User Cedula routes
 router.post('/cedula', isAuthenticated, CedulaController.submitCedula);

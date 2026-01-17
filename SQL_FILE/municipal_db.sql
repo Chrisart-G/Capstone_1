@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jan 14, 2026 at 09:32 AM
+-- Generation Time: Jan 17, 2026 at 04:13 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -99,7 +99,8 @@ INSERT INTO `application_comments` (`id`, `app_uid`, `application_type`, `applic
 (0, '52', 'fencing', 14, 'rejected', 'Application cancelled by the applicant. The applicant acknowledges that any payments and processing expenses already incurred are NON-REFUNDABLE in accordance with the municipal terms and conditions.', 52, 'user', '2026-01-12 01:44:20'),
 (0, '52', 'fencing', 15, 'rejected', 'Application cancelled by the applicant. The applicant acknowledges that any payments and processing expenses already incurred are NON-REFUNDABLE in accordance with the municipal terms and conditions.', 52, 'user', '2026-01-12 01:45:42'),
 (0, '52', 'electrical', 51, 'rejected', 'Application cancelled by the applicant. The applicant acknowledges that any payments and processing expenses already incurred are NON-REFUNDABLE in accordance with the municipal terms and conditions.', 52, 'user', '2026-01-12 01:46:03'),
-(0, '60', 'electrical', 53, 'requirements-completed', 'test232', 29, 'user', '2026-01-12 17:05:09');
+(0, '60', 'electrical', 53, 'requirements-completed', 'test232', 29, 'user', '2026-01-12 17:05:09'),
+(0, '52', 'cedula', 29, 'rejected', 'Application cancelled by the applicant. The applicant acknowledges that any payments and processing expenses already incurred are NON-REFUNDABLE in accordance with the municipal terms and conditions.', 52, 'user', '2026-01-16 01:03:20');
 
 -- --------------------------------------------------------
 
@@ -527,7 +528,7 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`session_id`, `expires`, `data`) VALUES
-('PKbqznCCkF7b-8R6FCwfX4F095uOmYDm', 1768457283, '{\"cookie\":{\"originalMaxAge\":86400000,\"expires\":\"2026-01-14T19:52:54.650Z\",\"secure\":false,\"httpOnly\":true,\"path\":\"/\",\"sameSite\":\"lax\"},\"user\":{\"user_id\":79,\"email\":\"kawatanka@gmail.com\",\"role\":\"citizen\"}}');
+('JZukM_kErzqmY1XBsS0QkdrwdbZK5llA', 1768706007, '{\"cookie\":{\"originalMaxAge\":86400000,\"expires\":\"2026-01-18T02:54:17.561Z\",\"secure\":false,\"httpOnly\":true,\"path\":\"/\",\"sameSite\":\"lax\"},\"user\":{\"user_id\":29,\"email\":\"user@gmail.com\",\"role\":\"citizen\"}}');
 
 -- --------------------------------------------------------
 
@@ -547,6 +548,47 @@ CREATE TABLE `system_settings` (
 
 INSERT INTO `system_settings` (`k`, `v`, `updated_at`) VALUES
 ('sms_enabled', 'false', '2026-01-12 18:15:28');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_admin_notifications`
+--
+
+CREATE TABLE `tbl_admin_notifications` (
+  `id` int(11) NOT NULL,
+  `type` varchar(50) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text DEFAULT NULL,
+  `employee_id` int(11) DEFAULT NULL,
+  `status` enum('unread','read','resolved') DEFAULT 'unread',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `read_at` timestamp NULL DEFAULT NULL,
+  `resolved_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_announcements`
+--
+
+CREATE TABLE `tbl_announcements` (
+  `id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `body` text NOT NULL,
+  `is_published` tinyint(1) NOT NULL DEFAULT 1,
+  `posted_by` int(11) DEFAULT NULL,
+  `posted_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_announcements`
+--
+
+INSERT INTO `tbl_announcements` (`id`, `title`, `body`, `is_published`, `posted_by`, `posted_at`, `updated_at`) VALUES
+(3, 'Debitis et voluptates tempore dolorem accusantium rerum', 'Quia et perferendis ', 1, 5, '2026-01-15 18:36:50', '2026-01-15 18:36:50');
 
 -- --------------------------------------------------------
 
@@ -720,7 +762,30 @@ CREATE TABLE `tbl_cedula` (
 INSERT INTO `tbl_cedula` (`id`, `name`, `address`, `place_of_birth`, `date_of_birth`, `profession`, `yearly_income`, `purpose`, `sex`, `status`, `tin`, `user_id`, `created_at`, `updated_at`, `application_status`, `pickup_schedule`, `pickup_file_path`) VALUES
 (25, 'Chris Pa Ge', 'murcia', 'murcia city', '2001-10-05', 'student', 100.00, 'Et at nisi voluptate', 'male', 'single', 'Et repudiandae vel f', 35, '2025-11-24 17:09:34', '2025-12-13 02:31:20', 'rejected', '2025-11-29 04:27:00', NULL),
 (27, 'lenuel t betita', 'test', 'Ut doloribus accusan', '1996-06-13', 'Aut nostrum consecte', 972.00, 'Consectetur libero ', 'male', 'single', 'Fugiat minus suscipi', 48, '2025-12-13 07:04:48', '2026-01-09 15:28:23', 'in-review', NULL, NULL),
-(28, 'Chris Pa Ge', 'murcia', 'Odio quisquam eum si', '1985-04-13', 'Do a aliquam dolore ', 336.00, 'Quis nobis in dolore', 'male', 'widowed', 'Ipsum nisi mollitia', 35, '2026-01-05 03:55:47', '2026-01-09 15:28:27', 'pickup-document', '2026-01-09 22:28:00', NULL);
+(28, 'Chris Pa Ge', 'murcia', 'Odio quisquam eum si', '1985-04-13', 'Do a aliquam dolore ', 336.00, 'Quis nobis in dolore', 'male', 'widowed', 'Ipsum nisi mollitia', 35, '2026-01-05 03:55:47', '2026-01-09 15:28:27', 'pickup-document', '2026-01-09 22:28:00', NULL),
+(29, 'Chris Art P Getida', 'brgy 2 hinigaran', 'Quis deserunt placea', '1980-04-05', 'Corrupti sapiente i', 386.00, 'Minim nesciunt dolo', 'male', 'married', 'Commodi facilis reru', 52, '2026-01-15 16:49:42', '2026-01-15 17:03:20', 'rejected', NULL, NULL),
+(30, 'Chris Art P Getida', 'brgy 2 hinigaran', 'Quis deserunt placea', '1980-04-05', 'Corrupti sapiente i', 386.00, 'Minim nesciunt dolo', 'male', 'married', 'Commodi facilis reru', 52, '2026-01-15 17:03:36', '2026-01-15 17:03:36', 'pending', NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_cedula_drafts`
+--
+
+CREATE TABLE `tbl_cedula_drafts` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`data`)),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tbl_cedula_drafts`
+--
+
+INSERT INTO `tbl_cedula_drafts` (`id`, `user_id`, `data`, `created_at`, `updated_at`) VALUES
+(1, 52, '{\"name\":\"Chris Art P Getida\",\"address\":\"brgy 2 hinigaran\",\"placeOfBirth\":\"Quis deserunt placea\",\"dateOfBirth\":\"1980-04-05\",\"profession\":\"Corrupti sapiente i\",\"yearlyIncome\":\"386\",\"purpose\":\"Minim nesciunt dolo\",\"sex\":\"male\",\"status\":\"married\",\"tin\":\"Commodi facilis reru\"}', '2026-01-15 16:41:42', '2026-01-15 16:47:58');
 
 -- --------------------------------------------------------
 
@@ -1285,7 +1350,7 @@ CREATE TABLE `tbl_user_nav_seen` (
 --
 
 INSERT INTO `tbl_user_nav_seen` (`user_id`, `last_seen_request_doc_at`, `last_seen_track_status_at`, `created_at`, `updated_at`) VALUES
-(29, '2026-01-12 23:41:50', '2026-01-12 22:25:16', '2025-10-21 00:28:57', '2026-01-12 23:41:50'),
+(29, '2026-01-17 11:08:11', '2026-01-17 11:08:10', '2025-10-21 00:28:57', '2026-01-17 11:08:11'),
 (31, '2025-11-21 16:02:11', '2025-11-21 16:02:12', '2025-10-21 00:29:06', '2025-11-21 16:02:12'),
 (32, '2025-10-28 00:07:31', '2025-10-27 23:19:57', '2025-10-23 02:04:33', '2025-10-28 00:07:31'),
 (33, '2025-10-27 22:58:53', '2025-10-27 22:59:24', '2025-10-27 22:58:51', '2025-10-27 22:59:24'),
@@ -1295,7 +1360,7 @@ INSERT INTO `tbl_user_nav_seen` (`user_id`, `last_seen_request_doc_at`, `last_se
 (44, '2025-12-13 17:33:00', '2025-12-13 17:26:25', '2025-12-04 03:47:52', '2025-12-13 17:33:00'),
 (45, '2025-12-13 11:54:44', '2025-12-13 12:02:42', '2025-12-13 11:54:44', '2025-12-13 12:02:42'),
 (48, '2025-12-13 15:13:59', '2025-12-13 15:11:42', '2025-12-13 14:35:48', '2025-12-13 15:13:59'),
-(52, '2026-01-13 10:26:16', '2026-01-13 09:32:36', '2026-01-09 21:44:02', '2026-01-13 10:26:16'),
+(52, '2026-01-16 00:41:51', '2026-01-16 00:49:45', '2026-01-09 21:44:02', '2026-01-16 00:49:45'),
 (53, '2026-01-12 22:55:03', '2026-01-12 23:01:27', '2026-01-12 22:54:47', '2026-01-12 23:01:27'),
 (54, '2026-01-12 23:05:45', '2026-01-12 23:05:46', '2026-01-12 23:05:43', '2026-01-12 23:05:46'),
 (79, '2026-01-14 12:26:41', '2026-01-14 12:26:30', '2026-01-14 03:44:29', '2026-01-14 12:26:41');
@@ -1447,6 +1512,22 @@ ALTER TABLE `system_settings`
   ADD PRIMARY KEY (`k`);
 
 --
+-- Indexes for table `tbl_admin_notifications`
+--
+ALTER TABLE `tbl_admin_notifications`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_admin_notifications_status` (`status`),
+  ADD KEY `idx_admin_notifications_employee` (`employee_id`);
+
+--
+-- Indexes for table `tbl_announcements`
+--
+ALTER TABLE `tbl_announcements`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_announcements_published` (`is_published`),
+  ADD KEY `idx_announcements_posted_at` (`posted_at`);
+
+--
 -- Indexes for table `tbl_application_requirements`
 --
 ALTER TABLE `tbl_application_requirements`
@@ -1473,6 +1554,13 @@ ALTER TABLE `tbl_building_permits`
 ALTER TABLE `tbl_cedula`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_user_id` (`user_id`);
+
+--
+-- Indexes for table `tbl_cedula_drafts`
+--
+ALTER TABLE `tbl_cedula_drafts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_cedula_drafts_user` (`user_id`);
 
 --
 -- Indexes for table `tbl_document_prices`
@@ -1686,6 +1774,18 @@ ALTER TABLE `electronics_form_submissions`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=71;
 
 --
+-- AUTO_INCREMENT for table `tbl_admin_notifications`
+--
+ALTER TABLE `tbl_admin_notifications`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `tbl_announcements`
+--
+ALTER TABLE `tbl_announcements`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
 -- AUTO_INCREMENT for table `tbl_application_requirements`
 --
 ALTER TABLE `tbl_application_requirements`
@@ -1701,7 +1801,13 @@ ALTER TABLE `tbl_building_permits`
 -- AUTO_INCREMENT for table `tbl_cedula`
 --
 ALTER TABLE `tbl_cedula`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+
+--
+-- AUTO_INCREMENT for table `tbl_cedula_drafts`
+--
+ALTER TABLE `tbl_cedula_drafts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `tbl_document_prices`

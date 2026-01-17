@@ -31,6 +31,8 @@ import DocumentRequirementsManager from './Component/Admindocumentrequirments/ad
 import RenewalBusinessPermitForm from './Component/Form/RenewalBusinessPermit/renewalbusinesspermit';
 import Paymentverification from './Component/Employeedashboard/employeepaymentverification';
 import Documentprice from './Component/admindocuprice/admindocumentprice'
+import AdminNotifications from './Component/AdminDashboard/AdminNotifications';
+import AdminCreateAnnouncement from './Component/AdminDashboard/AdminCreateAnnouncement';
 function App() {
   return (
     <div className="App">
@@ -189,6 +191,16 @@ function App() {
              <Route path="/Achrive" element={
             <ProtectedRoute>
               <EmployeeArchivesDashboard />
+            </ProtectedRoute>
+             } />
+             <Route path="/AdminNotifications" element={
+            <ProtectedRoute>
+              <AdminNotifications />
+            </ProtectedRoute>
+             } />
+             <Route path="/AdminCreateAnnouncement" element={
+            <ProtectedRoute>
+              <AdminCreateAnnouncement />
             </ProtectedRoute>
              } />
           
