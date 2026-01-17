@@ -22,7 +22,7 @@ import CedulaPermitForm from './Component/Form/Cedulapermit/cedulapermit';
 import FencingPermitForm from './Component/Form/Fencingpermit/fencingpermit';
 import MunicipalUserProfileDashboard from './Component/Userprofile/userprofile';
 import Usersettings from './Component/Usersettings/usersettings';
-import EmployeeProfileDashboard from './Component/Employeeprofile/employeeprofile';
+import EmployeeProfileSettings from './Component/Employeedashboard/EmployeeProfileSettings';
 import EmployeeHistoryDashboard from './Component/Employeedashboard/employeehistory';
 import ElectronicsPermitForm from './Component/Form/Electronicspermit/electronicspermit';
 import BuildingPermitForm from './Component/Form/Buildingpermit/buildingpermit';
@@ -127,7 +127,7 @@ function App() {
 
           <Route path="/Employeeprofile" element={
             <ProtectedRoute>
-              <EmployeeProfileDashboard />
+              <EmployeeProfileSettings />
             </ProtectedRoute>
           } />
 

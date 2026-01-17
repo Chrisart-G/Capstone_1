@@ -1,16 +1,15 @@
 // components/Sidebar.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FileText,
   CheckSquare,
   Clock,
   Archive,
-  Settings,
   LogOut,
   User,
 } from "lucide-react";
 
-/** Small red dot indicator */
 const Dot = ({ show }) =>
   show ? (
     <span
@@ -20,18 +19,10 @@ const Dot = ({ show }) =>
     />
   ) : null;
 
-/**
- * Employee Sidebar (frontend)
- * - Fetches /api/employee/sidebar/badges with credentials (cookies)
- * - Polls every 15s and when tab becomes visible
- * - Shows red dot on Applications and Payment Verifications
- *
- * Props:
- *  - userData: { fullName, position, department }
- *  - onLogout: () => void
- *  - isLoading: boolean
- */
 const Sidebar = ({ userData, onLogout, isLoading }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [badges, setBadges] = useState({ applications: 0, payments: 0 });
   const [loadingBadges, setLoadingBadges] = useState(true);
 
@@ -41,7 +32,9 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
 
     const load = () => {
       setLoadingBadges(true);
-      fetch("http://localhost:8081/api/employee/sidebar/badges", { credentials: "include" })
+      fetch("http://localhost:8081/api/employee/sidebar/badges", {
+        credentials: "include",
+      })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((data) => {
           if (!alive) return;
@@ -55,8 +48,8 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
         });
     };
 
-    load(); // initial
-    timer = setInterval(load, 15000); // poll every 15s
+    load();
+    timer = setInterval(load, 15000);
 
     const onVis = () => {
       if (document.visibilityState === "visible") load();
@@ -70,97 +63,186 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
     };
   }, []);
 
+  // ✅ reactive pathname (updates when route changes)
+  const pathname = useMemo(() => location.pathname || "", [location.pathname]);
+
+  const activePath = (href) => pathname === href;
+
+  const Item = ({ href, icon: Icon, label, right, active, accent = "indigo" }) => {
+    // Accent maps for active state
+    const accentMap = {
+      indigo: {
+        bg: "bg-indigo-500/15",
+        ring: "border-indigo-300/25",
+        bar: "bg-indigo-400",
+        icon: "text-indigo-200",
+        glow: "shadow-[0_18px_35px_-25px_rgba(99,102,241,0.9)]",
+      },
+      emerald: {
+        bg: "bg-emerald-500/15",
+        ring: "border-emerald-300/25",
+        bar: "bg-emerald-400",
+        icon: "text-emerald-200",
+        glow: "shadow-[0_18px_35px_-25px_rgba(16,185,129,0.9)]",
+      },
+      amber: {
+        bg: "bg-amber-500/15",
+        ring: "border-amber-300/25",
+        bar: "bg-amber-400",
+        icon: "text-amber-200",
+        glow: "shadow-[0_18px_35px_-25px_rgba(245,158,11,0.9)]",
+      },
+      rose: {
+        bg: "bg-rose-500/15",
+        ring: "border-rose-300/25",
+        bar: "bg-rose-400",
+        icon: "text-rose-200",
+        glow: "shadow-[0_18px_35px_-25px_rgba(244,63,94,0.9)]",
+      },
+    };
+
+    const a = accentMap[accent] || accentMap.indigo;
+
+    return (
+      <button
+        type="button"
+        onClick={() => navigate(href)}
+        className="w-full text-left"
+      >
+        <div
+          className={[
+            "relative mx-4 my-1 px-4 py-2.5 rounded-2xl flex items-center gap-3 transition",
+            "border",
+            active
+              ? `${a.bg} ${a.ring} ${a.glow}`
+              : "border-transparent hover:bg-white/5 hover:border-white/10",
+          ].join(" ")}
+        >
+          {/* Left active indicator */}
+          <span
+            className={[
+              "absolute left-0 top-1/2 -translate-y-1/2 h-7 w-1.5 rounded-r-full transition-opacity",
+              active ? `${a.bar} opacity-100` : "opacity-0",
+            ].join(" ")}
+          />
+
+          <Icon size={18} className={active ? a.icon : "text-white/90"} />
+          <span className="font-semibold text-[15px] text-white">{label}</span>
+          <div className="ml-auto flex items-center">{right}</div>
+        </div>
+      </button>
+    );
+  };
+
   return (
-    <div className="w-64 bg-blue-600 text-white flex flex-col justify-between">
-      {/* Header */}
-      <div>
-        <div className="p-4 text-center">
-          <img src="/img/logo.png" alt="Logo" className="w-15 h-18 mx-auto" />
-          <h1 className="text-2xl font-bold mt-2">Employee Dashboard</h1>
-          <p className="text-indigo-200 text-sm">Hinigaran Municipality</p>
+    <aside className="w-64 h-screen sticky top-0 bg-gradient-to-b from-[#0B1633] via-[#071024] to-[#050B1A] text-white border-r border-white/10">
+      <div className="h-full flex flex-col">
+        {/* Brand */}
+        <div className="px-6 pt-5 pb-3 text-center">
+          <div className="flex justify-center">
+            {/* keep your logo as-is */}
+            <img src="/img/logo.png" alt="Logo" className="w-45 h-45" />
+          </div>
+
+          <h1 className="text-xl font-extrabold mt-3 tracking-tight">
+            Employee Dashboard
+          </h1>
+          <p className="text-white/70 text-sm mt-0.5">Hinigaran Municipality</p>
+          <div className="mt-4 h-px bg-white/10" />
         </div>
 
         {/* Nav */}
-        <nav className="mt-6">
-          {/* Applications */}
-          <a href="/EmployDash" className="block">
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <FileText size={20} className="mr-3" />
-              <span className="font-medium">Applications</span>
-              {!loadingBadges && <Dot show={badges.applications > 0} />}
-            </div>
-          </a>
+        <nav className="px-1">
+          <Item
+            href="/EmployDash"
+            icon={FileText}
+            label="Applications"
+            active={activePath("/EmployDash")}
+            accent="indigo"
+            right={!loadingBadges ? <Dot show={badges.applications > 0} /> : null}
+          />
 
-          {/* Payment Verifications */}
-          <a href="/employeepayment" className="block">
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <CheckSquare size={20} className="mr-3" />
-              <span>Payment Verifications</span>
-              {!loadingBadges && <Dot show={badges.payments > 0} />}
-            </div>
-          </a>
+          <Item
+            href="/employeepayment"
+            icon={CheckSquare}
+            label="Payment Verifications"
+            active={activePath("/employeepayment")}
+            accent="emerald"
+            right={!loadingBadges ? <Dot show={badges.payments > 0} /> : null}
+          />
 
-          {/* History */}
-          <a href="/Employeehistory" className="block">
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <Clock size={20} className="mr-3" />
-              <span>History</span>
-            </div>
-          </a>
+          <Item
+            href="/Employeehistory"
+            icon={Clock}
+            label="History"
+            active={activePath("/Employeehistory")}
+            accent="amber"
+          />
 
-          {/* Archives */}
-          <a href="/Achrive" className="block">
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <Archive size={20} className="mr-3" />
-              <span>Archives</span>
-            </div>
-          </a>
-
-          {/* Settings */}
-          {/* <a href="/Employeeprofile" className="block">
-            <div className="px-4 py-3 hover:bg-indigo-700 cursor-pointer flex items-center">
-              <Settings size={20} className="mr-3" />
-              <span>Settings</span>
-            </div>
-          </a> */}
+          <Item
+            href="/Achrive"
+            icon={Archive}
+            label="Archives"
+            active={activePath("/Achrive")}
+            accent="rose"
+          />
         </nav>
-      </div>
 
-      {/* Footer: user + logout */}
-      <div className="p-4 border-t border-indigo-500">
-        <div className="flex items-center">
-          <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center">
-            <User size={16} />
-          </div>
-          <div className="ml-3">
-            {isLoading ? (
-              <p className="text-xs">Loading...</p>
-            ) : userData ? (
-              <>
-                <p className="font-medium">{userData.fullName || "User"}</p>
-                <p className="text-xs text-indigo-300">
-                  {userData.position || "Employee"} (
-                  {userData.department || "Department"})
-                </p>
-              </>
-            ) : (
-              <p className="text-xs">No user data</p>
-            )}
-          </div>
-        </div>
+        {/* Footer */}
+        <div className="mt-auto px-6 pb-4">
+          <div className="h-px bg-white/10" />
 
-        <div className="mt-3 flex items-center cursor-pointer hover:text-indigo-200">
-          <LogOut size={18} className="mr-2" />
+          {/* Profile strip (click -> profile settings) */}
           <button
-            onClick={onLogout}
-            disabled={isLoading}
-            className="hover:text-indigo-200"
+            type="button"
+            onClick={() => navigate("/Employeeprofile")}
+            className={[
+              "mt-3 w-full text-left rounded-2xl p-3 transition flex items-center gap-3 border",
+              activePath("/EmployeeProfileSettings")
+                ? "bg-indigo-500/15 border-indigo-300/25"
+                : "border-transparent hover:bg-white/5 hover:border-white/10",
+            ].join(" ")}
           >
-            Log Out
+            <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+              <User size={18} className="text-white" />
+            </div>
+
+            <div className="min-w-0">
+              {isLoading ? (
+                <p className="text-xs text-white/70">Loading...</p>
+              ) : userData ? (
+                <>
+                  <p className="font-semibold text-white truncate max-w-[160px]">
+                    {userData.fullName || "User"}
+                  </p>
+                  <p className="text-[11px] text-white/60 truncate max-w-[160px]">
+                    {userData.position || "Employee"} ({userData.department || "Department"})
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-white/70">No user data</p>
+              )}
+            </div>
+
+            <div className="ml-auto text-white/50 text-xs">›</div>
           </button>
+
+          {/* Logout */}
+          <div className="mt-3 grid gap-2">
+            <button
+              onClick={onLogout}
+              disabled={isLoading}
+              className="w-full mx-auto px-3.5 py-2.5 rounded-2xl hover:bg-white/5 transition flex items-center gap-3 disabled:opacity-60 border border-transparent hover:border-white/10"
+            >
+              <LogOut size={17} className="text-red-300" />
+              <span className="font-semibold text-[14px] text-white">
+                Log Out
+              </span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </aside>
   );
 };
 
