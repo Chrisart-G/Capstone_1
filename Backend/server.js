@@ -196,6 +196,10 @@ const adminnotifRoutes = require('./routes/adminnotifRoutes');
 app.use('/api', adminnotifRoutes);
 const chomeRoutes = require('./routes/chomeRoutes');
 app.use('/api', chomeRoutes);
+const renewalRoutes = require("./routes/renewalRoutes"); // adjust path
+
+app.use("/api/renewal-business-permit", renewalRoutes);
+
 /* ===================== START HTTP SERVER WITH LONGER TIMEOUTS ===================== */
 const PORT = process.env.PORT || 8081;
 const server = http.createServer(app);

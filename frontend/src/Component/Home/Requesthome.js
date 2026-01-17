@@ -1,3 +1,4 @@
+// pages/PermitsHomepage.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Uheader from '../Header/User_header';
@@ -5,7 +6,7 @@ import UFooter from '../Footer/User_Footer';
 import { permits, categories } from '../data/permitsData';
 import axios from 'axios';
 
-const API_BASE_URL = "http://localhost:8081";
+const API_BASE_URL = 'http://localhost:8081';
 
 const PermitsHomepage = () => {
   const [activeTab, setActiveTab] = useState('business');
@@ -25,10 +26,17 @@ const PermitsHomepage = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // NEW: pricing state
+  // Pricing state
   const [priceInfo, setPriceInfo] = useState(null);
   const [priceLoading, setPriceLoading] = useState(false);
   const [priceError, setPriceError] = useState('');
+
+  // NEW: Renewal business state (multiple permits)
+  const [renewalBusinesses, setRenewalBusinesses] = useState([]);
+  const [selectedRenewalBusinessId, setSelectedRenewalBusinessId] =
+    useState(null);
+  const [renewalLoading, setRenewalLoading] = useState(false);
+  const [renewalError, setRenewalError] = useState('');
 
   const navigate = useNavigate();
 
@@ -82,7 +90,7 @@ const PermitsHomepage = () => {
     'Renewal Business Permit': 'renewal_business',
   };
 
-  // NEW: fetch price from /api/document-prices/public/:application_type
+  // Fetch price from /api/document-prices/public/:application_type
   const fetchPermitPrice = async (permitName) => {
     const applicationType = applicationTypeMapping[permitName];
     if (!applicationType) {
@@ -121,6 +129,45 @@ const PermitsHomepage = () => {
     }
   };
 
+  // NEW: fetch ALL business permits for this user (for renewal)
+  const fetchRenewalBusinesses = async (userId) => {
+    if (!userId) return;
+
+    try {
+      setRenewalLoading(true);
+      setRenewalError('');
+      setRenewalBusinesses([]);
+      setSelectedRenewalBusinessId(null);
+
+      // NOTE: use the LIST endpoint so we get *all* permits, not just latest
+      const res = await axios.get(
+        `${API_BASE_URL}/api/renewal-business-permit/list/${userId}`,
+        { withCredentials: true }
+      );
+
+      if (res.data && res.data.success && res.data.data) {
+        const raw = res.data.data;
+        const list = Array.isArray(raw) ? raw : [raw];
+
+        setRenewalBusinesses(list);
+        if (list.length > 0) {
+          setSelectedRenewalBusinessId(list[0].id);
+        }
+      } else {
+        setRenewalBusinesses([]);
+        setRenewalError(
+          res.data?.message || 'No existing business permit found for renewal.'
+        );
+      }
+    } catch (err) {
+      console.error('Error fetching renewal businesses:', err);
+      setRenewalBusinesses([]);
+      setRenewalError('Failed to load your existing business permits.');
+    } finally {
+      setRenewalLoading(false);
+    }
+  };
+
   const handleApplyNow = async (permitName) => {
     if (!userInfo?.user_id) {
       setErrorMessage('Please log in to apply for permits');
@@ -137,35 +184,57 @@ const PermitsHomepage = () => {
 
       const result = response.data;
 
+      // If user already has access (payment approved), go straight to form
       if (result.success && result.hasAccess) {
         if (permitRoutes[permitName]) {
-          await axios.post(
-            `${API_BASE_URL}/api/payments/use-access`,
-            {
-              user_id: userInfo.user_id,
-              application_type: applicationType,
-            },
-            { withCredentials: true }
-          );
+          // 🔹 Use the receipt_id returned by check-access and call
+          //     POST /api/payments/use-access/:receiptId
+          if (result.receipt_id) {
+            await axios.post(
+              `${API_BASE_URL}/api/payments/use-access/${result.receipt_id}`,
+              null,
+              { withCredentials: true }
+            );
+          }
 
           navigate(permitRoutes[permitName]);
           return;
         }
       }
 
+      // Otherwise, open the payment modal
       setSelectedPermit(permitName);
       setErrorMessage('');
       setSuccessMessage('');
-      // NEW: load price when opening modal
+
       fetchPermitPrice(permitName);
+
+      // NEW: for Renewal Business Permit, also load the businesses list
+      if (permitName === 'Renewal Business Permit') {
+        fetchRenewalBusinesses(userInfo.user_id);
+      } else {
+        setRenewalBusinesses([]);
+        setRenewalError('');
+        setSelectedRenewalBusinessId(null);
+      }
+
       setIsModalOpen(true);
     } catch (error) {
       console.error('Error checking form access:', error);
       setSelectedPermit(permitName);
       setErrorMessage('');
       setSuccessMessage('');
-      // NEW: load price even if check-access fails
+
       fetchPermitPrice(permitName);
+
+      if (permitName === 'Renewal Business Permit') {
+        fetchRenewalBusinesses(userInfo.user_id);
+      } else {
+        setRenewalBusinesses([]);
+        setRenewalError('');
+        setSelectedRenewalBusinessId(null);
+      }
+
       setIsModalOpen(true);
     }
   };
@@ -181,9 +250,14 @@ const PermitsHomepage = () => {
     setIsSubmitting(false);
     setErrorMessage('');
     setSuccessMessage('');
-    // NEW: reset price state
     setPriceInfo(null);
     setPriceError('');
+
+    // NEW: reset renewal state
+    setRenewalBusinesses([]);
+    setRenewalError('');
+    setSelectedRenewalBusinessId(null);
+    setRenewalLoading(false);
   };
 
   const handlePaymentMethodClick = (method) => {
@@ -253,6 +327,20 @@ const PermitsHomepage = () => {
     setErrorMessage('');
     setSuccessMessage('');
 
+    // Extra validation for renewal: must choose a business to renew
+    if (selectedPermit === 'Renewal Business Permit') {
+      if (!renewalBusinesses.length) {
+        setErrorMessage(
+          'You do not have any existing business permits to renew.'
+        );
+        return;
+      }
+      if (!selectedRenewalBusinessId) {
+        setErrorMessage('Please select which business you want to renew.');
+        return;
+      }
+    }
+
     if (!receiptImage || !acceptedTerms || !userInfo?.user_id) {
       setErrorMessage('Please fill all required fields and accept the terms');
       return;
@@ -271,11 +359,23 @@ const PermitsHomepage = () => {
       formData.append('payment_method', selectedPaymentMethod || 'other');
       formData.append('receipt_image', receiptImage);
 
+      // NEW: for renewal, send the selected business_permit id
+      if (selectedPermit === 'Renewal Business Permit') {
+        formData.append(
+          'previous_business_permit_id',
+          selectedRenewalBusinessId
+        );
+      }
+
       console.log('Submitting payment with data:', {
         user_id: userInfo.user_id,
         application_type: applicationTypeMapping[selectedPermit],
         permit_name: selectedPermit,
         payment_method: selectedPaymentMethod || 'other',
+        previous_business_permit_id:
+          selectedPermit === 'Renewal Business Permit'
+            ? selectedRenewalBusinessId
+            : undefined,
       });
 
       const response = await axios.post(
@@ -361,10 +461,10 @@ const PermitsHomepage = () => {
     return null;
   }
 
-  // Helper for computed payment amount (for display only)
   const computedCollectedAmount =
     priceInfo && !Number.isNaN(priceInfo.current_price)
-      ? (priceInfo.current_price * (priceInfo.payment_percentage || 100)) / 100
+      ? (priceInfo.current_price * (priceInfo.payment_percentage || 100)) /
+        100
       : null;
 
   return (
@@ -376,7 +476,7 @@ const PermitsHomepage = () => {
 
       <main className="container mx-auto py-8 px-4 flex-1">
         <div className="bg-white/95 rounded-2xl shadow-xl overflow-hidden border border-slate-100">
-          {/* Tab Navigation – hide some categories temporarily */}
+          {/* Tab Navigation */}
           <div className="flex flex-wrap border-b">
             {categories
               .filter(
@@ -445,6 +545,105 @@ const PermitsHomepage = () => {
               Confirm Application
             </h2>
 
+            {/* NEW: Show current business list for renewal */}
+            {selectedPermit === 'Renewal Business Permit' && (
+              <div className="mb-3 p-3 rounded-md bg-blue-50 border border-blue-100 text-sm">
+                <p className="text-xs font-semibold text-blue-800 mb-2">
+                  Select Business to Renew
+                </p>
+
+                {renewalLoading && (
+                  <p className="text-xs text-gray-600">
+                    Loading your existing business permits...
+                  </p>
+                )}
+
+                {!renewalLoading && renewalError && (
+                  <p className="text-xs text-red-500">
+                    {renewalError}
+                  </p>
+                )}
+
+                {!renewalLoading &&
+                  !renewalError &&
+                  renewalBusinesses.length > 0 && (
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {renewalBusinesses.map((biz) => (
+                        <button
+                          key={biz.id}
+                          type="button"
+                          onClick={() =>
+                            setSelectedRenewalBusinessId(biz.id)
+                          }
+                          className={`w-full text-left p-2 rounded-md border flex items-start gap-2 ${
+                            selectedRenewalBusinessId === biz.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/40'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            className="mt-1"
+                            checked={
+                              selectedRenewalBusinessId === biz.id
+                            }
+                            onChange={() =>
+                              setSelectedRenewalBusinessId(biz.id)
+                            }
+                          />
+                          <div className="flex-1">
+                            <p className="font-semibold text-blue-900">
+                              {biz.business_name}
+                            </p>
+                            {biz.trade_name && (
+                              <p className="text-xs text-gray-700">
+                                Trade Name: {biz.trade_name}
+                              </p>
+                            )}
+                            {biz.permit_no && (
+                              <p className="text-xs text-gray-700">
+                                Permit No:{' '}
+                                <span className="font-medium">
+                                  {biz.permit_no}
+                                </span>
+                              </p>
+                            )}
+                            {biz.business_address && (
+                              <p className="text-xs text-gray-700">
+                                Address:{' '}
+                                <span className="font-medium">
+                                  {biz.business_address}
+                                </span>
+                              </p>
+                            )}
+                            {biz.valid_until && (
+                              <p className="text-xs text-gray-700">
+                                Valid Until:{' '}
+                                <span className="font-medium">
+                                  {new Date(
+                                    biz.valid_until
+                                  ).toLocaleDateString('en-PH')}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                {!renewalLoading &&
+                  !renewalError &&
+                  renewalBusinesses.length === 0 && (
+                    <p className="text-xs text-gray-600">
+                      We could not find any existing business permit
+                      linked to your account. If this is incorrect,
+                      please contact the municipal office.
+                    </p>
+                  )}
+              </div>
+            )}
+
             {/* UPDATED TO SHOW PRICE */}
             <p className="text-gray-700 mb-2">
               To apply for the{' '}
@@ -461,7 +660,6 @@ const PermitsHomepage = () => {
               before proceeding.
             </p>
 
-            {/* Small price info / loading / error */}
             {priceLoading && (
               <p className="text-xs text-gray-500 mb-2">
                 Loading permit fee...
@@ -499,7 +697,6 @@ const PermitsHomepage = () => {
                 </p>
               </div>
             )}
-
 
             {selectedPermit === 'Business Permit' && (
               <div className="mt-2 p-4 bg-gray-100 rounded-md">
@@ -594,18 +791,14 @@ const PermitsHomepage = () => {
                 </p>
                 <div className="flex justify-center gap-6">
                   <button
-                    onClick={() =>
-                      handlePaymentMethodClick('gcash')
-                    }
+                    onClick={() => handlePaymentMethodClick('gcash')}
                     className="px-6 py-3 border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer text-sm font-medium text-gray-700 hover:text-blue-600"
                   >
                     Pay with GCash
                   </button>
 
                   <button
-                    onClick={() =>
-                      handlePaymentMethodClick('maya')
-                    }
+                    onClick={() => handlePaymentMethodClick('maya')}
                     className="px-6 py-3 border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer text-sm font-medium text-gray-700 hover:text-blue-600"
                   >
                     Pay with Maya

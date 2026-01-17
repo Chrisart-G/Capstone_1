@@ -39,31 +39,32 @@ function DocumentStatusTracker() {
   const [viewFilter, setViewFilter] = useState('all'); // 'all' | 'applications' | 'payments'
   const navigate = useNavigate();
   const [openBusinessForm, setOpenBusinessForm] = useState(false);
-const [businessContext, setBusinessContext] = useState(null);
-const [openUpdateModal, setOpenUpdateModal] = useState(false);
-const [updateContext, setUpdateContext] = useState(null);
+  const [businessContext, setBusinessContext] = useState(null);
+  const [openUpdateModal, setOpenUpdateModal] = useState(false);
+  const [updateContext, setUpdateContext] = useState(null);
   const [openPlumbingForm, setOpenPlumbingForm] = useState(false);
   const [plumbingContext, setPlumbingContext] = useState(null);
+
   const includesCI = (haystack, needle) =>
-    
-  String(haystack || '').toLowerCase().includes(String(needle || '').toLowerCase());
+    String(haystack || '').toLowerCase().includes(String(needle || '').toLowerCase());
 
-const openEditModal = (application) => {
-  const appType = TYPE_TO_APP[application.type] || application.applicationType || "";
-  const appId = parseAppId(application.id);
+  const openEditModal = (application) => {
+    const appType = TYPE_TO_APP[application.type] || application.applicationType || "";
+    const appId = parseAppId(application.id);
 
-  if (!appType || !appId) {
-    alert("Unable to determine application type/id for editing.");
-    return;
-  }
+    if (!appType || !appId) {
+      alert("Unable to determine application type/id for editing.");
+      return;
+    }
 
-  setUpdateContext({
-    application,
-    appType,
-    appId,
-  });
-  setOpenUpdateModal(true);
-};
+    setUpdateContext({
+      application,
+      appType,
+      appId,
+    });
+    setOpenUpdateModal(true);
+  };
+
   // ---------- NEW: requirements state + helpers ----------
   const [requirementsByApp, setRequirementsByApp] = useState({}); // { [application.id]: { loading, items } }
 
@@ -601,7 +602,7 @@ const openEditModal = (application) => {
     fetchAllPermitData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Function to handle form access
+  // Function to handle form access (external refresh)
   const handleFormAccess = () => {
     fetchAllPermitData();
   };
@@ -622,78 +623,87 @@ const openEditModal = (application) => {
     return routes[applicationType] || null;
   };
 
-  // Function to handle accessing form
-  const handleAccessForm = async (application) => {
-    try {
-      const formRoute = getFormRoute(application.applicationType);
-      if (formRoute) {
-        navigate(formRoute);
-      } else {
-        alert('Form route not found for this application type');
+  // Do NOT mark form access used here; just guard and navigate
+  const handleAccessForm = (application) => {
+    const formRoute = getFormRoute(application.applicationType);
+
+    if (!formRoute) {
+      alert('Form route not found for this application type');
+      return;
+    }
+
+    // For payment receipts, still enforce that payment is approved & access granted
+    if (application.type === 'Payment Receipt') {
+      if (application.status !== 'approved' || !application.formAccessGranted) {
+        alert(
+          'You can only open the form once your payment has been approved and access has been granted.'
+        );
+        return;
       }
-    } catch (error) {
-      console.error('Error accessing form:', error);
-      alert('Failed to access form. Please try again.');
+    }
+
+    // Just go to the form; user can come back and reopen as many times as needed
+    navigate(formRoute);
+  };
+
+  // Cancel application with terms & conditions confirmation
+  const handleCancelApplication = async (application) => {
+    try {
+      const appType =
+        TYPE_TO_APP[application.type] || application.applicationType || "";
+      const appId = parseAppId(application.id);
+
+      if (!appType || !appId) {
+        alert("Unable to determine which application to cancel.");
+        return;
+      }
+
+      const normStatus = String(application.status || "")
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/-/g, "");
+
+      // Front-end guard (same idea as backend)
+      if (["approved", "readyforpickup", "rejected"].includes(normStatus)) {
+        alert("This application can no longer be cancelled.");
+        return;
+      }
+
+      const ok = window.confirm(
+        "Are you sure you want to cancel this application?\n\n" +
+          "By proceeding, you confirm that you understand and agree that any " +
+          "payments and processing expenses already incurred are NON-REFUNDABLE " +
+          "as stated in the municipal terms and conditions."
+      );
+      if (!ok) return;
+
+      const r = await fetch(
+        `http://localhost:8081/api/user/cancel/${appType}/${appId}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      const j = await r.json();
+
+      if (!j.success) {
+        alert(j.message || "Failed to cancel application.");
+        return;
+      }
+
+      alert(
+        "Your application has been cancelled.\n\n" +
+          "Please note that any payments and expenses already incurred " +
+          "are NON-REFUNDABLE as per the terms and conditions."
+      );
+
+      // Refresh tracker so status changes to 'rejected'
+      fetchAllPermitData();
+    } catch (err) {
+      console.error("handleCancelApplication error:", err);
+      alert("Server error while cancelling the application.");
     }
   };
-// Cancel application with terms & conditions confirmation
-const handleCancelApplication = async (application) => {
-  try {
-    const appType =
-      TYPE_TO_APP[application.type] || application.applicationType || "";
-    const appId = parseAppId(application.id);
-
-    if (!appType || !appId) {
-      alert("Unable to determine which application to cancel.");
-      return;
-    }
-
-    const normStatus = String(application.status || "")
-      .toLowerCase()
-      .replace(/\s+/g, "")
-      .replace(/-/g, "");
-
-    // Front-end guard (same idea as backend)
-    if (["approved", "readyforpickup", "rejected"].includes(normStatus)) {
-      alert("This application can no longer be cancelled.");
-      return;
-    }
-
-    const ok = window.confirm(
-      "Are you sure you want to cancel this application?\n\n" +
-        "By proceeding, you confirm that you understand and agree that any " +
-        "payments and processing expenses already incurred are NON-REFUNDABLE " +
-        "as stated in the municipal terms and conditions."
-    );
-    if (!ok) return;
-
-    const r = await fetch(
-      `http://localhost:8081/api/user/cancel/${appType}/${appId}`,
-      {
-        method: "POST",
-        credentials: "include",
-      }
-    );
-    const j = await r.json();
-
-    if (!j.success) {
-      alert(j.message || "Failed to cancel application.");
-      return;
-    }
-
-    alert(
-      "Your application has been cancelled.\n\n" +
-        "Please note that any payments and expenses already incurred " +
-        "are NON-REFUNDABLE as per the terms and conditions."
-    );
-
-    // Refresh tracker so status changes to 'rejected'
-    fetchAllPermitData();
-  } catch (err) {
-    console.error("handleCancelApplication error:", err);
-    alert("Server error while cancelling the application.");
-  }
-};
 
   // Helpers
   function transformStatusToSteps(status) {
@@ -921,35 +931,37 @@ const handleCancelApplication = async (application) => {
       </div>
     );
   }
-async function replaceUserRequirement(application, requirement_id, file) {
-  const appType = TYPE_TO_APP[application.type] || application.applicationType || '';
-  const appId = parseAppId(application.id);
-  if (!appType || !appId || !file) return;
 
-  const fd = new FormData();
-  fd.append('application_type', appType);
-  fd.append('application_id', String(appId));
-  fd.append('requirement_id', String(requirement_id));
-  fd.append('file', file);
+  async function replaceUserRequirement(application, requirement_id, file) {
+    const appType = TYPE_TO_APP[application.type] || application.applicationType || '';
+    const appId = parseAppId(application.id);
+    if (!appType || !appId || !file) return;
 
-  try {
-    const r = await fetch('http://localhost:8081/api/user/requirements/replace-upload', {
-      method: 'POST',
-      body: fd,
-      credentials: 'include'
-    });
-    const j = await r.json();
-    if (j.success) {
-      await loadRequirementsForApplication(application);
-      alert('File replaced successfully.');
-    } else {
-      alert(j.message || 'Replace upload failed.');
+    const fd = new FormData();
+    fd.append('application_type', appType);
+    fd.append('application_id', String(appId));
+    fd.append('requirement_id', String(requirement_id));
+    fd.append('file', file);
+
+    try {
+      const r = await fetch('http://localhost:8081/api/user/requirements/replace-upload', {
+        method: 'POST',
+        body: fd,
+        credentials: 'include'
+      });
+      const j = await r.json();
+      if (j.success) {
+        await loadRequirementsForApplication(application);
+        alert('File replaced successfully.');
+      } else {
+        alert(j.message || 'Replace upload failed.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Server error while replacing file.');
     }
-  } catch (e) {
-    console.error(e);
-    alert('Server error while replacing file.');
   }
-}
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Uheader />
@@ -1056,26 +1068,26 @@ async function replaceUserRequirement(application, requirement_id, file) {
                     {application.type !== 'Payment Receipt' && (
                       <>
                         <button
-  onClick={(e) => {
-    e.stopPropagation();
-    openEditModal(application);
-  }}
-  className="flex items-center text-sm px-2 py-1 rounded-md text-indigo-600 hover:bg-indigo-100 transition"
->
-  <Pencil size={16} className="mr-1" />
-  Edit
-</button>
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(application);
+                          }}
+                          className="flex items-center text-sm px-2 py-1 rounded-md text-indigo-600 hover:bg-indigo-100 transition"
+                        >
+                          <Pencil size={16} className="mr-1" />
+                          Edit
+                        </button>
 
                         <button
-  onClick={(e) => {
-    e.stopPropagation();
-    handleCancelApplication(application);
-  }}
-  className="flex items-center text-sm px-2 py-1 rounded-md text-red-600 hover:bg-red-100 transition"
->
-  <AlertCircle size={16} className="mr-1" />
-  Cancel
-</button>
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancelApplication(application);
+                          }}
+                          className="flex items-center text-sm px-2 py-1 rounded-md text-red-600 hover:bg-red-100 transition"
+                        >
+                          <AlertCircle size={16} className="mr-1" />
+                          Cancel
+                        </button>
 
                       </>
                     )}
@@ -1206,18 +1218,16 @@ async function replaceUserRequirement(application, requirement_id, file) {
                                 Application Form Access
                               </h4>
                               <p className="text-sm text-gray-600 mt-1">
-                                {(application.status === 'approved' && application.formAccessGranted && !application.formAccessUsed) ?
-                                  'Your payment has been approved. You can now access the application form.' :
-                                  application.formAccessUsed ?
-                                  'Form access has been used. You can no longer access this form.' :
-                                  !application.formAccessGranted ?
-                                  'Form access will be available once your payment is approved.' :
-                                  'Form access not available.'
+                                {application.status === 'approved' && application.formAccessGranted
+                                  ? 'Your payment has been approved. You can now access the application form.'
+                                  : !application.formAccessGranted
+                                  ? 'Form access will be available once your payment is approved.'
+                                  : 'Form access not available yet.'
                                 }
                               </p>
                             </div>
 
-                            {(application.status === 'approved' && application.formAccessGranted && !application.formAccessUsed) && (
+                            {application.status === 'approved' && application.formAccessGranted && (
                               <button
                                 onClick={() => handleAccessForm(application)}
                                 className="flex items-center px-4 py-2 rounded-lg font-medium transition-all bg-green-600 text-white hover:bg-green-700 hover:shadow-lg"
@@ -1225,13 +1235,6 @@ async function replaceUserRequirement(application, requirement_id, file) {
                                 <ExternalLink className="h-4 w-4 mr-2" />
                                 Access Form
                               </button>
-                            )}
-
-                            {application.formAccessUsed && (
-                              <div className="flex items-center text-gray-500">
-                                <Check className="h-4 w-4 mr-2" />
-                                <span className="text-sm">Form Accessed</span>
-                              </div>
                             )}
 
                             {!application.formAccessGranted && (
@@ -1244,7 +1247,7 @@ async function replaceUserRequirement(application, requirement_id, file) {
 
                           {application.formAccessUsed && application.formAccessUsedAt && (
                             <div className="mt-2 text-xs text-gray-500">
-                              Form accessed on: {new Date(application.formAccessUsedAt).toLocaleString()}
+                              Form previously accessed on: {new Date(application.formAccessUsedAt).toLocaleString()}
                             </div>
                           )}
                         </div>
@@ -1383,217 +1386,216 @@ async function replaceUserRequirement(application, requirement_id, file) {
                                             </div>
                                           </div>
                                           <div className="col-span-3 flex items-center gap-2">
-  {item.template_url ? (
-    <a
-      href={item.template_url}
-      target="_blank"
-      rel="noreferrer"
-      className="text-blue-600 hover:underline"
-    >
-      Download template
-    </a>
-  ) : (
-    <span className="text-gray-400">—</span>
-  )}
+                                            {item.template_url ? (
+                                              <a
+                                                href={item.template_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:underline"
+                                              >
+                                                Download template
+                                              </a>
+                                            ) : (
+                                              <span className="text-gray-400">—</span>
+                                            )}
 
-  {/* Show inline fill button when this requirement is the Electrical Filled Form */}
-  {String(item.name).toLowerCase().includes("electrical permit filled form") && (
-    <button
-      type="button"
-      onClick={() => {
-        const appId = parseAppId(application.id);
-        setElectricalContext({
-          applicationId: appId,
-          requirementId: item.requirement_id,
-          templateUrl: item.template_url || null,
-        });
-        setOpenElectricalForm(true);
-      }}
-      className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
-    >
-      Fill online
-    </button>
-  )}
-</div>
- <div className="col-span-3 flex items-center gap-2">
-   {item.template_url ? (
-     <a
-       href={item.template_url}
-       target="_blank"
-       rel="noreferrer"
-       className="text-blue-600 hover:underline"
-     >
-       Download template
-     </a>
-   ) : (
-     <span className="text-gray-400">—</span>
-   )}
-   {/* Electrical: open inline form */}
-   {includesCI(item.name, "Electrical Permit Filled Form") && (
-     <button
-       type="button"
-       onClick={() => {
-         const appId = parseAppId(application.id);
-         setElectricalContext({
-           applicationId: appId,
-           requirementId: item.requirement_id,
-          templateUrl: item.template_url || null,
-        });
-         setOpenElectricalForm(true);
-       }}
-      className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
-     >
-       Fill online
-     </button>
-  )}
+                                            {/* Show inline fill button when this requirement is the Electrical Filled Form */}
+                                            {String(item.name).toLowerCase().includes("electrical permit filled form") && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const appId = parseAppId(application.id);
+                                                  setElectricalContext({
+                                                    applicationId: appId,
+                                                    requirementId: item.requirement_id,
+                                                    templateUrl: item.template_url || null,
+                                                  });
+                                                  setOpenElectricalForm(true);
+                                                }}
+                                                className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+                                              >
+                                                Fill online
+                                              </button>
+                                            )}
+                                          </div>
+                                          <div className="col-span-3 flex items-center gap-2">
+                                            {item.template_url ? (
+                                              <a
+                                                href={item.template_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-blue-600 hover:underline"
+                                              >
+                                                Download template
+                                              </a>
+                                            ) : (
+                                              <span className="text-gray-400">—</span>
+                                            )}
+                                            {/* Electrical: open inline form */}
+                                            {includesCI(item.name, "Electrical Permit Filled Form") && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const appId = parseAppId(application.id);
+                                                  setElectricalContext({
+                                                    applicationId: appId,
+                                                    requirementId: item.requirement_id,
+                                                    templateUrl: item.template_url || null,
+                                                  });
+                                                  setOpenElectricalForm(true);
+                                                }}
+                                                className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+                                              >
+                                                Fill online
+                                              </button>
+                                            )}
 
-  {/* Electronics: open inline form */}
-   {includesCI(item.name, "Electronics Permit Filled Form") && (
-     <button
-      type="button"
-       onClick={() => {
-        const appId = parseAppId(application.id);
-       setElectronicsContext({
-         applicationId: appId,
-          requirementId: item.requirement_id,
-          templateUrl: item.template_url || null,
-        });
-        setOpenElectronicsForm(true);
-       }}
-      className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
-    >
-      Fill online
-    </button>
-   )}
-    {includesCI(item.name, "Fencing Permit Filled Form") && (
-    <button
-      type="button"
-      onClick={() => {
-        const appId = parseAppId(application.id);
-        setFencingContext({
-          applicationId: appId,
-          requirementId: item.requirement_id,
-          templateUrl: item.template_url || null,
-        });
-        setOpenFencingForm(true);
-      }}
-      className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
-    >
-      Fill online
-    </button>
-  )}
-  {includesCI(item.name, "Plumbing Permit Filled Form") && (
-  <button
-    type="button"
-    onClick={() => {
-      const appId = parseAppId(application.id);
-      setPlumbingContext({
-        applicationId: appId,
-        requirementId: item.requirement_id,
-        templateUrl: item.template_url || null,
-      });
-      setOpenPlumbingForm(true);
-    }}
-    className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
-  >
-    Fill online
-  </button>
-)}
-{/* Business Permit: open inline form */}
-{(
-  includesCI(item.name, "business permit") &&
-  (
-    includesCI(item.name, "lgu") ||
-    includesCI(item.name, "verification") ||
-    includesCI(item.name, "filled") ||
-    includesCI(item.name, "final")
-  )
-) && (
-  <button
-    type="button"
-    onClick={() => {
-      const appId = parseAppId(application.id);
-      setBusinessContext({
-        applicationId: appId,
-        templateUrl: item.template_url || null,
-      });
-      setOpenBusinessForm(true);
-    }}
-    className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
-  >
-    Fill online
-  </button>
-)}
-</div>
-
+                                            {/* Electronics: open inline form */}
+                                            {includesCI(item.name, "Electronics Permit Filled Form") && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const appId = parseAppId(application.id);
+                                                  setElectronicsContext({
+                                                    applicationId: appId,
+                                                    requirementId: item.requirement_id,
+                                                    templateUrl: item.template_url || null,
+                                                  });
+                                                  setOpenElectronicsForm(true);
+                                                }}
+                                                className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+                                              >
+                                                Fill online
+                                              </button>
+                                            )}
+                                            {includesCI(item.name, "Fencing Permit Filled Form") && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const appId = parseAppId(application.id);
+                                                  setFencingContext({
+                                                    applicationId: appId,
+                                                    requirementId: item.requirement_id,
+                                                    templateUrl: item.template_url || null,
+                                                  });
+                                                  setOpenFencingForm(true);
+                                                }}
+                                                className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+                                              >
+                                                Fill online
+                                              </button>
+                                            )}
+                                            {includesCI(item.name, "Plumbing Permit Filled Form") && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const appId = parseAppId(application.id);
+                                                  setPlumbingContext({
+                                                    applicationId: appId,
+                                                    requirementId: item.requirement_id,
+                                                    templateUrl: item.template_url || null,
+                                                  });
+                                                  setOpenPlumbingForm(true);
+                                                }}
+                                                className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+                                              >
+                                                Fill online
+                                              </button>
+                                            )}
+                                            {/* Business Permit: open inline form */}
+                                            {(
+                                              includesCI(item.name, "business permit") &&
+                                              (
+                                                includesCI(item.name, "lgu") ||
+                                                includesCI(item.name, "verification") ||
+                                                includesCI(item.name, "filled") ||
+                                                includesCI(item.name, "final")
+                                              )
+                                            ) && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const appId = parseAppId(application.id);
+                                                  setBusinessContext({
+                                                    applicationId: appId,
+                                                    templateUrl: item.template_url || null,
+                                                  });
+                                                  setOpenBusinessForm(true);
+                                                }}
+                                                className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
+                                              >
+                                                Fill online
+                                              </button>
+                                            )}
+                                          </div>
 
                                           <div className="col-span-4">
-  {item.user_file_url ? (
-    <div className="flex flex-col gap-1">
-      {/* Existing view link + timestamp */}
-      <div className="flex items-center gap-2">
-        <a
-          href={item.user_file_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-green-600 hover:underline"
-        >
-          View your file
-        </a>
-        <span className="text-xs text-gray-500">
-          (
-          {item.user_uploaded_at
-            ? new Date(item.user_uploaded_at).toLocaleString()
-            : ''}
-          )
-        </span>
-      </div>
+                                            {item.user_file_url ? (
+                                              <div className="flex flex-col gap-1">
+                                                {/* Existing view link + timestamp */}
+                                                <div className="flex items-center gap-2">
+                                                  <a
+                                                    href={item.user_file_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-green-600 hover:underline"
+                                                  >
+                                                    View your file
+                                                  </a>
+                                                  <span className="text-xs text-gray-500">
+                                                    (
+                                                    {item.user_uploaded_at
+                                                      ? new Date(item.user_uploaded_at).toLocaleString()
+                                                      : ''}
+                                                    )
+                                                  </span>
+                                                </div>
 
-      {/* 🔥 NEW: Change / Re-upload button */}
-      <div className="flex items-center gap-2">
-        <label className="inline-flex items-center px-2 py-1 text-xs border rounded cursor-pointer text-indigo-600 hover:bg-indigo-50">
-          <input
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                replaceUserRequirement(
-                  application,
-                  item.requirement_id,
-                  file
-                );
-              }
-              e.target.value = '';
-            }}
-          />
-          <Pencil className="h-3 w-3 mr-1" />
-          Change / Re-upload file
-        </label>
-      </div>
-    </div>
-  ) : (
-    <div className="flex items-center gap-2">
-      <input
-        type="file"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
-            uploadUserRequirement(
-              application,
-              item.requirement_id,
-              file
-            );
-          }
-          e.target.value = '';
-        }}
-      />
-      <span className="text-xs text-gray-500">
-        PDF/JPG/PNG
-      </span>
-    </div>
-  )}
-</div>
+                                                {/* 🔥 NEW: Change / Re-upload button */}
+                                                <div className="flex items-center gap-2">
+                                                  <label className="inline-flex items-center px-2 py-1 text-xs border rounded cursor-pointer text-indigo-600 hover:bg-indigo-50">
+                                                    <input
+                                                      type="file"
+                                                      className="hidden"
+                                                      onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                          replaceUserRequirement(
+                                                            application,
+                                                            item.requirement_id,
+                                                            file
+                                                          );
+                                                        }
+                                                        e.target.value = '';
+                                                      }}
+                                                    />
+                                                    <Pencil className="h-3 w-3 mr-1" />
+                                                    Change / Re-upload file
+                                                  </label>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center gap-2">
+                                                <input
+                                                  type="file"
+                                                  onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                      uploadUserRequirement(
+                                                        application,
+                                                        item.requirement_id,
+                                                        file
+                                                      );
+                                                    }
+                                                    e.target.value = '';
+                                                  }}
+                                                />
+                                                <span className="text-xs text-gray-500">
+                                                  PDF/JPG/PNG
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
 
                                         </div>
                                       ))}
@@ -1766,90 +1768,91 @@ async function replaceUserRequirement(application, requirement_id, file) {
             </div>
           ))}
         </div>
+
         {openElectricalForm && electricalContext && (
-  <ElectricalInlineForm
-    applicationId={electricalContext.applicationId}
-    requirementId={electricalContext.requirementId}
-    templateUrl={electricalContext.templateUrl}
-    onClose={() => setOpenElectricalForm(false)}
-    onSubmitted={() => {
-      // refresh requirements for that card so the uploaded/attached PDF appears
-      const app = applications.find(a => parseAppId(a.id) === electricalContext.applicationId && a.type === "Electrical Permit");
-      if (app) loadRequirementsForApplication(app);
-    }}
-  />
-)}
-{openElectronicsForm && electronicsContext && (
-   <ElectronicsInlineForm
-     applicationId={electronicsContext.applicationId}
-     requirementId={electronicsContext.requirementId}
-     templateUrl={electronicsContext.templateUrl}
-     onClose={() => setOpenElectronicsForm(false)}
-     onSubmitted={() => {
-       const app = applications.find(
-         a => parseAppId(a.id) === electronicsContext.applicationId && a.type === "Electronics Permit"
-       );
-       if (app) loadRequirementsForApplication(app);
-     }}
-   />
- )}
- {openFencingForm && fencingContext && (
-  <FencingInlineForm
-    applicationId={fencingContext.applicationId}
-    requirementId={fencingContext.requirementId}
-    templateUrl={fencingContext.templateUrl}
-    onClose={() => setOpenFencingForm(false)}
-    onSubmitted={() => {
-      const app = applications.find(
-        a => parseAppId(a.id) === fencingContext.applicationId && a.type === "Fencing Permit"
-      );
-      if (app) loadRequirementsForApplication(app);
-    }}
-  />
-)}
-{openPlumbingForm && plumbingContext && (
-  <PlumbingInlineForms
-    applicationId={plumbingContext.applicationId}
-    onClose={() => setOpenPlumbingForm(false)}
-    onSubmitted={() => {
-      const app = applications.find(
-        a => parseAppId(a.id) === plumbingContext.applicationId && a.type === "Plumbing Permit"
-      );
-      if (app) loadRequirementsForApplication(app);
-    }}
-  />
-)}
-{openBusinessForm && businessContext && (
-  <BusinessinlineForms
-    applicationId={businessContext.applicationId}
-    templateUrl={businessContext.templateUrl}
-    onClose={() => setOpenBusinessForm(false)}
-    onSubmitted={() => {
-      const app = applications.find(
-        a => parseAppId(a.id) === businessContext.applicationId && a.type === "Business Permit"
-      );
-      if (app) loadRequirementsForApplication(app);
-    }}
-  />
-)}
-{openUpdateModal && updateContext && (
-  <UserUpdateModal
-    open={openUpdateModal}
-    applicationType={updateContext.appType}
-    applicationId={updateContext.appId}
-    displayTitle={updateContext.application.title}
-    currentStatus={updateContext.application.status}
-    onClose={() => {
-      setOpenUpdateModal(false);
-      setUpdateContext(null);
-    }}
-    onUpdated={() => {
-      setOpenUpdateModal(false);
-      setUpdateContext(null);
-      fetchAllPermitData(); // refresh list + show updated values
-    }}
-  />
-)}
+          <ElectricalInlineForm
+            applicationId={electricalContext.applicationId}
+            requirementId={electricalContext.requirementId}
+            templateUrl={electricalContext.templateUrl}
+            onClose={() => setOpenElectricalForm(false)}
+            onSubmitted={() => {
+              // refresh requirements for that card so the uploaded/attached PDF appears
+              const app = applications.find(a => parseAppId(a.id) === electricalContext.applicationId && a.type === "Electrical Permit");
+              if (app) loadRequirementsForApplication(app);
+            }}
+          />
+        )}
+        {openElectronicsForm && electronicsContext && (
+          <ElectronicsInlineForm
+            applicationId={electronicsContext.applicationId}
+            requirementId={electronicsContext.requirement_id}
+            templateUrl={electronicsContext.templateUrl}
+            onClose={() => setOpenElectronicsForm(false)}
+            onSubmitted={() => {
+              const app = applications.find(
+                a => parseAppId(a.id) === electronicsContext.applicationId && a.type === "Electronics Permit"
+              );
+              if (app) loadRequirementsForApplication(app);
+            }}
+          />
+        )}
+        {openFencingForm && fencingContext && (
+          <FencingInlineForm
+            applicationId={fencingContext.applicationId}
+            requirementId={fencingContext.requirementId}
+            templateUrl={fencingContext.templateUrl}
+            onClose={() => setOpenFencingForm(false)}
+            onSubmitted={() => {
+              const app = applications.find(
+                a => parseAppId(a.id) === fencingContext.applicationId && a.type === "Fencing Permit"
+              );
+              if (app) loadRequirementsForApplication(app);
+            }}
+          />
+        )}
+        {openPlumbingForm && plumbingContext && (
+          <PlumbingInlineForms
+            applicationId={plumbingContext.applicationId}
+            onClose={() => setOpenPlumbingForm(false)}
+            onSubmitted={() => {
+              const app = applications.find(
+                a => parseAppId(a.id) === plumbingContext.applicationId && a.type === "Plumbing Permit"
+              );
+              if (app) loadRequirementsForApplication(app);
+            }}
+          />
+        )}
+        {openBusinessForm && businessContext && (
+          <BusinessinlineForms
+            applicationId={businessContext.applicationId}
+            templateUrl={businessContext.templateUrl}
+            onClose={() => setOpenBusinessForm(false)}
+            onSubmitted={() => {
+              const app = applications.find(
+                a => parseAppId(a.id) === businessContext.applicationId && a.type === "Business Permit"
+              );
+              if (app) loadRequirementsForApplication(app);
+            }}
+          />
+        )}
+        {openUpdateModal && updateContext && (
+          <UserUpdateModal
+            open={openUpdateModal}
+            applicationType={updateContext.appType}
+            applicationId={updateContext.appId}
+            displayTitle={updateContext.application.title}
+            currentStatus={updateContext.application.status}
+            onClose={() => {
+              setOpenUpdateModal(false);
+              setUpdateContext(null);
+            }}
+            onUpdated={() => {
+              setOpenUpdateModal(false);
+              setUpdateContext(null);
+              fetchAllPermitData(); // refresh list + show updated values
+            }}
+          />
+        )}
 
       </div>
       <UFooter />

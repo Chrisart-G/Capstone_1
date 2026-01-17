@@ -2,6 +2,9 @@ const db = require('../db/dbconnect');
 const path = require('path');
 const fs = require('fs');
 
+/* -------------------------------------------------------------------------- */
+/*  PRICING HELPER                                                            */
+/* -------------------------------------------------------------------------- */
 
 const getDocumentPricing = (applicationType, callback) => {
   const sql = `
@@ -67,7 +70,14 @@ exports.submitPaymentReceipt = async (req, res) => {
     console.log('Request body:', req.body);
     console.log('Request files:', req.files);
 
-    const { user_id, application_type, permit_name, payment_method } = req.body;
+    const {
+      user_id,
+      application_type,
+      permit_name,
+      payment_method,
+      // NEW from frontend for renewal – we accept it, but DO NOT store in DB for now
+      previous_business_permit_id,
+    } = req.body;
 
     // Validate required fields
     if (!user_id || !application_type || !permit_name || !payment_method) {
@@ -113,7 +123,7 @@ exports.submitPaymentReceipt = async (req, res) => {
         });
       }
 
-      // Check existing payments
+      // Check existing payments for same application_type
       const existingPaymentQuery = `
         SELECT * FROM tbl_payment_receipts 
         WHERE user_id = ? AND application_type = ?
@@ -213,9 +223,16 @@ exports.submitPaymentReceipt = async (req, res) => {
               const paymentAmount = pricing.payment_amount;
               const paymentPercentage = pricing.payment_percentage;
 
+              // ✅ BACK TO 8 COLUMNS – NO previous_business_permit_id NEEDED IN DB
               const insertQuery = `INSERT INTO tbl_payment_receipts (
-                user_id, application_type, permit_name, receipt_image, 
-                payment_method, payment_amount, payment_percentage, total_document_price
+                user_id,
+                application_type,
+                permit_name,
+                receipt_image, 
+                payment_method,
+                payment_amount,
+                payment_percentage,
+                total_document_price
               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
               db.query(
@@ -768,7 +785,7 @@ exports.getDocumentPrices = (req, res) => {
 };
 
 /* -------------------------------------------------------------------------- */
-/*  Get payment receipts for tracking in user (unchanged)                     */
+/*  Get payment receipts for tracking in user (unchanged shape)               */
 /* -------------------------------------------------------------------------- */
 
 exports.getPaymentReceiptsForTracking = async (req, res) => {
@@ -851,7 +868,7 @@ exports.getPaymentReceiptsForTracking = async (req, res) => {
 };
 
 /* -------------------------------------------------------------------------- */
-/*  Use form access (unchanged)                                               */
+/*  Use form access (unchanged, now wired to /use-access/:receiptId)          */
 /* -------------------------------------------------------------------------- */
 
 exports.useFormAccess = async (req, res) => {
