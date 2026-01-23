@@ -219,28 +219,28 @@ async function fillCedulaTemplate(mapped) {
   // so they line up with your actual CEDULA template fields.
 
   // Top line: Name and Address
-  draw(mapped.name, 80, height - 140); // Name
-  draw(mapped.address, 80, height - 160); // Address
+  draw(mapped.name, 80, height - 97); // Name
+  draw(mapped.address, 80, height - 124); // Address
 
   // Birth details
-  draw(mapped.place_of_birth, 80, height - 190); // Place of Birth
-  draw(mapped.date_of_birth, 320, height - 190); // Date of Birth
+  draw(mapped.place_of_birth, 289, height - 149); // Place of Birth
+  draw(mapped.date_of_birth, 384, height - 180); // Date of Birth
 
   // Profession & Purpose
-  draw(mapped.profession, 80, height - 220); // Profession
-  draw(mapped.purpose, 80, height - 250); // Purpose / Remarks
+  draw(mapped.profession, 80, height - 207); // Profession
+  // draw(mapped.purpose, 80, height - 250); // Purpose / Remarks
 
   // Income, TIN
-  draw(mapped.yearly_income, 120, height - 280); // Yearly Income
-  draw(mapped.tin, 320, height - 280); // TIN
+  // draw(mapped.yearly_income, 120, height - 900); // Yearly Income
+  draw(mapped.tin, 380, height - 97); // TIN
 
   // Sex / Civil status (simple text – you can change to "X" markers later)
-  draw(mapped.sex.toUpperCase(), 80, height - 310); // Sex
-  draw(mapped.civil_status.toUpperCase(), 220, height - 310); // Civil Status
+  draw(mapped.sex.toUpperCase(), 384, height - 124); // Sex
+  draw(mapped.civil_status.toUpperCase(), 120, height - 174); // Civil Status
 
   // Date issued (use created_at if available)
   const issued = mapped.created_at ? formatDateForPdf(mapped.created_at) : "";
-  draw(issued, width - 180, height - 340); // Date of issuance
+  draw(issued, width - 300, height - 67); // Date of issuance
 
   return await pdfDoc.save();
 }

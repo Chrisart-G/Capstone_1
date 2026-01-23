@@ -447,7 +447,7 @@ const PermitsHomepage = () => {
   if (isLoading) {
     return (
       <div
-        className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-700 via-slate-400 to-slate-700"
+        className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-sky-50 to-blue-100"
         style={{ fontFamily: "'Poppins', sans-serif" }}
       >
         <div className="bg-white/10 border border-white/20 backdrop-blur-xl rounded-2xl px-6 py-4 text-sm text-slate-900">
@@ -469,7 +469,7 @@ const PermitsHomepage = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-gradient-to-br from-slate-700 via-slate-400 to-slate-700"
+      className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-sky-50 to-blue-100"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
       <Uheader />
@@ -652,7 +652,7 @@ const PermitsHomepage = () => {
               </span>
               , you are required to pay the{' '}
               <span className="text-blue-600 font-semibold">
-                full permit fee
+                processing fee
                 {priceInfo &&
                   !Number.isNaN(priceInfo.current_price) &&
                   ` of ₱${priceInfo.current_price.toFixed(2)}`}

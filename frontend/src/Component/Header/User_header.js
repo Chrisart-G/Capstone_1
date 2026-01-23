@@ -1,10 +1,10 @@
 // components/Uheader.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { Home, FileText, Clock, Menu, X, User, ChevronDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import React, { useState, useEffect, useRef } from "react";
+import { Home, FileText, Clock, Menu, X, User, ChevronDown } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom"; // ✅ added useLocation
+import axios from "axios";
 
-const API_BASE_URL = 'http://localhost:8081';
+const API_BASE_URL = "http://localhost:8081";
 
 const Dot = ({ show }) =>
   show ? (
@@ -19,7 +19,7 @@ function Uheader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
+  const [userEmail, setUserEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const [badges, setBadges] = useState({ requestDocument: 0, trackStatus: 0 });
@@ -28,6 +28,7 @@ function Uheader() {
   const mobileMenuRef = useRef(null);
   const profileDropdownRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation(); // ✅ added
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -46,8 +47,8 @@ function Uheader() {
       )
         setProfileDropdownOpen(false);
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ function Uheader() {
         setIsLoggedIn(false);
       }
     } catch (error) {
-      console.error('Session check error:', error);
+      console.error("Session check error:", error);
       setIsLoggedIn(false);
     }
   };
@@ -80,11 +81,11 @@ function Uheader() {
         { withCredentials: true }
       );
       setIsLoggedIn(false);
-      setUserEmail('');
-      navigate('/');
+      setUserEmail("");
+      navigate("/");
     } catch (error) {
-      console.error('Logout error:', error);
-      alert('Failed to logout. Please try again.');
+      console.error("Logout error:", error);
+      alert("Failed to logout. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -98,10 +99,9 @@ function Uheader() {
     const loadBadges = async () => {
       try {
         setLoadingBadges(true);
-        const { data } = await axios.get(
-          `${API_BASE_URL}/api/user/nav/badges`,
-          { withCredentials: true }
-        );
+        const { data } = await axios.get(`${API_BASE_URL}/api/user/nav/badges`, {
+          withCredentials: true,
+        });
         if (!alive) return;
         setBadges(data?.badges || { requestDocument: 0, trackStatus: 0 });
       } catch (err) {
@@ -113,14 +113,13 @@ function Uheader() {
 
     loadBadges();
     timer = setInterval(loadBadges, 15000);
-    const onVis = () =>
-      document.visibilityState === 'visible' && loadBadges();
-    document.addEventListener('visibilitychange', onVis);
+    const onVis = () => document.visibilityState === "visible" && loadBadges();
+    document.addEventListener("visibilitychange", onVis);
 
     return () => {
       alive = false;
       clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVis);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
 
@@ -135,7 +134,7 @@ function Uheader() {
       );
       setBadges((b) => ({ ...b, requestDocument: 0 })); // optimistic clear
     } catch {}
-    window.location.href = '/Permits';
+    window.location.href = "/Permits";
   };
 
   const goTrack = async (e) => {
@@ -148,8 +147,28 @@ function Uheader() {
       );
       setBadges((b) => ({ ...b, trackStatus: 0 })); // optimistic clear
     } catch {}
-    window.location.href = '/Docutracker';
+    window.location.href = "/Docutracker";
   };
+
+  // ✅ ONLY STYLE: make hover blue + keep active (selected) blue
+  const navPill = (isActive) =>
+    [
+      "inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-colors",
+      "text-white",
+      "hover:bg-blue-700 active:bg-blue-800", // hover/click colors
+      isActive ? "bg-blue-600" : "bg-transparent", // stays blue when on that page
+    ].join(" ");
+
+  const mobileItem = (isActive) =>
+    [
+      "w-full px-6 py-3 flex items-center text-sm font-medium text-slate-100 transition-colors",
+      "hover:bg-blue-700 active:bg-blue-800",
+      isActive ? "bg-blue-600" : "",
+    ].join(" ");
+
+  const isHome = location.pathname === "/Chome";
+  const isPermits = location.pathname === "/Permits";
+  const isTracker = location.pathname === "/Docutracker";
 
   return (
     <div className="header relative z-50">
@@ -161,24 +180,16 @@ function Uheader() {
             <span className="text-base md:text-lg lg:text-xl font-semibold leading-tight">
               ODPMH Services
             </span>
-
           </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-2 lg:space-x-3">
-            <a
-              href="/Chome"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium text-slate-100 hover:bg-slate-800/80 hover:text-white transition-colors"
-            >
+            <a href="/Chome" className={navPill(isHome)}>
               <Home size={18} />
               <span>Home</span>
             </a>
 
-            <a
-              href="/Permits"
-              onClick={goPermits}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium text-slate-100 hover:bg-slate-800/80 hover:text-white transition-colors"
-            >
+            <a href="/Permits" onClick={goPermits} className={navPill(isPermits)}>
               <FileText size={18} />
               <span>Request Document</span>
               {!loadingBadges && <Dot show={badges.requestDocument > 0} />}
@@ -187,7 +198,7 @@ function Uheader() {
             <a
               href="/Docutracker"
               onClick={goTrack}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium text-slate-100 hover:bg-slate-800/80 hover:text-white transition-colors"
+              className={navPill(isTracker)}
             >
               <Clock size={18} />
               <span>Track Status</span>
@@ -205,7 +216,7 @@ function Uheader() {
                 <ChevronDown
                   size={16}
                   className={`transition-transform ${
-                    profileDropdownOpen ? 'rotate-180' : ''
+                    profileDropdownOpen ? "rotate-180" : ""
                   }`}
                 />
               </button>
@@ -224,7 +235,7 @@ function Uheader() {
                     disabled={isLoading}
                     className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-slate-50 disabled:opacity-60"
                   >
-                    {isLoading ? 'Logging out...' : 'Log Out'}
+                    {isLoading ? "Logging out..." : "Log Out"}
                   </button>
                 </div>
               )}
@@ -251,18 +262,11 @@ function Uheader() {
           className="fixed top-[64px] left-0 w-full h-auto bg-slate-900/95 backdrop-blur-md shadow-lg z-40 transform transition-transform duration-300 ease-in-out"
         >
           <nav className="flex flex-col items-start py-3">
-            <a
-              href="/Chome"
-              className="w-full px-6 py-3 hover:bg-slate-800 flex items-center text-sm font-medium text-slate-100"
-            >
+            <a href="/Chome" className={mobileItem(isHome)}>
               <Home className="mr-3" size={20} /> Home
             </a>
 
-            <a
-              href="/Permits"
-              onClick={goPermits}
-              className="w-full px-6 py-3 hover:bg-slate-800 flex items-center text-sm font-medium text-slate-100"
-            >
+            <a href="/Permits" onClick={goPermits} className={mobileItem(isPermits)}>
               <FileText className="mr-3" size={20} /> Request Document
               {!loadingBadges && <Dot show={badges.requestDocument > 0} />}
             </a>
@@ -270,18 +274,19 @@ function Uheader() {
             <a
               href="/Docutracker"
               onClick={goTrack}
-              className="w-full px-6 py-3 hover:bg-slate-800 flex items-center text-sm font-medium text-slate-100"
+              className={mobileItem(isTracker)}
             >
               <Clock className="mr-3" size={20} /> Track Status
               {!loadingBadges && <Dot show={badges.trackStatus > 0} />}
             </a>
 
             <a
-              href="/Userprofile"
-              className="w-full px-6 py-3 hover:bg-slate-800 flex items-center text-sm font-medium text-slate-100"
+            href="/Userprofile"
+            className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
             >
-              <User className="mr-3" size={20} /> My Profile
-            </a>
+              My Profile
+              </a>
+
 
             <a
               href="/Usersettings"
@@ -293,10 +298,11 @@ function Uheader() {
             <button
               onClick={handleLogout}
               disabled={isLoading}
-              className="w-full text-left px-6 py-3 hover:bg-slate-800 flex items-center text-sm font-medium text-slate-100 disabled:opacity-60"
-            >
-              {isLoading ? 'Logging out...' : 'Log Out'}
-            </button>
+              className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-red-600 hover:text-red-600 disabled:opacity-60 transition-colors"
+                >
+              {isLoading ? "Logging out..." : "Log Out"}
+              </button>
+
           </nav>
         </div>
       )}

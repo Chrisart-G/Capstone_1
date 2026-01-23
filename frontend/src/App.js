@@ -18,6 +18,7 @@ import AddOffice from './Component/Addoffice/Addoffice';
 import ManageOffice from './Component/Manageoffice/ManageOffice'
 import ElectricalPermitForm from './Component/Form/Electricalpermit/electricalpermit';
 import PlumbingPermitForm from './Component/Form/Plumbingpermit/plumbingpermit';
+import ZoningPermitForm from './Component/Form/Zoningpermit/zoningpermit';
 import CedulaPermitForm from './Component/Form/Cedulapermit/cedulapermit';
 import FencingPermitForm from './Component/Form/Fencingpermit/fencingpermit';
 import MunicipalUserProfileDashboard from './Component/Userprofile/userprofile';
@@ -63,6 +64,11 @@ function App() {
           <Route path="/PlumbingPermitForm" element={
             <ProtectedRoute>
               <PlumbingPermitForm />
+            </ProtectedRoute>
+             } />
+          <Route path="/ZoningPermitForm" element={
+            <ProtectedRoute>
+              <ZoningPermitForm/>
             </ProtectedRoute>
              } />
           <Route path="/CedulaPermitForm" element={

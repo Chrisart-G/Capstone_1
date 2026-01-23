@@ -217,9 +217,9 @@ async function fillElectricalTemplate(mapped) {
   draw(mapped.building_permit_no, 410, 892);
 
   // Name / TIN  (UNCHANGED)
-  draw(mapped.last_name, 45, 817);
-  draw(mapped.first_name, 80, 817);
-  draw(mapped.mi, 120, 817);
+  draw(mapped.last_name, 145, 817);
+  draw(mapped.first_name, 225, 817);
+  draw(mapped.mi, 318, 817);
   draw(mapped.tin, 430, 817);
 
   // Address  (UNCHANGED)
