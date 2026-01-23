@@ -1,16 +1,30 @@
 // Controller/employeedashController.js
 const db = require('../db/dbconnect');
 const axios = require("axios");
-const path = require("path");         // ✅ ADD THIS
-const fs = require("fs");       
+const path = require("path");
+const fs = require("fs");
 const { PDFDocument, StandardFonts } = require("pdf-lib");
-const { IPROG_API_TOKEN, SMS_ENABLED = "true" } = process.env;
+const nodemailer = require("nodemailer");
+
+const {
+  IPROG_API_TOKEN,
+  SMS_ENABLED = "true",
+  EMAIL_ENABLED = "true",
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_SECURE,
+  SMTP_USER,
+  SMTP_PASS,
+  SMTP_FROM,
+} = process.env;
+
 const PICKUP_UPLOAD_BASE = path.join(
   __dirname,
   "..",
   "uploads",
   "pickup_docs"
 );
+
 /* ---------------- Auth ---------------- */
 function requireAuth(req, res) {
   if (!req.session || !req.session.user || !req.session.user.user_id) {
@@ -26,14 +40,68 @@ function q(sql, params = []) {
     db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
   );
 }
+const BUSINESS_LGU_FIELDS = [
+  {
+    key: "occupancy_permit",
+    office: "MPDO", // MPDO handles occupancy
+    label: "Occupancy Permit (For New)",
+  },
+  {
+    key: "zoning_clearance",
+    office: "MPDO", // MPDO handles zoning
+    label: "Zoning (New and Renewal)",
+  },
+  {
+    key: "barangay_clearance",
+    office: "BRGY", // generic code for barangay
+    label: "Barangay Clearance (For Renewal)",
+  },
+  {
+    key: "sanitary_clearance",
+    office: "MHO",
+    label: "Sanitary Permit / Health Clearance",
+  },
+  {
+    key: "environment_certificate",
+    office: "MEO",
+    label: "Municipal Environmental Certificate",
+  },
+  {
+    key: "market_clearance",
+    office: "MARKET",
+    label: "Market Clearance (For Stall Holders)",
+  },
+  {
+    key: "fire_safety_certificate",
+    office: "BFP",
+    label: "Valid Fire Safety Inspection Certificate",
+  },
+  {
+    key: "river_floating_fish",
+    office: "MAO",
+    label:
+      "Registration/Verification (River Tanab, Oyster Culture, Floating Fish Cage Operator)",
+  },
+];
 
-/* ---------------- Feature flag ---------------- */
+function normalizeDocChoice(v) {
+  const s = String(v || "").toLowerCase();
+  if (s === "yes" || s === "no" || s === "not_needed") return s;
+  return "not_needed";
+}
+
+/* ---------------- Feature flag (SMS) ---------------- */
 async function getSmsEnabledFlag() {
   try {
     const rows = await q('SELECT v FROM system_settings WHERE k="sms_enabled" LIMIT 1');
     if (rows && rows[0]) return rows[0].v === "true";
   } catch (_) {}
   return String(SMS_ENABLED).toLowerCase() === "true";
+}
+
+/* ---------------- Feature flag (EMAIL) ---------------- */
+function getEmailEnabledFlag() {
+  return String(EMAIL_ENABLED || "true").toLowerCase() === "true";
 }
 
 /* ---------------- Phone normalizer ---------------- */
@@ -81,7 +149,7 @@ async function iprogCredits() {
   return res.data;
 }
 
-/* ---------------- Type mapping for SMS ---------------- */
+/* ---------------- Type mapping for SMS/EMAIL ---------------- */
 const TABLE_TO_TYPE = {
   "tbl_plumbing_permits": "plumbing",
   "tbl_electronics_permits": "electronics",
@@ -97,24 +165,71 @@ const OFFICE_BY_TYPE = {
   electronics: "Office of the Municipal Planning Development",
   building: "Office of the Municipal Planning Development",
   fencing: "Office of the Municipal Planning Development",
-  electrical: "Office of the Municipal Engineer",
-  cedula: "Municipal Business Permit and licensing Office",
+  electrical: "Office of the Municipal Planning Development",
+  cedula: "Business Permit and licensing Office",
   business: "Business Permits & Licensing Office", // NEW
 };
-// this is for schedule pickup
 
+// ---------------- EMAIL TRANSPORTER ----------------
+let emailTransporter = null;
 
+function getEmailTransporter() {
+  if (!getEmailEnabledFlag()) return null;
+  if (emailTransporter) return emailTransporter;
+
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    console.warn("[EMAIL] Missing SMTP config, emails disabled.");
+    return null;
+  }
+
+  emailTransporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT || 587),
+    secure: String(SMTP_SECURE || "false").toLowerCase() === "true",
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
+
+  return emailTransporter;
+}
+
+/**
+ * Generic email sender
+ * options: { to, subject, text, html? }
+ */
+async function sendEmail(options = {}) {
+  const transporter = getEmailTransporter();
+  if (!transporter) {
+    console.log("[EMAIL] Skipped (no transporter / disabled)");
+    return;
+  }
+
+  const { to, subject, text, html } = options;
+
+  if (!to || !subject || (!text && !html)) {
+    console.warn("[EMAIL] Missing required fields", { to, subject });
+    return;
+  }
+
+  const mailOptions = {
+    from: SMTP_FROM || SMTP_USER,
+    to,
+    subject,
+    text,
+    html: html || undefined,
+  };
+
+  console.log("[EMAIL] SEND →", { to, subject });
+  const info = await transporter.sendMail(mailOptions);
+  console.log("[EMAIL] SENT ←", info.messageId);
+}
 function ensureDirExists(dir) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 }
-
-/**
- * Save the uploaded pickup document.
- * Allowed extensions: .pdf, .jpg, .jpeg, .png
- * Returns relative path like /uploads/pickup_docs/business/12345_file.pdf
- */
 function savePickupFile(file, subfolder) {
   return new Promise((resolve, reject) => {
     if (!file) return resolve(null); // file is optional
@@ -145,7 +260,6 @@ function savePickupFile(file, subfolder) {
     });
   });
 }
-
 function setPickupWithFile(req, res, {
   table,
   pkCol,
@@ -235,6 +349,15 @@ function setPickupWithFile(req, res, {
               e?.response?.data || e
             )
           );
+
+        // EMAIL with schedule (new)
+        fireEmailFor(table, applicationId, "ready-for-pickup", schedule)
+          .then(() =>
+            console.log("[EMAIL] done for pickup", { table, applicationId })
+          )
+          .catch((e) =>
+            console.error("[EMAIL] pickup background error:", e)
+          );
       });
     })
     .catch((err) => {
@@ -245,11 +368,14 @@ function setPickupWithFile(req, res, {
       });
     });
 }
-
-/* ---------------- Lookups ---------------- */
 async function getUserPhoneByUserId(userId) {
   const rows = await q("SELECT phone_number FROM tbl_user_info WHERE user_id=? LIMIT 1", [userId]);
   return rows?.[0]?.phone_number || null;
+}
+async function getUserEmailByUserId(userId) {
+  // adjust table/column if different in your DB
+  const rows = await q("SELECT email FROM tb_logins WHERE user_id=? LIMIT 1", [userId]);
+  return rows?.[0]?.email || null;
 }
 async function getUserIdFromTableRow(table, id) {
   let key = "id";
@@ -263,7 +389,6 @@ async function getUserIdFromTableRow(table, id) {
   );
   return rows?.[0]?.user_id || null;
 }
-
 async function getApplicationNo(table, id) {
   // cedula and business_permits don’t have application_no
   if (table === "tbl_cedula" || table === "business_permits") {
@@ -275,8 +400,6 @@ async function getApplicationNo(table, id) {
   ).catch(() => []);
   return rows?.[0]?.application_no || null;
 }
-
-
 function buildStatusMessage({ officeName, applicationTypeLabel, applicationNo, newStatus, extraNote }) {
   const lines = [
     officeName || "Municipality",
@@ -286,8 +409,6 @@ function buildStatusMessage({ officeName, applicationTypeLabel, applicationNo, n
   ].filter(Boolean);
   return lines.join("\n").slice(0, 306);
 }
-
-/* ---------------- Fire SMS after status change ---------------- */
 async function fireSmsFor(table, id, status, schedule) {
   try {
     const smsOn = await getSmsEnabledFlag();
@@ -312,7 +433,7 @@ async function fireSmsFor(table, id, status, schedule) {
 
     const application_no = await getApplicationNo(table, id);
     const office_name = OFFICE_BY_TYPE[application_type] || "Municipal Office";
-        const extra_note = (function noteForStatus(status, schedule) {
+    const extra_note = (function noteForStatus(status, schedule) {
       switch (status) {
         case "in-review":
           return "Your application is under review. Please monitor your requirements in the portal.";
@@ -337,7 +458,6 @@ async function fireSmsFor(table, id, status, schedule) {
       }
     })(status, schedule);
 
-
     const label = application_type.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
     const message = buildStatusMessage({
       officeName: office_name,
@@ -351,6 +471,133 @@ async function fireSmsFor(table, id, status, schedule) {
     await iprogSend({ phone, message });
   } catch (e) {
     console.error("[SMS] fireSmsFor error:", e?.response?.status, e?.response?.data || e);
+  }
+}
+
+/* ---------------- EMAIL content builders + fireEmailFor ---------------- */
+
+function buildEmailSubject({ applicationTypeLabel, applicationNo, newStatus }) {
+  if (applicationNo) {
+    return `${applicationTypeLabel || "Application"} #${applicationNo} - ${newStatus}`;
+  }
+  return `${applicationTypeLabel || "Application"} - ${newStatus}`;
+}
+
+function buildEmailBodyText({ officeName, applicationTypeLabel, applicationNo, newStatus, extraNote }) {
+  const lines = [
+    officeName || "Municipal Office",
+    "",
+    `${applicationTypeLabel || "Application"} ${applicationNo ? `#${applicationNo}` : ""}`.trim(),
+    `Status: ${newStatus}`,
+    "",
+    extraNote || "Please login to your account to view the full details of your application.",
+    "",
+    "This is an automated notification from the Municipal Permits System.",
+  ].filter(Boolean);
+
+  return lines.join("\n");
+}
+
+function buildEmailBodyHtml({ officeName, applicationTypeLabel, applicationNo, newStatus, extraNote }) {
+  return `
+    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #111827;">
+      <h2 style="margin: 0 0 8px 0; color: #1f2937;">${officeName || "Municipal Office"}</h2>
+      <p style="margin: 0 0 12px 0;">
+        <strong>${applicationTypeLabel || "Application"}${applicationNo ? ` #${applicationNo}` : ""}</strong><br/>
+        Status: <strong>${newStatus}</strong>
+      </p>
+      <p style="margin: 0 0 12px 0;">${extraNote || "Please login to your account to view the full details of your application."}</p>
+      <p style="margin: 16px 0 0 0; font-size: 12px; color: #6b7280;">
+        This is an automated notification from the Municipal Permits System.
+      </p>
+    </div>
+  `;
+}
+
+async function fireEmailFor(table, id, status, schedule) {
+  try {
+    if (!getEmailEnabledFlag()) {
+      console.log("[EMAIL] Skipped (disabled)");
+      return;
+    }
+
+    const application_type = TABLE_TO_TYPE[table];
+    if (!application_type) {
+      console.log("[EMAIL] Unknown application_type for table", table);
+      return;
+    }
+
+    const userId = await getUserIdFromTableRow(table, id);
+    if (!userId) {
+      console.log("[EMAIL] No user_id for", table, id);
+      return;
+    }
+
+    const email = await getUserEmailByUserId(userId);
+    if (!email) {
+      console.log("[EMAIL] No email for user", userId);
+      return;
+    }
+
+    const application_no = await getApplicationNo(table, id);
+    const office_name = OFFICE_BY_TYPE[application_type] || "Municipal Office";
+
+    const extra_note = (function noteForStatus(status, schedule) {
+      switch (status) {
+        case "in-review":
+          return "Your application is now under review. Please monitor your requirements in the portal.";
+        case "in-progress":
+          return "Your application is now in progress. Please upload any additional requirements if requested.";
+        case "requirements-completed":
+          return "All requirements have been received. Your application is now awaiting final approval.";
+        case "approved":
+          return "Your application has been approved. Please watch your portal and email for pickup instructions.";
+        case "on-hold":
+          return "Your application is currently on hold. Please check your account for remarks or additional requirements.";
+        case "pickup-document":
+          return "Your permit document is being prepared. Please monitor your account for the pickup schedule.";
+        case "ready-for-pickup":
+          return schedule
+            ? `Your document is ready for pickup on ${schedule}. Please bring a valid ID.`
+            : "Your document is ready for pickup. Please bring a valid ID.";
+        case "rejected":
+          return "Unfortunately, your application was not approved. Please see the details in your portal.";
+        default:
+          return "Please login to your account to view the full details of your application.";
+      }
+    })(status, schedule);
+
+    const label = application_type
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (m) => m.toUpperCase());
+
+    const subject = buildEmailSubject({
+      applicationTypeLabel: label,
+      applicationNo: application_no,
+      newStatus: status,
+    });
+
+    const text = buildEmailBodyText({
+      officeName: office_name,
+      applicationTypeLabel: label,
+      applicationNo: application_no,
+      newStatus: status,
+      extraNote: extra_note,
+    });
+
+    const html = buildEmailBodyHtml({
+      officeName: office_name,
+      applicationTypeLabel: label,
+      applicationNo: application_no,
+      newStatus: status,
+      extraNote: extra_note,
+    });
+
+    await sendEmail({ to: email, subject, text, html });
+
+    console.log("[EMAIL] sent for", { table, id, status, email });
+  } catch (e) {
+    console.error("[EMAIL] fireEmailFor error:", e);
   }
 }
 
@@ -435,6 +682,15 @@ function updateStatus(res, table, id, status, schedule, pkCol) {
           e?.response?.data || e
         )
       );
+
+    // EMAIL (new)
+    fireEmailFor(table, id, status, schedule)
+      .then(() =>
+        console.log("[EMAIL] done for", { table, id, status })
+      )
+      .catch((e) =>
+        console.error("[EMAIL] background error:", e)
+      );
   });
 }
 
@@ -464,6 +720,11 @@ function updateCedulaStatusGeneric(res, id, status, schedule) {
     fireSmsFor('tbl_cedula', id, status, schedule)
       .then(() => console.log("[SMS] done for", { table: 'tbl_cedula', id, status }))
       .catch((e) => console.error("[SMS] background error:", e?.response?.data || e));
+
+    // EMAIL (new)
+    fireEmailFor('tbl_cedula', id, status, schedule)
+      .then(() => console.log("[EMAIL] done for", { table: 'tbl_cedula', id, status }))
+      .catch((e) => console.error("[EMAIL] background error:", e));
   });
 }
 
@@ -738,7 +999,6 @@ exports.electricalToInProgress = (req, res) => {
 };
 
 // CEDULA: /api/cedula/move-to-inprogress (accept id or cedulaId)
-// CEDULA: /api/cedula/move-to-inprogress (accept id or cedulaId)
 exports.moveCedulaToInProgress = (req, res) => {
   if (!requireAuth(req, res)) return;
   
@@ -965,11 +1225,6 @@ exports.attachRequirementFromLibrary = async (req, res) => {
   }
 };
 
-
-
-
-
-
 exports.getApplicationComments = async (req, res) => {
   if (!requireAuth(req, res)) return;
   const { applicationType, applicationId } = req.query || {};
@@ -1003,7 +1258,6 @@ exports.addApplicationComment = async (req, res) => {
 
 
 // this section is for comment
-// GET /application-comments?application_type=&application_id=
 // GET /application-comments?application_type=&application_id=
 exports.getApplicationComments = (req, res) => {
   if (!requireAuth(req, res)) return;
@@ -1190,7 +1444,7 @@ exports.getUserComments = (req, res) => {
       comment,
       author_role,
       created_at,
-      status_at_post        -- ✅ THIS WAS MISSING
+      status_at_post
     FROM application_comments
     WHERE application_type = ? AND application_id = ?
     ORDER BY created_at ASC
@@ -1211,7 +1465,7 @@ exports.getUserComments = (req, res) => {
       comment: r.comment,
       author_role: r.author_role || "employee",
       created_at: r.created_at,
-      status_at_post: r.status_at_post || null,  // ✅ ADDED
+      status_at_post: r.status_at_post || null,
     }));
 
     res.json({ success: true, items });
@@ -1463,14 +1717,18 @@ exports.attachRequirementFromLibrary = (req, res) => {
 
 // GET /attached-requirements?application_type=&application_id=
 // GET /attached-requirements?application_type=&application_id=
-exports.getAttachedRequirements = (req, res) => {
+exports.getAttachedRequirements = async (req, res) => {
   if (!requireAuth(req, res)) return;
 
-  const { application_type = "", application_id = "" } = req.query;
-  if (!application_type || !application_id) {
+  const { application_type = "", application_id = "" } = req.query || {};
+
+  const appType = String(application_type || "").toLowerCase().trim();
+  const appId = Number(application_id);
+
+  if (!appType || !Number.isFinite(appId) || appId <= 0) {
     return res.status(400).json({
       success: false,
-      message: "Missing application_type or application_id.",
+      message: "Missing or invalid application_type or application_id.",
     });
   }
 
@@ -1490,33 +1748,115 @@ exports.getAttachedRequirements = (req, res) => {
     ORDER BY uploaded_at DESC
   `;
 
-  db.query(sql, [application_type, application_id], (err, rows) => {
-    if (err) {
-      console.error("getAttachedRequirements error:", err);
-      return res
-        .status(500)
-        .json({ success: false, message: "Failed to load attached requirements." });
-    }
+  try {
+    // 1) load attached requirements
+    const rows = await q(sql, [appType, appId]);
 
     const base = `${req.protocol}://${req.get("host")}`;
     const items = rows.map((r) => ({
       ...r,
-      // system template
       file_url: r.pdf_path ? `${base}${r.pdf_path}` : null,
-      // user-uploaded filled requirement
-      user_file_url: r.user_upload_path ? `${base}${r.user_upload_path}` : null,
+      user_file_url: r.user_upload_path
+        ? `${base}${r.user_upload_path}`
+        : null,
     }));
 
+    // 2) BUSINESS ONLY: load saved LGU verification + per-requirement status
+    let lgu_state = null;
+
+    const BUSINESS_TYPES = new Set([
+      "business",
+      "renewal_business",
+      "special_sales",
+    ]);
+
+    if (BUSINESS_TYPES.has(appType)) {
+      // 2a) verification radios (YES/NO/NOT_NEEDED)
+      const vRows = await q(
+        `
+          SELECT 
+            occupancy_permit,
+            zoning_clearance,
+            barangay_clearance,
+            sanitary_clearance,
+            environment_certificate,
+            market_clearance,
+            fire_safety_certificate,
+            river_floating_fish
+          FROM business_permit_doc_verification
+          WHERE BusinessP_id = ?
+          LIMIT 1
+        `,
+        [appId]
+      );
+
+      const checks =
+        vRows && vRows.length
+          ? {
+              occupancy_permit: normalizeCheck(vRows[0].occupancy_permit),
+              zoning_clearance: normalizeCheck(vRows[0].zoning_clearance),
+              barangay_clearance: normalizeCheck(vRows[0].barangay_clearance),
+              sanitary_clearance: normalizeCheck(vRows[0].sanitary_clearance),
+              environment_certificate: normalizeCheck(
+                vRows[0].environment_certificate
+              ),
+              market_clearance: normalizeCheck(vRows[0].market_clearance),
+              fire_safety_certificate: normalizeCheck(
+                vRows[0].fire_safety_certificate
+              ),
+              river_floating_fish: normalizeCheck(
+                vRows[0].river_floating_fish
+              ),
+            }
+          : null;
+
+      // 2b) per-requirement status coming from business_lgu_requirements_status
+      const sRows = await q(
+        `
+          SELECT requirement_key, status
+          FROM business_lgu_requirements_status
+          WHERE application_id = ?
+        `,
+        [appId]
+      );
+
+      const statusMap = {};
+      for (const r of sRows || []) {
+        statusMap[r.requirement_key] = String(r.status || "pending")
+          .toLowerCase()
+          .trim();
+      }
+
+      if (checks) {
+        lgu_state = {
+          checks,
+          status: statusMap, // <-- this is what the frontend reads into lguStatus
+        };
+      }
+    }
+
     console.log(
-      "[ATTACHED-REQ] type=%s id=%s rows=%d",
-      application_type,
-      application_id,
-      items.length
+      "[ATTACHED-REQ] type=%s id=%s rows=%d has_lgu_state=%s",
+      appType,
+      appId,
+      items.length,
+      lgu_state ? "yes" : "no"
     );
 
-    res.json({ success: true, items });
-  });
+    if (lgu_state) {
+      return res.json({ success: true, items, lgu_state });
+    }
+    return res.json({ success: true, items });
+  } catch (err) {
+    console.error("getAttachedRequirements error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load attached requirements.",
+    });
+  }
 };
+
+
 
 exports.removeAttachedRequirement = (req, res) => {
   if (!requireAuth(req, res)) return;
@@ -1562,15 +1902,14 @@ exports.removeAttachedRequirement = (req, res) => {
 
 
 
-
-
 // auto pdf__________________________________________________________________________________________________________
 function normalizeCheck(val) {
-  const v = String(val || "").toLowerCase();
+  const v = String(val || "").toLowerCase().trim();
   if (v === "yes" || v === "no" || v === "not_needed") return v;
   if (v === "not needed" || v === "not-needed") return "not_needed";
   return "not_needed";
 }
+
 
 /**
  * Insert or update LGU verification (page 2) for a business permit.
@@ -1580,77 +1919,143 @@ function normalizeCheck(val) {
  *   fire_safety_certificate, river_floating_fish
  * }
  */
-function upsertBusinessPermitVerification(businessId, checks = {}) {
-  return new Promise((resolve, reject) => {
-    const values = {
-      occupancy_permit:        normalizeCheck(checks.occupancy_permit),
-      zoning_clearance:        normalizeCheck(checks.zoning_clearance),
-      barangay_clearance:      normalizeCheck(checks.barangay_clearance),
-      sanitary_clearance:      normalizeCheck(checks.sanitary_clearance),
-      environment_certificate: normalizeCheck(checks.environment_certificate),
-      market_clearance:        normalizeCheck(checks.market_clearance),
-      fire_safety_certificate: normalizeCheck(checks.fire_safety_certificate),
-      river_floating_fish:     normalizeCheck(checks.river_floating_fish),
-    };
+async function upsertBusinessPermitVerification(businessId, checks = {}) {
+  // 1) prepare normalized values for the verification table
+  const rowValues = {
+    BusinessP_id: businessId,
+    occupancy_permit: normalizeDocChoice(checks.occupancy_permit),
+    zoning_clearance: normalizeDocChoice(checks.zoning_clearance),
+    barangay_clearance: normalizeDocChoice(checks.barangay_clearance),
+    sanitary_clearance: normalizeDocChoice(checks.sanitary_clearance),
+    environment_certificate: normalizeDocChoice(checks.environment_certificate),
+    market_clearance: normalizeDocChoice(checks.market_clearance),
+    fire_safety_certificate: normalizeDocChoice(checks.fire_safety_certificate),
+    river_floating_fish: normalizeDocChoice(checks.river_floating_fish),
+  };
 
-    const sel = `
-      SELECT id
-      FROM business_permit_doc_verification
+  // 2) Manual UPSERT so we do NOT depend on UNIQUE KEY on BusinessP_id
+  const existing = await q(
+    "SELECT id FROM business_permit_doc_verification WHERE BusinessP_id = ? LIMIT 1",
+    [businessId]
+  );
+
+  if (existing.length) {
+    // UPDATE existing row
+    await q(
+      `
+      UPDATE business_permit_doc_verification
+      SET
+        occupancy_permit        = ?,
+        zoning_clearance        = ?,
+        barangay_clearance      = ?,
+        sanitary_clearance      = ?,
+        environment_certificate = ?,
+        market_clearance        = ?,
+        fire_safety_certificate = ?,
+        river_floating_fish     = ?,
+        updated_at              = NOW()
       WHERE BusinessP_id = ?
-      LIMIT 1
-    `;
-    db.query(sel, [businessId], (err, rows) => {
-      if (err) return reject(err);
+    `,
+      [
+        rowValues.occupancy_permit,
+        rowValues.zoning_clearance,
+        rowValues.barangay_clearance,
+        rowValues.sanitary_clearance,
+        rowValues.environment_certificate,
+        rowValues.market_clearance,
+        rowValues.fire_safety_certificate,
+        rowValues.river_floating_fish,
+        businessId,
+      ]
+    );
+  } else {
+    // INSERT new row
+    await q(
+      `
+      INSERT INTO business_permit_doc_verification (
+        BusinessP_id,
+        occupancy_permit,
+        zoning_clearance,
+        barangay_clearance,
+        sanitary_clearance,
+        environment_certificate,
+        market_clearance,
+        fire_safety_certificate,
+        river_floating_fish,
+        created_at,
+        updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,NOW(),NOW())
+    `,
+      [
+        businessId,
+        rowValues.occupancy_permit,
+        rowValues.zoning_clearance,
+        rowValues.barangay_clearance,
+        rowValues.sanitary_clearance,
+        rowValues.environment_certificate,
+        rowValues.market_clearance,
+        rowValues.fire_safety_certificate,
+        rowValues.river_floating_fish,
+      ]
+    );
+  }
 
-      const params = [
-        values.occupancy_permit,
-        values.zoning_clearance,
-        values.barangay_clearance,
-        values.sanitary_clearance,
-        values.environment_certificate,
-        values.market_clearance,
-        values.fire_safety_certificate,
-        values.river_floating_fish,
-      ];
+  // 3) SYNC business_lgu_requirements_status (tasks per office)
+  //    - if radio == "yes"  → create/update row for that office (status "pending")
+  //    - if "no"/"not_needed" → delete any existing row
+  for (const def of BUSINESS_LGU_FIELDS) {
+    const value = rowValues[def.key]; // yes / no / not_needed
 
-      if (rows.length) {
-        const upd = `
-          UPDATE business_permit_doc_verification
-          SET occupancy_permit = ?,
-              zoning_clearance = ?,
-              barangay_clearance = ?,
-              sanitary_clearance = ?,
-              environment_certificate = ?,
-              market_clearance = ?,
-              fire_safety_certificate = ?,
-              river_floating_fish = ?
-          WHERE BusinessP_id = ?
-        `;
-        db.query(upd, [...params, businessId], (uErr) => {
-          if (uErr) return reject(uErr);
-          resolve();
-        });
+    if (value === "yes") {
+      // check if we already have a row for this application & requirement
+      const existingTask = await q(
+        `
+        SELECT id
+        FROM business_lgu_requirements_status
+        WHERE application_id = ? AND requirement_key = ?
+        LIMIT 1
+      `,
+        [businessId, def.key]
+      );
+
+      if (existingTask.length) {
+        // update existing row → reset status to pending whenever LGU regenerates
+        await q(
+          `
+          UPDATE business_lgu_requirements_status
+          SET
+            office_name = ?,           -- department code (MEO / MAO / MPDO / etc.)
+            status      = 'pending',
+            remarks     = NULL,
+            pdf_path    = NULL,
+            updated_at  = NOW()
+          WHERE id = ?
+        `,
+          [def.office, existingTask[0].id]
+        );
       } else {
-        const ins = `
-          INSERT INTO business_permit_doc_verification (
-            BusinessP_id,
-            occupancy_permit,
-            zoning_clearance,
-            barangay_clearance,
-            sanitary_clearance,
-            environment_certificate,
-            market_clearance,
-            fire_safety_certificate,
-            river_floating_fish
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        db.query(ins, [businessId, ...params], (iErr) => {
-          if (iErr) return reject(iErr);
-          resolve();
-        });
+        // insert new row
+        await q(
+          `
+          INSERT INTO business_lgu_requirements_status
+            (application_id, requirement_key, office_name, status, remarks, pdf_path, updated_at)
+          VALUES
+            (?, ?, ?, 'pending', NULL, NULL, NOW())
+        `,
+          [businessId, def.key, def.office]
+        );
       }
-    });
-  });
+    } else {
+      // if the choice is "no" or "not_needed", remove any task for that office
+      await q(
+        `
+        DELETE FROM business_lgu_requirements_status
+        WHERE application_id = ? AND requirement_key = ?
+      `,
+        [businessId, def.key]
+      );
+    }
+  }
 }
 function _bp_calcAssessment(items = {}) {
   const rows = {};
@@ -1671,7 +2076,8 @@ function _bp_upsertAssessment(businessId, items = {}) {
   return new Promise((resolve, reject) => {
     const sel = `
       SELECT id FROM business_permit_assessment
-      WHERE BusinessP_id = ? LIMIT 1
+      WHERE BusinessP_id = ?
+      LIMIT 1
     `;
     db.query(sel, [businessId], (err, srows) => {
       if (err) return reject(err);
@@ -2183,56 +2589,56 @@ async function createBusinessPermitFilledPdf(businessRow, checks = {}) {
 
   // ========== PAGE 2: LGU VERIFICATION CHECKBOXES ==========
 
-  const norm = (val) => {
+  const norm2 = (val) => {
     const v = String(val || "").toLowerCase();
     if (v === "yes" || v === "no" || v === "not_needed") return v;
     if (v === "not needed" || v === "not-needed") return "not_needed";
     return "not_needed";
   };
 
-  const normalizedChecks = {
-    occupancy_permit:        norm(checks.occupancy_permit),
-    zoning_clearance:        norm(checks.zoning_clearance),
-    barangay_clearance:      norm(checks.barangay_clearance),
-    sanitary_clearance:      norm(checks.sanitary_clearance),
-    environment_certificate: norm(checks.environment_certificate),
-    market_clearance:        norm(checks.market_clearance),
-    fire_safety_certificate: norm(checks.fire_safety_certificate),
-    river_floating_fish:     norm(checks.river_floating_fish),
+  const normalizedChecks2 = {
+    occupancy_permit:        norm2(checks.occupancy_permit),
+    zoning_clearance:        norm2(checks.zoning_clearance),
+    barangay_clearance:      norm2(checks.barangay_clearance),
+    sanitary_clearance:      norm2(checks.sanitary_clearance),
+    environment_certificate: norm2(checks.environment_certificate),
+    market_clearance:        norm2(checks.market_clearance),
+    fire_safety_certificate: norm2(checks.fire_safety_certificate),
+    river_floating_fish:     norm2(checks.river_floating_fish),
   };
 
   // Centers of Yes / No / Not Needed boxes
-  const X_CHECK_YES         = 355;
-  const X_CHECK_NO          = 420;
-  const X_CHECK_NOT_NEEDED  = 530;
+  const X_CHECK_YES2         = 355;
+  const X_CHECK_NO2          = 420;
+  const X_CHECK_NOT_NEEDED2  = 530;
 
   // Slightly lowered so they don’t touch the header line
-  const Y_OCCUPANCY_PERMIT  = 896;
-  const Y_ZONING_CLEARANCE  = 877;
-  const Y_BARANGAY_CLEARANCE= 858;
-  const Y_SANITARY          = 835;
-  const Y_ENV_CERT          = 815;
-  const Y_MARKET_CLEARANCE  = 794;
-  const Y_FIRE_SAFETY       = 773;
-  const Y_RIVER_FLOATING    = 744;
+  const Y_OCCUPANCY_PERMIT2  = 896;
+  const Y_ZONING_CLEARANCE2  = 877;
+  const Y_BARANGAY_CLEARANCE2= 858;
+  const Y_SANITARY2          = 835;
+  const Y_ENV_CERT2          = 815;
+  const Y_MARKET_CLEARANCE2  = 794;
+  const Y_FIRE_SAFETY2       = 773;
+  const Y_RIVER_FLOATING2    = 744;
 
-  function markCheck(rowY, status) {
+  function markCheck2(rowY, status) {
     let x;
-    if (status === "yes") x = X_CHECK_YES;
-    else if (status === "no") x = X_CHECK_NO;
-    else x = X_CHECK_NOT_NEEDED;
+    if (status === "yes") x = X_CHECK_YES2;
+    else if (status === "no") x = X_CHECK_NO2;
+    else x = X_CHECK_NOT_NEEDED2;
 
     page2.drawText("X", { x, y: rowY, size: 10, font });
   }
 
-  markCheck(Y_OCCUPANCY_PERMIT,   normalizedChecks.occupancy_permit);
-  markCheck(Y_ZONING_CLEARANCE,   normalizedChecks.zoning_clearance);
-  markCheck(Y_BARANGAY_CLEARANCE, normalizedChecks.barangay_clearance);
-  markCheck(Y_SANITARY,           normalizedChecks.sanitary_clearance);
-  markCheck(Y_ENV_CERT,           normalizedChecks.environment_certificate);
-  markCheck(Y_MARKET_CLEARANCE,   normalizedChecks.market_clearance);
-  markCheck(Y_FIRE_SAFETY,        normalizedChecks.fire_safety_certificate);
-  markCheck(Y_RIVER_FLOATING,     normalizedChecks.river_floating_fish);
+  markCheck2(Y_OCCUPANCY_PERMIT2,   normalizedChecks2.occupancy_permit);
+  markCheck2(Y_ZONING_CLEARANCE2,   normalizedChecks2.zoning_clearance);
+  markCheck2(Y_BARANGAY_CLEARANCE2, normalizedChecks2.barangay_clearance);
+  markCheck2(Y_SANITARY2,           normalizedChecks2.sanitary_clearance);
+  markCheck2(Y_ENV_CERT2,           normalizedChecks2.environment_certificate);
+  markCheck2(Y_MARKET_CLEARANCE2,   normalizedChecks2.market_clearance);
+  markCheck2(Y_FIRE_SAFETY2,        normalizedChecks2.fire_safety_certificate);
+  markCheck2(Y_RIVER_FLOATING2,     normalizedChecks2.river_floating_fish);
 
   // ========== SAVE COMBINED PDF ==========
 
@@ -2456,57 +2862,89 @@ exports.saveBusinessPermitAssessment = (req, res) => {
 exports.generateBusinessPermitFormWithAssessment = (req, res) => {
   if (!requireAuth(req, res)) return;
 
-  const { application_type, application_id, checks = {}, assessment = {} } = req.body || {};
+  const {
+    application_type,
+    application_id,
+    checks = {},
+    assessment = {},
+  } = req.body || {};
+
   const appType = String(application_type || "").toLowerCase();
   const appId = Number(application_id);
 
   const SUPPORTED = new Set(["business", "renewal_business", "special_sales"]);
   if (!SUPPORTED.has(appType)) {
-    return res.status(400).json({ success: false, message: `Unsupported application_type: ${application_type}` });
+    return res.status(400).json({
+      success: false,
+      message: `Unsupported application_type: ${application_type}`,
+    });
   }
   if (!Number.isFinite(appId) || appId <= 0) {
-    return res.status(400).json({ success: false, message: "application_id must be a positive number." });
+    return res.status(400).json({
+      success: false,
+      message: "application_id must be a positive number.",
+    });
   }
 
-  const sql = `SELECT * FROM business_permits WHERE BusinessP_id = ? LIMIT 1`;
+  const sql = "SELECT * FROM business_permits WHERE BusinessP_id = ? LIMIT 1";
   db.query(sql, [appId], async (err, rows) => {
     if (err) {
       console.error("generateBusinessPermitFormWithAssessment: load err:", err);
-      return res.status(500).json({ success: false, message: "Server error loading application." });
+      return res.status(500).json({
+        success: false,
+        message: "Server error loading application.",
+      });
     }
-    if (!rows.length) return res.status(404).json({ success: false, message: "Business permit not found." });
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Business permit not found.",
+      });
+    }
 
     const businessRow = rows[0];
 
     try {
-      // persist assessment
+      // 1) Save LGU document verification (YES/NO/NOT_NEEDED)
+      await upsertBusinessPermitVerification(appId, checks);
+
+      // 2) Save assessment items
       await _bp_upsertAssessment(appId, assessment);
 
-      // build PDF with assessment
-      const pdfDbPath = await _bp_createPdf_WithAssessment(businessRow, checks, assessment);
+      // 3) Generate PDF with assessment + LGU checks
+      const pdfDbPath = await _bp_createPdf_WithAssessment(
+        businessRow,
+        checks,
+        assessment
+      );
 
-      // update business_permits.filled_up_forms so it appears in uploads list
+      // 4) Mark main business_permits row as having a filled form
       await new Promise((resolve, reject) => {
-        const upd = `UPDATE business_permits SET filled_up_forms = ? WHERE BusinessP_id = ?`;
+        const upd =
+          "UPDATE business_permits SET filled_up_forms = ? WHERE BusinessP_id = ?";
         db.query(upd, [pdfDbPath, appId], (e) => (e ? reject(e) : resolve()));
       });
 
-      // attach into tbl_application_requirements (same style as your other code)
+      // 5) Attach into tbl_application_requirements
       const getAppUid = `
         SELECT app_uid, user_id
         FROM application_index
         WHERE application_type = ? AND application_id = ?
         LIMIT 1
       `;
-      const { app_uid, user_id: applicantUserId } = await new Promise((resolve, reject) => {
-        db.query(getAppUid, [appType, appId], (idxErr, idxRows) => {
-          if (idxErr) return reject(idxErr);
-          if (!idxRows.length) return reject(new Error("Application not indexed."));
-          resolve(idxRows[0]);
-        });
-      });
+      const { app_uid, user_id: applicantUserId } = await new Promise(
+        (resolve, reject) => {
+          db.query(getAppUid, [appType, appId], (idxErr, idxRows) => {
+            if (idxErr) return reject(idxErr);
+            if (!idxRows.length)
+              return reject(new Error("Application not indexed."));
+            resolve(idxRows[0]);
+          });
+        }
+      );
 
       const FILE_LABEL = "Business Permit LGU Form";
+
       const dupeSql = `
         SELECT requirement_id
         FROM tbl_application_requirements
@@ -2514,7 +2952,10 @@ exports.generateBusinessPermitFormWithAssessment = (req, res) => {
         LIMIT 1
       `;
       const existing = await new Promise((resolve, reject) => {
-        db.query(dupeSql, [appType, appId, FILE_LABEL], (dErr, dRows) => (dErr ? reject(dErr) : resolve(dRows[0])));
+        db.query(dupeSql, [appType, appId, FILE_LABEL], (dErr, dRows) => {
+          if (dErr) return reject(dErr);
+          resolve(dRows[0]);
+        });
       });
 
       if (existing) {
@@ -2524,7 +2965,11 @@ exports.generateBusinessPermitFormWithAssessment = (req, res) => {
           WHERE requirement_id = ?
         `;
         await new Promise((resolve, reject) => {
-          db.query(updReq, [pdfDbPath, existing.requirement_id], (uErr) => (uErr ? reject(uErr) : resolve()));
+          db.query(
+            updReq,
+            [pdfDbPath, existing.requirement_id],
+            (uErr) => (uErr ? reject(uErr) : resolve())
+          );
         });
       } else {
         const insReq = `
@@ -2550,16 +2995,19 @@ exports.generateBusinessPermitFormWithAssessment = (req, res) => {
       });
     } catch (e) {
       console.error("generateBusinessPermitFormWithAssessment error:", e);
-      return res.status(500).json({ success: false, message: "Failed to generate LGU form with assessment." });
+      return res.status(500).json({
+        success: false,
+        message: "Failed to generate LGU form with assessment.",
+      });
     }
   });
 };
 
 
+
 /* ===================================================================
    MOVE: ANY STATUS → ON-HOLD
 =================================================================== */
-// ---------------- CEDULA ID RESOLVER ----------------
 // ---------------- CEDULA ID RESOLVER ----------------
 function resolveCedulaId(req) {
   const params = req.params || {};
@@ -2841,4 +3289,47 @@ exports.moveCedulaToPickupDocument = (req, res) => {
 
   console.log("[CEDULA] moveCedulaToPickupDocument - Using ID:", cedulaId);
   updateCedulaStatusGeneric(res, cedulaId, "pickup-document");
+};
+
+// In your controller file - update the getLGURequirementsStatus function
+// In your controller file - simplified version
+exports.getLGURequirementsStatus = (req, res) => {
+  const { application_id } = req.params;
+
+  if (!application_id) {
+    return res.status(400).json({ success: false, message: 'Application ID is required.' });
+  }
+
+  const getStatusQuery = `
+    SELECT requirement_key, status, office_name, remarks, updated_at
+    FROM business_lgu_requirements_status
+    WHERE application_id = ?
+    ORDER BY id
+  `;
+
+  db.query(getStatusQuery, [application_id], (err, results) => {
+    if (err) {
+      console.error('Error fetching LGU requirements status:', err);
+      return res.status(500).json({ success: false, message: 'Error fetching LGU requirements status.' });
+    }
+
+    // Transform the results into a more usable format
+    const statusData = {};
+    results.forEach(row => {
+      statusData[row.requirement_key] = {
+        status: row.status || 'pending', // Keep original status
+        office: row.office_name || '',
+        remarks: row.remarks || '',
+        updated_at: row.updated_at
+      };
+    });
+
+    console.log(`Returning ${results.length} status records for application ${application_id}`);
+    
+    return res.json({ 
+      success: true, 
+      statuses: statusData,
+      count: results.length
+    });
+  });
 };

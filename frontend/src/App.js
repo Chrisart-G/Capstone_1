@@ -33,6 +33,7 @@ import Paymentverification from './Component/Employeedashboard/employeepaymentve
 import Documentprice from './Component/admindocuprice/admindocumentprice'
 import AdminNotifications from './Component/AdminDashboard/AdminNotifications';
 import AdminCreateAnnouncement from './Component/AdminDashboard/AdminCreateAnnouncement';
+import NewEmployeeDashboard from './Component/Employee/newemployeedash';
 function App() {
   return (
     <div className="App">
@@ -201,6 +202,11 @@ function App() {
              <Route path="/AdminCreateAnnouncement" element={
             <ProtectedRoute>
               <AdminCreateAnnouncement />
+            </ProtectedRoute>
+             } />
+             <Route path="/Newemployeedash" element={
+            <ProtectedRoute>
+              <NewEmployeeDashboard />
             </ProtectedRoute>
              } />
           

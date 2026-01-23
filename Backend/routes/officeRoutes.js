@@ -1,20 +1,35 @@
+// routes/officeRoutes.js
 const express = require('express');
 const router = express.Router();
+const officeController = require('../Controller/officeController');
 
-const officeManagementController = require('../Controller/officeManagementController');
+// Offices
+router.get('/offices', officeController.getOffices);
+router.post('/offices', officeController.createOffice);
+router.put('/offices/:id', officeController.updateOffice);
+router.delete('/offices/:id', officeController.deleteOffice);
 
-// ======================= OFFICE MANAGEMENT ROUTES =======================
-router.get('/offices', officeManagementController.getAllOffices);
-router.get('/offices/:id', officeManagementController.getOfficeById);
-router.post('/offices', officeManagementController.createOffice);
-router.put('/offices/:id', officeManagementController.updateOffice);
-router.delete('/offices/:id', officeManagementController.deleteOffice);
+// Employees in office
+router.get('/offices/:id/employees', officeController.getOfficeEmployees);
+router.post(
+  '/offices/:id/assign-employees',
+  officeController.assignEmployeesToOffice
+);
+router.delete(
+  '/offices/:id/employees/:employeeId',
+  officeController.removeEmployeeFromOffice
+);
 
-router.delete('/offices/:officeId/employees/:employeeId', officeManagementController.removeEmployeeFromOffice);
-router.post('/offices/:id/assign-employees', officeManagementController.assignEmployeesToOffice);
-router.get('/offices/:id/employees', officeManagementController.getOfficeEmployees);
-
-// (Extra employee route from office controller)
-router.get('/employees', officeManagementController.getAllEmployees);
+// NEW: positions per office
+router.get('/offices/:id/positions', officeController.getOfficePositions);
+router.post('/offices/:id/positions', officeController.createOfficePosition);
+router.put(
+  '/offices/:id/positions/:positionId',
+  officeController.updateOfficePosition
+);
+router.delete(
+  '/offices/:id/positions/:positionId',
+  officeController.deleteOfficePosition
+);
 
 module.exports = router;

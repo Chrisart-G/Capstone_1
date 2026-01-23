@@ -1,246 +1,516 @@
+// controllers/officeController.js
 const db = require('../db/dbconnect');
 
-// Get all offices with employee count
-exports.getAllOffices = async (req, res) => {
-  try {
-    const [offices] = await db.query(`
-      SELECT o.*, COUNT(ea.employee_id) as employee_count
-      FROM tbl_offices o
-      LEFT JOIN tbl_employee_office_assignments ea ON o.office_id = ea.office_id
-      GROUP BY o.office_id
-      ORDER BY o.office_name ASC
-    `);
+// Helper to run queries as Promise
+const query = (sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
 
-    res.status(200).json({ success: true, data: offices });
-  } catch (error) {
-    console.error('Error getting offices:', error);
-    res.status(500).json({ success: false, message: 'Failed to retrieve offices', error: error.message });
+// GET /api/offices
+exports.getOffices = async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT office_id, office_name, office_code, office_description, office_location, phone_number, email, status, created_at, updated_at FROM tbl_offices ORDER BY office_name'
+    );
+
+    const offices = rows.map((r) => ({
+      ...r,
+      // convenience flag for frontend
+      is_active: r.status === 'active',
+      location: r.office_location,
+      phone: r.phone_number,
+    }));
+
+    return res.status(200).json(offices);
+  } catch (err) {
+    console.error('getOffices error:', err);
+    return res
+      .status(500)
+      .json({ message: 'Failed to load offices', error: err.message });
   }
 };
 
-// Get office by ID
-exports.getOfficeById = async (req, res) => {
-  try {
-    const officeId = req.params.id;
-    const [office] = await db.query('SELECT * FROM tbl_offices WHERE office_id = ?', [officeId]);
+// POST /api/offices
+// Body: office fields + optional employee_assignments + optional positions[]
+exports.createOffice = async (req, res) => {
+  const {
+    office_name,
+    office_code,
+    office_location,
+    office_description,
+    phone_number,
+    email,
+    status = 'active',
+    employee_assignments = [],
+    positions = [],
+  } = req.body;
 
-    if (!office || office.length === 0) {
-      return res.status(404).json({ success: false, message: 'Office not found' });
+  if (!office_name || !office_code) {
+    return res
+      .status(400)
+      .json({ message: 'office_name and office_code are required.' });
+  }
+
+  db.beginTransaction(async (err) => {
+    if (err) {
+      console.error('Transaction error (createOffice):', err);
+      return res
+        .status(500)
+        .json({ message: 'Transaction error', error: err.message });
     }
 
-    const [assignments] = await db.query(`
-      SELECT a.*, e.first_name, e.last_name, e.position
-      FROM tbl_employee_office_assignments a
-      JOIN tbl_employeeinformation e ON a.employee_id = e.employee_id
-      WHERE a.office_id = ?
-      ORDER BY a.is_primary DESC, a.assignment_date DESC
-    `, [officeId]);
+    try {
+      // 1) Insert office
+      const insertOfficeSql = `
+        INSERT INTO tbl_offices
+        (office_name, office_code, office_description, office_location, phone_number, email, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `;
 
-    res.status(200).json({ success: true, data: { ...office[0], employee_assignments: assignments } });
-  } catch (error) {
-    console.error('Error getting office details:', error);
-    res.status(500).json({ success: false, message: 'Failed to retrieve office details', error: error.message });
-  }
-};
-
-// Create a new office
-exports.createOffice = async (req, res) => {
-  try {
-    const {
-      office_name,
-      office_code,
-      office_location,
-      office_description,
-      phone_number,
-      email,
-      status,
-      employee_assignments
-    } = req.body;
-
-    const [officeResult] = await db.query(
-      `INSERT INTO tbl_offices 
-      (office_name, office_code, location, description, phone, email, is_active) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
+      const officeResult = await query(insertOfficeSql, [
         office_name,
         office_code,
-        office_location,
-        office_description,
-        phone_number,
-        email,
-        status === 'active' ? 1 : 0
-      ]
-    );
+        office_description || null,
+        office_location || null,
+        phone_number || null,
+        email || null,
+        status || 'active',
+      ]);
 
-    const officeId = officeResult.insertId;
+      const officeId = officeResult.insertId;
 
-    if (employee_assignments && employee_assignments.length > 0) {
-      for (const assignment of employee_assignments) {
-        await db.query(
-          `INSERT INTO tbl_employee_office_assignments 
-          (employee_id, office_id, assignment_date, is_primary, position_in_office) 
-          VALUES (?, ?, ?, ?, ?)`,
-          [
-            assignment.employee_id,
-            officeId,
-            assignment.assignment_date,
-            assignment.is_primary ? 1 : 0,
-            assignment.positionInOffice || null
-          ]
-        );
+      // 2) Insert optional positions (with access_level + can_approve)
+      if (Array.isArray(positions) && positions.length > 0) {
+        const values = positions
+          .map((p) => {
+            // support both string and object payloads
+            if (typeof p === 'string') {
+              const name = p.trim();
+              if (!name) return null;
+              return [officeId, name, 'normal', 0];
+            }
+
+            const name =
+              (p.position_name || p.name || '').trim();
+            if (!name) return null;
+
+            let level = (p.access_level || 'normal').toLowerCase();
+            if (!['normal', 'mid', 'max'].includes(level)) {
+              level = 'normal';
+            }
+
+            let canApprove;
+            if (typeof p.can_approve !== 'undefined') {
+              canApprove = p.can_approve ? 1 : 0;
+            } else {
+              // simple rule: "max" positions can approve by default
+              canApprove = level === 'max' ? 1 : 0;
+            }
+
+            return [officeId, name, level, canApprove];
+          })
+          .filter(Boolean);
+
+        if (values.length > 0) {
+          const insertPosSql = `
+            INSERT INTO tbl_office_positions (office_id, position_name, access_level, can_approve)
+            VALUES ?
+          `;
+          await query(insertPosSql, [values]);
+        }
       }
-    }
 
-    res.status(201).json({ success: true, message: 'Office created successfully', data: { office_id: officeId } });
-  } catch (error) {
-    console.error('Error creating office:', error);
-    res.status(500).json({ success: false, message: 'Failed to create office', error: error.message });
-  }
+      // 3) Insert optional employee assignments
+      if (
+        Array.isArray(employee_assignments) &&
+        employee_assignments.length > 0
+      ) {
+        const cleanAssignments = employee_assignments
+          .filter((a) => a.employee_id)
+          .map((a) => [
+            a.employee_id,
+            officeId,
+            a.assignment_date || new Date().toISOString().split('T')[0],
+            a.is_primary ? 1 : 0,
+            a.status || 'active',
+          ]);
+
+        if (cleanAssignments.length > 0) {
+          const assignSql = `
+            INSERT INTO tbl_employee_offices
+              (employee_id, office_id, assignment_date, is_primary, status)
+            VALUES ?
+            ON DUPLICATE KEY UPDATE
+              assignment_date = VALUES(assignment_date),
+              is_primary = VALUES(is_primary),
+              status = VALUES(status)
+          `;
+          await query(assignSql, [cleanAssignments]);
+        }
+      }
+
+      db.commit((commitErr) => {
+        if (commitErr) {
+          return db.rollback(() => {
+            console.error('Commit error (createOffice):', commitErr);
+            res.status(500).json({
+              message: 'Failed to commit transaction',
+              error: commitErr.message,
+            });
+          });
+        }
+
+        return res
+          .status(201)
+          .json({ message: 'Office created successfully', office_id: officeId });
+      });
+    } catch (error) {
+      console.error('createOffice error:', error);
+      db.rollback(() => {
+        res
+          .status(500)
+          .json({ message: 'Failed to create office', error: error.message });
+      });
+    }
+  });
 };
 
-// Update an office
+// PUT /api/offices/:id
 exports.updateOffice = async (req, res) => {
+  const { id } = req.params;
+  const {
+    office_name,
+    office_code,
+    office_location,
+    description,
+    phone,
+    email,
+    is_active,
+  } = req.body;
+
+  const status = is_active ? 'active' : 'inactive';
+
   try {
-    const officeId = req.params.id;
-    const {
-      office_name,
-      office_code,
-      office_location,
-      office_description,
-      phone_number,
-      email,
-      status,
-      employee_assignments
-    } = req.body;
-
-    const [officeCheck] = await db.query(
-      'SELECT office_id FROM tbl_offices WHERE office_id = ?',
-      [officeId]
-    );
-
-    if (!officeCheck || officeCheck.length === 0) {
-      return res.status(404).json({ success: false, message: 'Office not found' });
-    }
-
-    await db.query(
-      `UPDATE tbl_offices SET
+    const sql = `
+      UPDATE tbl_offices
+      SET
         office_name = ?,
         office_code = ?,
-        location = ?,
-        description = ?,
-        phone = ?,
+        office_description = ?,
+        office_location = ?,
+        phone_number = ?,
         email = ?,
-        is_active = ?,
+        status = ?,
         updated_at = CURRENT_TIMESTAMP
-      WHERE office_id = ?`,
-      [
-        office_name,
-        office_code,
-        office_location,
-        office_description,
-        phone_number,
-        email,
-        status === 'active' ? 1 : 0,
-        officeId
-      ]
-    );
+      WHERE office_id = ?
+    `;
 
-    if (employee_assignments && employee_assignments.length > 0) {
-      await db.query('DELETE FROM tbl_employee_office_assignments WHERE office_id = ?', [officeId]);
+    await query(sql, [
+      office_name,
+      office_code,
+      description || null,
+      office_location || null,
+      phone || null,
+      email || null,
+      status,
+      id,
+    ]);
 
-      for (const assignment of employee_assignments) {
-        await db.query(
-          `INSERT INTO tbl_employee_office_assignments 
-          (employee_id, office_id, assignment_date, is_primary, position_in_office) 
-          VALUES (?, ?, ?, ?, ?)`,
-          [
-            assignment.employee_id,
-            officeId,
-            assignment.assignment_date,
-            assignment.is_primary ? 1 : 0,
-            assignment.positionInOffice || null
-          ]
-        );
-      }
-    }
-
-    res.status(200).json({ success: true, message: 'Office updated successfully' });
-  } catch (error) {
-    console.error('Error updating office:', error);
-    res.status(500).json({ success: false, message: 'Failed to update office', error: error.message });
+    return res.status(200).json({ message: 'Office updated successfully' });
+  } catch (err) {
+    console.error('updateOffice error:', err);
+    return res
+      .status(500)
+      .json({ message: 'Failed to update office', error: err.message });
   }
 };
 
-// Delete an office
+// DELETE /api/offices/:id
 exports.deleteOffice = async (req, res) => {
-  try {
-    const officeId = req.params.id;
-    const [officeCheck] = await db.query('SELECT office_id FROM tbl_offices WHERE office_id = ?', [officeId]);
+  const { id } = req.params;
 
-    if (!officeCheck || officeCheck.length === 0) {
-      return res.status(404).json({ success: false, message: 'Office not found' });
+  db.beginTransaction(async (err) => {
+    if (err) {
+      console.error('Transaction error (deleteOffice):', err);
+      return res
+        .status(500)
+        .json({ message: 'Transaction error', error: err.message });
     }
 
-    await db.query('DELETE FROM tbl_offices WHERE office_id = ?', [officeId]);
+    try {
+      // Remove employee assignments
+      await query('DELETE FROM tbl_employee_offices WHERE office_id = ?', [id]);
 
-    res.status(200).json({ success: true, message: 'Office deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting office:', error);
-    res.status(500).json({ success: false, message: 'Failed to delete office', error: error.message });
-  }
+      // Remove positions
+      await query('DELETE FROM tbl_office_positions WHERE office_id = ?', [id]);
+
+      // Remove office
+      await query('DELETE FROM tbl_offices WHERE office_id = ?', [id]);
+
+      db.commit((commitErr) => {
+        if (commitErr) {
+          return db.rollback(() => {
+            console.error('Commit error (deleteOffice):', commitErr);
+            res.status(500).json({
+              message: 'Failed to commit transaction',
+              error: commitErr.message,
+            });
+          });
+        }
+
+        return res.status(200).json({ message: 'Office deleted successfully' });
+      });
+    } catch (error) {
+      console.error('deleteOffice error:', error);
+      db.rollback(() => {
+        res
+          .status(500)
+          .json({ message: 'Failed to delete office', error: error.message });
+      });
+    }
+  });
 };
 
-// Get employees for assignment
-exports.getEmployeesForAssignment = async (req, res) => {
+// GET /api/offices/:id/employees
+exports.getOfficeEmployees = async (req, res) => {
+  const { id } = req.params;
+
   try {
-    const [employees] = await db.query(`
-      SELECT 
-        e.employee_id, 
-        e.first_name, 
-        e.last_name, 
+    const sql = `
+      SELECT
+        e.employee_id,
+        CONCAT(e.first_name, ' ', e.last_name) AS full_name,
         e.position,
         e.department,
-        (SELECT COUNT(*) FROM tbl_employee_office_assignments 
-         WHERE employee_id = e.employee_id) as assignment_count
-      FROM tbl_employeeinformation e
-      ORDER BY e.last_name, e.first_name
-    `);
+        eo.assignment_date,
+        eo.is_primary,
+        eo.status,
+        l.email
+      FROM tbl_employee_offices eo
+      JOIN tbl_employeeinformation e ON eo.employee_id = e.employee_id
+      JOIN tb_logins l ON e.user_id = l.user_id
+      WHERE eo.office_id = ?
+      ORDER BY eo.is_primary DESC, e.last_name, e.first_name
+    `;
 
-    res.status(200).json({ success: true, data: employees });
-  } catch (error) {
-    console.error('Error getting employees:', error);
-    res.status(500).json({ success: false, message: 'Failed to retrieve employees', error: error.message });
+    const rows = await query(sql, [id]);
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('getOfficeEmployees error:', err);
+    return res.status(500).json({
+      message: 'Failed to load office employees',
+      error: err.message,
+    });
   }
 };
 
-// Toggle office active status
-exports.toggleOfficeStatus = async (req, res) => {
+// POST /api/offices/:id/assign-employees
+exports.assignEmployeesToOffice = async (req, res) => {
+  const { id } = req.params;
+  const { employee_assignments } = req.body;
+
+  if (!Array.isArray(employee_assignments) || employee_assignments.length === 0) {
+    return res
+      .status(400)
+      .json({ message: 'employee_assignments array is required.' });
+  }
+
   try {
-    const officeId = req.params.id;
+    const values = employee_assignments
+      .filter((a) => a.employee_id)
+      .map((a) => [
+        a.employee_id,
+        id,
+        a.assignment_date || new Date().toISOString().split('T')[0],
+        a.is_primary ? 1 : 0,
+        a.status || 'active',
+      ]);
 
-    const [office] = await db.query(
-      'SELECT is_active FROM tbl_offices WHERE office_id = ?',
-      [officeId]
-    );
-
-    if (!office || office.length === 0) {
-      return res.status(404).json({ success: false, message: 'Office not found' });
+    if (values.length === 0) {
+      return res
+        .status(400)
+        .json({ message: 'No valid employee assignments provided.' });
     }
 
-    const newStatus = office[0].is_active === 1 ? 0 : 1;
+    const sql = `
+      INSERT INTO tbl_employee_offices
+        (employee_id, office_id, assignment_date, is_primary, status)
+      VALUES ?
+      ON DUPLICATE KEY UPDATE
+        assignment_date = VALUES(assignment_date),
+        is_primary = VALUES(is_primary),
+        status = VALUES(status)
+    `;
 
-    await db.query(
-      'UPDATE tbl_offices SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE office_id = ?',
-      [newStatus, officeId]
+    await query(sql, [values]);
+
+    return res
+      .status(200)
+      .json({ message: 'Employees assigned to office successfully.' });
+  } catch (err) {
+    console.error('assignEmployeesToOffice error:', err);
+    return res.status(500).json({
+      message: 'Failed to assign employees',
+      error: err.message,
+    });
+  }
+};
+
+// DELETE /api/offices/:id/employees/:employeeId
+exports.removeEmployeeFromOffice = async (req, res) => {
+  const { id, employeeId } = req.params;
+
+  try {
+    await query(
+      'DELETE FROM tbl_employee_offices WHERE office_id = ? AND employee_id = ?',
+      [id, employeeId]
+    );
+    return res
+      .status(200)
+      .json({ message: 'Employee removed from office successfully.' });
+  } catch (err) {
+    console.error('removeEmployeeFromOffice error:', err);
+    return res.status(500).json({
+      message: 'Failed to remove employee from office',
+      error: err.message,
+    });
+  }
+};
+
+/* ──────────────────────────────────────────────
+   Office Positions (with access_level)
+   ────────────────────────────────────────────── */
+
+// GET /api/offices/:id/positions
+exports.getOfficePositions = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const rows = await query(
+      `
+      SELECT position_id, office_id, position_name, access_level, can_approve, created_at, updated_at
+      FROM tbl_office_positions
+      WHERE office_id = ?
+      ORDER BY position_name
+    `,
+      [id]
     );
 
-    res.status(200).json({
-      success: true,
-      message: `Office status ${newStatus === 1 ? 'activated' : 'deactivated'} successfully`,
-      data: { is_active: newStatus }
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('getOfficePositions error:', err);
+    return res.status(500).json({
+      message: 'Failed to load office positions',
+      error: err.message,
     });
-  } catch (error) {
-    console.error('Error toggling office status:', error);
-    res.status(500).json({ success: false, message: 'Failed to toggle office status', error: error.message });
+  }
+};
+
+// POST /api/offices/:id/positions
+exports.createOfficePosition = async (req, res) => {
+  const { id } = req.params;
+  let { position_name, can_approve = 0, access_level = 'normal' } = req.body;
+
+  if (!position_name || !position_name.trim()) {
+    return res.status(400).json({ message: 'position_name is required.' });
+  }
+
+  position_name = position_name.trim();
+  access_level = (access_level || 'normal').toLowerCase();
+  if (!['normal', 'mid', 'max'].includes(access_level)) {
+    access_level = 'normal';
+  }
+  const canApproveFlag = can_approve ? 1 : 0;
+
+  try {
+    const sql = `
+      INSERT INTO tbl_office_positions (office_id, position_name, access_level, can_approve)
+      VALUES (?, ?, ?, ?)
+    `;
+    const result = await query(sql, [
+      id,
+      position_name,
+      access_level,
+      canApproveFlag,
+    ]);
+
+    const row = {
+      position_id: result.insertId,
+      office_id: Number(id),
+      position_name,
+      access_level,
+      can_approve: canApproveFlag,
+    };
+
+    return res.status(201).json({ message: 'Position created', position: row });
+  } catch (err) {
+    console.error('createOfficePosition error:', err);
+    return res.status(500).json({
+      message: 'Failed to create position',
+      error: err.message,
+    });
+  }
+};
+
+// PUT /api/offices/:id/positions/:positionId
+exports.updateOfficePosition = async (req, res) => {
+  const { id, positionId } = req.params;
+  let { position_name, can_approve, access_level } = req.body;
+
+  if (!position_name || !position_name.trim()) {
+    return res.status(400).json({ message: 'position_name is required.' });
+  }
+
+  position_name = position_name.trim();
+  access_level = (access_level || 'normal').toLowerCase();
+  if (!['normal', 'mid', 'max'].includes(access_level)) {
+    access_level = 'normal';
+  }
+  const canApproveFlag = can_approve ? 1 : 0;
+
+  try {
+    const sql = `
+      UPDATE tbl_office_positions
+      SET position_name = ?, access_level = ?, can_approve = ?
+      WHERE position_id = ? AND office_id = ?
+    `;
+    await query(sql, [
+      position_name,
+      access_level,
+      canApproveFlag,
+      positionId,
+      id,
+    ]);
+
+    return res.status(200).json({ message: 'Position updated' });
+  } catch (err) {
+    console.error('updateOfficePosition error:', err);
+    return res.status(500).json({
+      message: 'Failed to update position',
+      error: err.message,
+    });
+  }
+};
+
+// DELETE /api/offices/:id/positions/:positionId
+exports.deleteOfficePosition = async (req, res) => {
+  const { id, positionId } = req.params;
+
+  try {
+    await query(
+      'DELETE FROM tbl_office_positions WHERE position_id = ? AND office_id = ?',
+      [positionId, id]
+    );
+    return res.status(200).json({ message: 'Position deleted' });
+  } catch (err) {
+    console.error('deleteOfficePosition error:', err);
+    return res.status(500).json({
+      message: 'Failed to delete position',
+      error: err.message,
+    });
   }
 };

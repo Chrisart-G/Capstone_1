@@ -1,3 +1,4 @@
+// src/Component/Manageoffice/AddOffice.js
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminSidebar from '../Header/Adminsidebar';
@@ -5,6 +6,12 @@ import axios from 'axios';
 import { Bell, Plus, Check } from 'lucide-react';
 
 const API_BASE_URL = "http://localhost:8081";
+
+const ACCESS_LEVELS = [
+  { value: 'normal', label: 'Normal (basic)' },
+  { value: 'mid', label: 'Mid (supervisor)' },
+  { value: 'max', label: 'Head / Max' },
+];
 
 export default function AddOffice() {
   const [formData, setFormData] = useState({
@@ -26,6 +33,12 @@ export default function AddOffice() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+
+  // 🔹 Office positions (now objects: { name, access_level })
+  const [officePositions, setOfficePositions] = useState([]);
+  const [newPositionName, setNewPositionName] = useState('');
+  const [newPositionLevel, setNewPositionLevel] = useState('normal');
+
   const navigate = useNavigate();
   
   // Fetch available employees on component mount
@@ -86,18 +99,58 @@ export default function AddOffice() {
       [name]: type === 'checkbox' ? (checked ? 'active' : 'inactive') : value
     });
   };
+
+  // 🔹 Add / remove office positions (with access level)
+  const handleAddPosition = () => {
+    const trimmed = newPositionName.trim();
+    if (!trimmed) return;
+
+    // prevent duplicate by name (case-insensitive)
+    if (
+      officePositions.some(
+        (p) => p.name.toLowerCase() === trimmed.toLowerCase()
+      )
+    ) {
+      setNewPositionName('');
+      setNewPositionLevel('normal');
+      return;
+    }
+
+    setOfficePositions([
+      ...officePositions,
+      {
+        name: trimmed,
+        access_level: newPositionLevel || 'normal',
+      },
+    ]);
+
+    setNewPositionName('');
+    setNewPositionLevel('normal');
+  };
+
+  const handleRemovePosition = (positionName) => {
+    setOfficePositions(
+      officePositions.filter(
+        (p) => p.name.toLowerCase() !== positionName.toLowerCase()
+      )
+    );
+  };
   
   const handleEmployeeSelect = (e) => {
-    const employeeId = parseInt(e.target.value);
-    if (employeeId && !employeeAssignments.some(a => a.employeeId === employeeId)) {
-      const selectedEmployee = availableEmployees.find(e => e.employee_id === employeeId);
+    const employeeId = parseInt(e.target.value, 10);
+    if (employeeId && !employeeAssignments.some(a => a.employee_id === employeeId)) {
+      const selectedEmployee = availableEmployees.find(emp => emp.employee_id === employeeId);
       if (selectedEmployee) {
+        const defaultPosition =
+          officePositions.length > 0
+            ? officePositions[0].name
+            : selectedEmployee.position || '';
         setEmployeeAssignments([
           ...employeeAssignments,
           {
             employee_id: selectedEmployee.employee_id,
             employeeName: `${selectedEmployee.first_name} ${selectedEmployee.last_name}`,
-            positionInOffice: selectedEmployee.position,
+            positionInOffice: defaultPosition,
             is_primary: employeeAssignments.length === 0, // First added is primary
             assignment_date: new Date().toISOString().split('T')[0]
           }
@@ -134,17 +187,24 @@ export default function AddOffice() {
     
     if (Object.keys(newErrors).length === 0) {
       try {
-        // Prepare data with employee assignments
+        // Map positions for backend: include name + access_level
+        const positionsPayload = officePositions.map((p) => ({
+          position_name: p.name,
+          access_level: p.access_level || 'normal',
+        }));
+
+        // Prepare data with employee assignments + office positions
         const data = {
           ...formData,
+          positions: positionsPayload, // <-- backend expects "positions"
           employee_assignments: employeeAssignments.map(assignment => ({
             employee_id: assignment.employee_id,
             is_primary: assignment.is_primary,
-            assignment_date: assignment.assignment_date
+            assignment_date: assignment.assignment_date,
+            // still not stored in tbl_employee_offices – kept for future
+            position_in_office: assignment.positionInOffice || null,
           }))
         };
-        
-        console.log("Submitting data:", data); // Debug: Log the data being sent
         
         const response = await axios.post(
           `${API_BASE_URL}/api/offices`,
@@ -166,6 +226,9 @@ export default function AddOffice() {
           status: 'active',
         });
         setEmployeeAssignments([]);
+        setOfficePositions([]);
+        setNewPositionName('');
+        setNewPositionLevel('normal');
         
         // Hide success message after 3 seconds and redirect
         setTimeout(() => {
@@ -195,7 +258,6 @@ export default function AddOffice() {
         withCredentials: true 
       });
       
-      // Redirect to login page
       navigate('/');
     } catch (error) {
       console.error("Logout error:", error);
@@ -210,6 +272,12 @@ export default function AddOffice() {
     employee => !employeeAssignments.some(a => a.employee_id === employee.employee_id)
   );
   
+  const renderAccessBadge = (level) => {
+    if (level === 'max') return 'Head / Max';
+    if (level === 'mid') return 'Mid';
+    return 'Normal';
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -384,6 +452,66 @@ export default function AddOffice() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
                   ></textarea>
                 </div>
+
+                {/* 🔹 Office Positions */}
+                <div className="mt-8">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">Office Positions</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    These positions will be available when adding employees to this office. You can also edit them later in Manage Offices.
+                  </p>
+                  <div className="flex flex-col md:flex-row gap-3 mb-3">
+                    <input
+                      type="text"
+                      value={newPositionName}
+                      onChange={(e) => setNewPositionName(e.target.value)}
+                      placeholder="e.g. Licensing Officer III"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    />
+                    <select
+                      value={newPositionLevel}
+                      onChange={(e) => setNewPositionLevel(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    >
+                      {ACCESS_LEVELS.map((lvl) => (
+                        <option key={lvl.value} value={lvl.value}>
+                          {lvl.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAddPosition}
+                      className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      <Plus size={16} className="mr-1" />
+                      Add Position
+                    </button>
+                  </div>
+                  {officePositions.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {officePositions.map((pos) => (
+                        <span
+                          key={pos.name}
+                          className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm border border-blue-100"
+                        >
+                          <span className="mr-2">{pos.name}</span>
+                          <span className="mr-2 text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                            {renderAccessBadge(pos.access_level)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePosition(pos.name)}
+                            className="ml-1 text-blue-400 hover:text-blue-600"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">No positions added yet.</p>
+                  )}
+                </div>
                 
                 {/* Employee Assignments Section */}
                 <div className="mt-8">
@@ -440,18 +568,41 @@ export default function AddOffice() {
                                 <div className="text-sm font-medium text-gray-900">{assignment.employeeName}</div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <input
-                                  type="text"
-                                  value={assignment.positionInOffice}
-                                  onChange={(e) => handleAssignmentChange(assignment.employee_id, 'positionInOffice', e.target.value)}
+                                <select
+                                  value={assignment.positionInOffice || ''}
+                                  onChange={(e) =>
+                                    handleAssignmentChange(
+                                      assignment.employee_id,
+                                      'positionInOffice',
+                                      e.target.value
+                                    )
+                                  }
                                   className="text-sm text-gray-900 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-200 w-full"
-                                />
+                                  disabled={officePositions.length === 0}
+                                >
+                                  <option value="">
+                                    {officePositions.length === 0
+                                      ? 'Add office positions above first'
+                                      : 'Select Position'}
+                                  </option>
+                                  {officePositions.map((pos) => (
+                                    <option key={pos.name} value={pos.name}>
+                                      {pos.name}
+                                    </option>
+                                  ))}
+                                </select>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <input
                                   type="date"
                                   value={assignment.assignment_date}
-                                  onChange={(e) => handleAssignmentChange(assignment.employee_id, 'assignment_date', e.target.value)}
+                                  onChange={(e) =>
+                                    handleAssignmentChange(
+                                      assignment.employee_id,
+                                      'assignment_date',
+                                      e.target.value
+                                    )
+                                  }
                                   className="text-sm text-gray-900 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-200"
                                 />
                               </td>
@@ -459,13 +610,19 @@ export default function AddOffice() {
                                 <button
                                   type="button"
                                   onClick={() => handleSetPrimary(assignment.employee_id)}
-                                  className={`inline-flex items-center px-2 py-1 border ${assignment.is_primary ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'} rounded text-xs font-medium`}
+                                  className={`inline-flex items-center px-2 py-1 border ${
+                                    assignment.is_primary
+                                      ? 'bg-green-100 text-green-800 border-green-200'
+                                      : 'bg-gray-100 text-gray-800 border-gray-200'
+                                  } rounded text-xs font-medium`}
                                 >
                                   {assignment.is_primary ? (
                                     <>
                                       <Check size={14} className="mr-1" /> Primary
                                     </>
-                                  ) : 'Set as Primary'}
+                                  ) : (
+                                    'Set as Primary'
+                                  )}
                                 </button>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

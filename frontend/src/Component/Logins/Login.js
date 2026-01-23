@@ -36,22 +36,57 @@ const Login = () => {
   const [fpMsg, setFpMsg] = useState("");
   const [cooldown, setCooldown] = useState(0);
 
+  // Helper: decide which employee dashboard to use
+  const getEmployeeDashboardRoute = (department, position) => {
+    const dept = (department || "").toString().trim().toUpperCase();
+    const pos = (position || "").toString().trim().toUpperCase();
+
+    // 1) Treasurer / MTO – payment page only
+    if (
+      dept === "MTO" ||
+      dept.includes("TREASURER") ||
+      pos.includes("TREASURER") ||
+      pos.includes("MTO")
+    ) {
+      return "/employeepayment";
+    }
+
+    // 2) Old dashboard for BPLO + MPDO
+    if (
+      dept === "BPLO" ||
+      dept === "MPDO" ||
+      pos.includes("BPLO") ||
+      pos.includes("MPDO")
+    ) {
+      return "/EmployDash"; // OLD employee dashboard route
+    }
+
+    // 3) New dashboard for everyone else (MEO, MAO, etc.)
+    return "/Newemployeedash";
+  };
+
   useEffect(() => {
     const checkSession = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get(
-          `${API_BASE_URL}/api/check-session`,
-          {
-            withCredentials: true,
-          }
-        );
+        const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
+          withCredentials: true,
+        });
+
         if (response.data.loggedIn) {
           setIsLoggedIn(true);
           const role = response.data.user.role;
-          if (role === "admin") navigate("/AdminDash");
-          else if (role === "employee") navigate("/EmployeeDash");
-          else navigate("/Chome");
+          const department = response.data.user.department; // may be undefined
+          const position = response.data.user.position; // may be undefined
+
+          if (role === "admin") {
+            navigate("/AdminDash");
+          } else if (role === "employee") {
+            const target = getEmployeeDashboardRoute(department, position);
+            navigate(target);
+          } else {
+            navigate("/Chome");
+          }
         }
       } catch (e) {
         console.error("Session check error:", e);
@@ -86,9 +121,17 @@ const Login = () => {
       );
       setIsLoggedIn(true);
       const role = res.data.user.role;
-      if (role === "admin") navigate("/AdminDash");
-      else if (role === "employee") navigate("/EmployDash");
-      else navigate("/Chome");
+      const department = res.data.user.department; // comes from session
+      const position = res.data.user.position; // new: also from session
+
+      if (role === "admin") {
+        navigate("/AdminDash");
+      } else if (role === "employee") {
+        const target = getEmployeeDashboardRoute(department, position);
+        navigate(target);
+      } else {
+        navigate("/Chome");
+      }
     } catch (err) {
       if (err.response) {
         if (err.response.status === 401) {

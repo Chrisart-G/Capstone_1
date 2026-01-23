@@ -199,7 +199,8 @@ app.use('/api', chomeRoutes);
 const renewalRoutes = require("./routes/renewalRoutes"); // adjust path
 
 app.use("/api/renewal-business-permit", renewalRoutes);
-
+const newEmployeeDashRoutes = require("./routes/newemployeedashRoutes");
+app.use("/api/new-employee", newEmployeeDashRoutes);
 /* ===================== START HTTP SERVER WITH LONGER TIMEOUTS ===================== */
 const PORT = process.env.PORT || 8081;
 const server = http.createServer(app);

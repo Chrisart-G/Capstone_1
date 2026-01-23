@@ -1,24 +1,40 @@
 // Controller/cedulaController.js
 const db = require('../db/dbconnect');
 const axios = require('axios');
+const nodemailer = require('nodemailer');
 
-// ====== SMS CORE (same approach as employee dash) ======
-const { IPROG_API_TOKEN, SMS_ENABLED = 'true' } = process.env;
+// ====== ENV CORE (SMS + EMAIL) ======
+const {
+  IPROG_API_TOKEN,
+  SMS_ENABLED = 'true',
+  EMAIL_ENABLED = 'true',
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_SECURE,
+  SMTP_USER,
+  SMTP_PASS,
+  SMTP_FROM,
+} = process.env;
 
-// tiny db->promise helper for SMS lookups/flag checks (won't change your existing callbacks)
+// tiny db->promise helper for SMS/email lookups/flag checks
 function q(sql, params = []) {
   return new Promise((resolve, reject) =>
     db.query(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
   );
 }
 
-// feature flag from DB (fallback to .env)
+// SMS feature flag from DB (fallback to .env)
 async function getSmsEnabledFlag() {
   try {
     const rows = await q('SELECT v FROM system_settings WHERE k="sms_enabled" LIMIT 1');
     if (rows && rows[0]) return rows[0].v === 'true';
   } catch (_) {}
   return String(SMS_ENABLED).toLowerCase() === 'true';
+}
+
+// EMAIL feature flag
+function getEmailEnabledFlag() {
+  return String(EMAIL_ENABLED || 'true').toLowerCase() === 'true';
 }
 
 // normalize to 639xxxxxxxxx
@@ -31,6 +47,10 @@ function normPhone(raw) {
   else if (s.startsWith('+63')) s = s.replace('+', '');
   return s;
 }
+
+/* ===================================================================
+   SMS HELPERS (unchanged behaviour)
+=================================================================== */
 
 async function iprogSend({ phone, message }) {
   const url = 'https://sms.iprogtech.com/api/v1/sms_messages';
@@ -63,28 +83,40 @@ async function getCedulaUserPhone(cedulaId) {
   return pr?.[0]?.phone_number || null;
 }
 
+// NEW: get email from tb_logins via cedula.user_id
+async function getCedulaUserEmail(cedulaId) {
+  const rows = await q('SELECT user_id FROM tbl_cedula WHERE id=? LIMIT 1', [cedulaId]);
+  const userId = rows?.[0]?.user_id || null;
+  if (!userId) return null;
+  const er = await q('SELECT email FROM tb_logins WHERE user_id=? LIMIT 1', [userId]);
+  return er?.[0]?.email || null;
+}
+
+// shared status note for SMS + EMAIL
+function cedulaStatusNote(status, schedule) {
+  switch (status) {
+    case 'in-review':
+      return 'Your cedula application is under review. Please monitor your requirements in the portal.';
+    case 'in-progress':
+      return 'Requirements are pending. Upload the needed files to continue.';
+    case 'requirements-completed':
+      return 'All requirements received. Await final approval.';
+    case 'approved':
+      return 'Approved. Watch your portal for pickup instructions.';
+    case 'ready-for-pickup':
+      return schedule
+        ? `Ready for pickup on ${schedule}. Bring a valid ID.`
+        : 'Ready for pickup. Bring a valid ID.';
+    case 'rejected':
+      return 'Not approved. See details in your portal.';
+    default:
+      return 'See your account for details.';
+  }
+}
+
 function buildCedulaMessage({ status, schedule }) {
-  const office = 'Municipal Treasurer’s Office';
-  const statusNote = (function noteForStatus(s, sched) {
-    switch (s) {
-      case 'in-review':
-        return 'Your cedula application is under review. Please monitor your requirements in the portal.';
-      case 'in-progress':
-        return 'Requirements are pending. Upload the needed files to continue.';
-      case 'requirements-completed':
-        return 'All requirements received. Await final approval.';
-      case 'approved':
-        return 'Approved. Watch your portal for pickup instructions.';
-      case 'ready-for-pickup':
-        return sched
-          ? `Ready for pickup on ${sched}. Bring a valid ID.`
-          : 'Ready for pickup. Bring a valid ID.';
-      case 'rejected':
-        return 'Not approved. See details in your portal.';
-      default:
-        return 'See your account for details.';
-    }
-  })(status, schedule);
+  const office = 'Business Permit & Licensing Office';
+  const statusNote = cedulaStatusNote(status, schedule);
 
   const lines = [
     office,
@@ -95,7 +127,6 @@ function buildCedulaMessage({ status, schedule }) {
 
   return lines.join('\n').slice(0, 306);
 }
-
 
 async function sendCedulaStatusSms(cedulaId, status, schedule = null) {
   try {
@@ -117,11 +148,167 @@ async function sendCedulaStatusSms(cedulaId, status, schedule = null) {
   }
 }
 
-// ===================================================================
-// Existing handlers (your logic kept), now with SMS calls added
-// ===================================================================
+/* ===================================================================
+   EMAIL CORE (Cedula)
+=================================================================== */
 
-// Create/Submit Cedula (no SMS here by design; employees trigger status changes)
+let emailTransporter = null;
+
+function getEmailTransporter() {
+  if (!getEmailEnabledFlag()) return null;
+  if (emailTransporter) return emailTransporter;
+
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    console.warn('[EMAIL] Missing SMTP config, emails disabled.');
+    return null;
+  }
+
+  emailTransporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT || 587),
+    secure: String(SMTP_SECURE || 'false').toLowerCase() === 'true',
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
+
+  return emailTransporter;
+}
+
+async function sendEmail(options = {}) {
+  const transporter = getEmailTransporter();
+  if (!transporter) {
+    console.log('[EMAIL] Skipped (no transporter / disabled)');
+    return;
+  }
+
+  const { to, subject, text, html } = options;
+
+  if (!to || !subject || (!text && !html)) {
+    console.warn('[EMAIL] Missing required fields', { to, subject });
+    return;
+  }
+
+  const mailOptions = {
+    from: SMTP_FROM || SMTP_USER,
+    to,
+    subject,
+    text,
+    html: html || undefined,
+  };
+
+  console.log('[EMAIL] SEND →', { to, subject });
+  const info = await transporter.sendMail(mailOptions);
+  console.log('[EMAIL] SENT ←', info.messageId);
+}
+
+function buildEmailSubject({ applicationTypeLabel, applicationNo, newStatus }) {
+  if (applicationNo) {
+    return `${applicationTypeLabel || 'Application'} #${applicationNo} - ${newStatus}`;
+  }
+  return `${applicationTypeLabel || 'Application'} - ${newStatus}`;
+}
+
+function buildEmailBodyText({
+  officeName,
+  applicationTypeLabel,
+  applicationNo,
+  newStatus,
+  extraNote,
+}) {
+  const lines = [
+    officeName || 'Municipal Office',
+    '',
+    `${applicationTypeLabel || 'Application'} ${applicationNo ? `#${applicationNo}` : ''}`.trim(),
+    `Status: ${newStatus}`,
+    '',
+    extraNote ||
+      'Please login to your account to view the full details of your application.',
+    '',
+    'This is an automated notification from the Municipal Permits System.',
+  ].filter(Boolean);
+
+  return lines.join('\n');
+}
+
+function buildEmailBodyHtml({
+  officeName,
+  applicationTypeLabel,
+  applicationNo,
+  newStatus,
+  extraNote,
+}) {
+  return `
+    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #111827;">
+      <h2 style="margin: 0 0 8px 0; color: #1f2937;">${officeName || 'Municipal Office'}</h2>
+      <p style="margin: 0 0 12px 0;">
+        <strong>${applicationTypeLabel || 'Application'}${applicationNo ? ` #${applicationNo}` : ''}</strong><br/>
+        Status: <strong>${newStatus}</strong>
+      </p>
+      <p style="margin: 0 0 12px 0;">${
+        extraNote ||
+        'Please login to your account to view the full details of your application.'
+      }</p>
+      <p style="margin: 16px 0 0 0; font-size: 12px; color: #6b7280;">
+        This is an automated notification from the Municipal Permits System.
+      </p>
+    </div>
+  `;
+}
+
+async function sendCedulaStatusEmail(cedulaId, status, schedule = null) {
+  try {
+    if (!getEmailEnabledFlag()) {
+      console.log('[EMAIL] Skipped (disabled)');
+      return;
+    }
+
+    const email = await getCedulaUserEmail(cedulaId);
+    if (!email) {
+      console.log('[EMAIL] No email found for cedula id', cedulaId);
+      return;
+    }
+
+    const office = 'Business Permit & Licensing Office';
+    const label = 'Cedula Application';
+    const extraNote = cedulaStatusNote(status, schedule);
+
+    const subject = buildEmailSubject({
+      applicationTypeLabel: label,
+      applicationNo: cedulaId, // optional
+      newStatus: status,
+    });
+
+    const text = buildEmailBodyText({
+      officeName: office,
+      applicationTypeLabel: label,
+      applicationNo: cedulaId,
+      newStatus: status,
+      extraNote,
+    });
+
+    const html = buildEmailBodyHtml({
+      officeName: office,
+      applicationTypeLabel: label,
+      applicationNo: cedulaId,
+      newStatus: status,
+      extraNote,
+    });
+
+    await sendEmail({ to: email, subject, text, html });
+
+    console.log('[EMAIL] sent for cedula', { cedulaId, status, email });
+  } catch (e) {
+    console.error('[EMAIL] sendCedulaStatusEmail error:', e);
+  }
+}
+
+/* ===================================================================
+   Existing handlers (logic kept intact, now with SMS + EMAIL calls)
+=================================================================== */
+
+// Create/Submit Cedula (no SMS/EMAIL here; employees trigger status changes)
 exports.submitCedula = async (req, res) => {
   try {
     if (!req.session?.user?.user_id) {
@@ -520,9 +707,9 @@ exports.deleteCedula = async (req, res) => {
   }
 };
 
-// ================== EMPLOYEE ACTIONS w/ SMS ==================
+// ================== EMPLOYEE ACTIONS w/ SMS + EMAIL ==================
 
-// Accept Cedula (e.g., to 'in-review')
+// Generic status update (e.g. from modal)
 exports.updateCedulaStatus = (req, res) => {
   const cedulaId = req.params.id;
   const { status } = req.body;
@@ -550,8 +737,9 @@ exports.updateCedulaStatus = (req, res) => {
 
     res.json({ success: true, message: "Cedula application status updated successfully" });
 
-    // fire SMS
-    await sendCedulaStatusSms(cedulaId, String(status).toLowerCase());
+    const s = String(status).toLowerCase();
+    await sendCedulaStatusSms(cedulaId, s);
+    await sendCedulaStatusEmail(cedulaId, s);
   });
 };
 
@@ -583,8 +771,8 @@ exports.moveCedulaToInProgress = (req, res) => {
 
     res.json({ success: true, message: "Cedula moved to in-progress." });
 
-    // SMS
     await sendCedulaStatusSms(id, 'in-progress');
+    await sendCedulaStatusEmail(id, 'in-progress');
   });
 };
 
@@ -615,8 +803,8 @@ exports.moveCedulaToRequirementsCompleted = (req, res) => {
 
     res.json({ success: true, message: "Cedula moved to requirements-completed." });
 
-    // SMS
     await sendCedulaStatusSms(id, 'requirements-completed');
+    await sendCedulaStatusEmail(id, 'requirements-completed');
   });
 };
 
@@ -647,8 +835,8 @@ exports.moveCedulaToApproved = (req, res) => {
 
     res.json({ success: true, message: "Cedula approved successfully." });
 
-    // SMS
     await sendCedulaStatusSms(id, 'approved');
+    await sendCedulaStatusEmail(id, 'approved');
   });
 };
 
@@ -674,10 +862,11 @@ exports.moveCedulaToReadyForPickup = (req, res) => {
 
     res.json({ success: true, message: 'Cedula set to ready for pickup' });
 
-    // SMS (include schedule text when present)
     await sendCedulaStatusSms(cedulaId, 'ready-for-pickup', schedule || null);
+    await sendCedulaStatusEmail(cedulaId, 'ready-for-pickup', schedule || null);
   });
 };
+
 // ======================= CEDULA DRAFTS (NEW) =======================
 exports.saveCedulaDraft = async (req, res) => {
   try {
@@ -688,12 +877,10 @@ exports.saveCedulaDraft = async (req, res) => {
     const userId = req.session.user.user_id;
     const payload = req.body || {};
 
-    // Simple validation: we at least need name & address (auto-filled) to tie to user
     if (!payload || typeof payload !== 'object') {
       return res.status(400).json({ success: false, message: "Invalid draft payload." });
     }
 
-    // Check if user already has a draft
     const selectSql = `SELECT id FROM tbl_cedula_drafts WHERE user_id = ? LIMIT 1`;
 
     db.query(selectSql, [userId], (selectErr, rows) => {
@@ -709,7 +896,6 @@ exports.saveCedulaDraft = async (req, res) => {
       const jsonData = JSON.stringify(payload);
 
       if (rows && rows.length > 0) {
-        // Update existing draft
         const draftId = rows[0].id;
         const updateSql = `
           UPDATE tbl_cedula_drafts
@@ -734,7 +920,6 @@ exports.saveCedulaDraft = async (req, res) => {
           });
         });
       } else {
-        // Insert new draft
         const insertSql = `
           INSERT INTO tbl_cedula_drafts (user_id, data)
           VALUES (?, ?)
@@ -798,7 +983,6 @@ exports.getCedulaDraft = (req, res) => {
       }
 
       if (!rows || rows.length === 0) {
-        // No draft yet – not an error
         return res.status(200).json({
           success: false,
           message: "No draft found.",

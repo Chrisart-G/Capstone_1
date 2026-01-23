@@ -3,11 +3,22 @@ const path = require('path');
 const fs = require('fs');
 const db = require('../db/dbconnect');
 const axios = require('axios');
+const nodemailer = require('nodemailer');
 
 /* ===================================================================
-   SMS CORE (mirrors employeedashController)
+   ENV + CORE
 =================================================================== */
-const { IPROG_API_TOKEN, SMS_ENABLED = "true" } = process.env;
+const {
+  IPROG_API_TOKEN,
+  SMS_ENABLED = "true",
+  EMAIL_ENABLED = "true",
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_SECURE,
+  SMTP_USER,
+  SMTP_PASS,
+  SMTP_FROM,
+} = process.env;
 
 /* ---------------- DB helper ---------------- */
 function q(sql, params = []) {
@@ -16,7 +27,7 @@ function q(sql, params = []) {
   );
 }
 
-/* ---------------- Feature flag ---------------- */
+/* ---------------- SMS Feature flag ---------------- */
 async function getSmsEnabledFlag() {
   try {
     const rows = await q('SELECT v FROM system_settings WHERE k="sms_enabled" LIMIT 1');
@@ -69,8 +80,20 @@ async function getBusinessUserId(permitId) {
 }
 
 async function getUserPhoneByUserId(userId) {
-  const rows = await q('SELECT phone_number FROM tbl_user_info WHERE user_id=? LIMIT 1', [userId]);
+  const rows = await q(
+    'SELECT phone_number FROM tbl_user_info WHERE user_id=? LIMIT 1',
+    [userId]
+  );
   return rows?.[0]?.phone_number || null;
+}
+
+// NEW: get email via tb_logins
+async function getUserEmailByUserId(userId) {
+  const rows = await q(
+    'SELECT email FROM tb_logins WHERE user_id=? LIMIT 1',
+    [userId]
+  );
+  return rows?.[0]?.email || null;
 }
 
 async function getBusinessName(permitId) {
@@ -82,10 +105,18 @@ async function getBusinessName(permitId) {
 }
 
 /* ---------------- Message composition (same style) ---------------- */
-function buildStatusMessage({ officeName, applicationTypeLabel, applicationNo, newStatus, extraNote }) {
+function buildStatusMessage({
+  officeName,
+  applicationTypeLabel,
+  applicationNo,
+  newStatus,
+  extraNote,
+}) {
   const lines = [
     officeName || "Municipality",
-    `${applicationTypeLabel || "Application"} ${applicationNo ? `#${applicationNo}` : ""}`.trim(),
+    `${applicationTypeLabel || "Application"} ${
+      applicationNo ? `#${applicationNo}` : ""
+    }`.trim(),
     `Status: ${newStatus}`,
     extraNote || "Login to your account for details.",
   ].filter(Boolean);
@@ -103,7 +134,9 @@ function noteForStatus(status, schedule) {
     case "approved":
       return "Approved. Watch your portal for pickup instructions.";
     case "ready-for-pickup":
-      return schedule ? `Ready for pickup on ${schedule}. Bring a valid ID.` : "Ready for pickup. Bring a valid ID.";
+      return schedule
+        ? `Ready for pickup on ${schedule}. Bring a valid ID.`
+        : "Ready for pickup. Bring a valid ID.";
     case "rejected":
       return "Not approved. See details in your portal.";
     default:
@@ -157,7 +190,189 @@ async function fireSmsForBusiness(permitId, status, schedule) {
 
     await iprogSend({ phone, message });
   } catch (e) {
-    console.error("[SMS] fireSmsForBusiness error:", e?.response?.status, e?.response?.data || e);
+    console.error(
+      "[SMS] fireSmsForBusiness error:",
+      e?.response?.status,
+      e?.response?.data || e
+    );
+  }
+}
+
+/* ===================================================================
+   EMAIL CORE (Business)
+=================================================================== */
+
+function getEmailEnabledFlag() {
+  return String(EMAIL_ENABLED || "true").toLowerCase() === "true";
+}
+
+let emailTransporter = null;
+
+function getEmailTransporter() {
+  if (!getEmailEnabledFlag()) return null;
+  if (emailTransporter) return emailTransporter;
+
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    console.warn("[EMAIL] Missing SMTP config, emails disabled.");
+    return null;
+  }
+
+  emailTransporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: Number(SMTP_PORT || 587),
+    secure: String(SMTP_SECURE || "false").toLowerCase() === "true",
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
+
+  return emailTransporter;
+}
+
+async function sendEmail(options = {}) {
+  const transporter = getEmailTransporter();
+  if (!transporter) {
+    console.log("[EMAIL] Skipped (no transporter / disabled)");
+    return;
+  }
+
+  const { to, subject, text, html } = options;
+
+  if (!to || !subject || (!text && !html)) {
+    console.warn("[EMAIL] Missing required fields", { to, subject });
+    return;
+  }
+
+  const mailOptions = {
+    from: SMTP_FROM || SMTP_USER,
+    to,
+    subject,
+    text,
+    html: html || undefined,
+  };
+
+  console.log("[EMAIL] SEND →", { to, subject });
+  const info = await transporter.sendMail(mailOptions);
+  console.log("[EMAIL] SENT ←", info.messageId);
+}
+
+function buildEmailSubject({ applicationTypeLabel, applicationNo, newStatus }) {
+  if (applicationNo) {
+    return `${applicationTypeLabel || "Application"} #${applicationNo} - ${newStatus}`;
+  }
+  return `${applicationTypeLabel || "Application"} - ${newStatus}`;
+}
+
+function buildEmailBodyText({
+  officeName,
+  applicationTypeLabel,
+  applicationNo,
+  newStatus,
+  extraNote,
+}) {
+  const lines = [
+    officeName || "Municipal Office",
+    "",
+    `${applicationTypeLabel || "Application"} ${
+      applicationNo ? `#${applicationNo}` : ""
+    }`.trim(),
+    `Status: ${newStatus}`,
+    "",
+    extraNote ||
+      "Please login to your account to view the full details of your application.",
+    "",
+    "This is an automated notification from the Municipal Permits System.",
+  ].filter(Boolean);
+
+  return lines.join("\n");
+}
+
+function buildEmailBodyHtml({
+  officeName,
+  applicationTypeLabel,
+  applicationNo,
+  newStatus,
+  extraNote,
+}) {
+  return `
+    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #111827;">
+      <h2 style="margin: 0 0 8px 0; color: #1f2937;">${
+        officeName || "Municipal Office"
+      }</h2>
+      <p style="margin: 0 0 12px 0;">
+        <strong>${applicationTypeLabel || "Application"}${
+    applicationNo ? ` #${applicationNo}` : ""
+  }</strong><br/>
+        Status: <strong>${newStatus}</strong>
+      </p>
+      <p style="margin: 0 0 12px 0;">${
+        extraNote ||
+        "Please login to your account to view the full details of your application."
+      }</p>
+      <p style="margin: 16px 0 0 0; font-size: 12px; color: #6b7280;">
+        This is an automated notification from the Municipal Permits System.
+      </p>
+    </div>
+  `;
+}
+
+async function fireEmailForBusiness(permitId, status, schedule) {
+  try {
+    if (!getEmailEnabledFlag()) {
+      console.log("[EMAIL] Skipped (disabled)");
+      return;
+    }
+
+    const userId = await getBusinessUserId(permitId);
+    if (!userId) {
+      console.log("[EMAIL] No user_id for business_permits", permitId);
+      return;
+    }
+
+    const email = await getUserEmailByUserId(userId);
+    if (!email) {
+      console.log("[EMAIL] No email for user", userId);
+      return;
+    }
+
+    const businessName = await getBusinessName(permitId);
+    const office_name = "Business Permit & Licensing Office";
+    const label = `Business Permit – ${businessName}`;
+    const extra_note = noteForStatus(status, schedule);
+
+    const subject = buildEmailSubject({
+      applicationTypeLabel: label,
+      applicationNo: permitId, // optional, just shows internal ID
+      newStatus: status,
+    });
+
+    const text = buildEmailBodyText({
+      officeName: office_name,
+      applicationTypeLabel: label,
+      applicationNo: permitId,
+      newStatus: status,
+      extraNote: extra_note,
+    });
+
+    const html = buildEmailBodyHtml({
+      officeName: office_name,
+      applicationTypeLabel: label,
+      applicationNo: permitId,
+      newStatus: status,
+      extraNote: extra_note,
+    });
+
+    await sendEmail({ to: email, subject, text, html });
+
+    console.log("[EMAIL] sent for business_permits", {
+      permitId,
+      userId,
+      status,
+      email,
+    });
+  } catch (e) {
+    console.error("[EMAIL] fireEmailForBusiness error:", e);
   }
 }
 
@@ -309,7 +524,7 @@ exports.SubmitBusinessPermit = async (req, res) => {
   }
 };
 
-// this coode to get the data from tbl_business_permits and get the email from tb_logins display
+// this code to get the data from business_permits and get the email from tb_logins display
 exports.getAllPermits = (req, res) => {
   console.log("Session in BusinessPermit:", req.session);
   console.log("User in session:", req.session?.user);
@@ -422,7 +637,7 @@ exports.GetApplicationById = (req, res) => {
 };
 
 /* ===================================================================
-   STATUS UPDATES (with same debug + SMS)
+   STATUS UPDATES (with SMS + EMAIL)
 =================================================================== */
 
 // Generic admin update
@@ -452,9 +667,12 @@ exports.UpdateApplicationStatus = (req, res) => {
 
     res.json({ success: true, message: 'Application status updated successfully' });
 
-    // Fire SMS (non-blocking)
+    // Fire SMS + EMAIL (non-blocking)
     fireSmsForBusiness(applicationId, String(newStatus).toLowerCase()).catch(e =>
       console.error("[SMS] background error:", e?.response?.data || e)
+    );
+    fireEmailForBusiness(applicationId, String(newStatus).toLowerCase()).catch(e =>
+      console.error("[EMAIL] background error:", e)
     );
   });
 };
@@ -483,6 +701,9 @@ exports.moveBusinessToInProgress = (req, res) => {
 
     fireSmsForBusiness(applicationId, 'in-progress').catch(e =>
       console.error("[SMS] background error:", e?.response?.data || e)
+    );
+    fireEmailForBusiness(applicationId, 'in-progress').catch(e =>
+      console.error("[EMAIL] background error:", e)
     );
   });
 };
@@ -513,6 +734,9 @@ exports.moveBusinessToRequirementsCompleted = (req, res) => {
     fireSmsForBusiness(applicationId, 'requirements-completed').catch(e =>
       console.error("[SMS] background error:", e?.response?.data || e)
     );
+    fireEmailForBusiness(applicationId, 'requirements-completed').catch(e =>
+      console.error("[EMAIL] background error:", e)
+    );
   });
 };
 
@@ -541,6 +765,9 @@ exports.moveBusinessToApproved = (req, res) => {
 
     fireSmsForBusiness(applicationId, 'approved').catch(e =>
       console.error("[SMS] background error:", e?.response?.data || e)
+    );
+    fireEmailForBusiness(applicationId, 'approved').catch(e =>
+      console.error("[EMAIL] background error:", e)
     );
   });
 };
@@ -575,8 +802,12 @@ exports.moveBusinessToReadyForPickup = (req, res) => {
     fireSmsForBusiness(applicationId, 'ready-for-pickup', schedule || null).catch(e =>
       console.error("[SMS] background error:", e?.response?.data || e)
     );
+    fireEmailForBusiness(applicationId, 'ready-for-pickup', schedule || null).catch(e =>
+      console.error("[EMAIL] background error:", e)
+    );
   });
 };
+
 // Accept (pending -> in-review) for BUSINESS
 exports.acceptBusiness = (req, res) => {
   if (!req.session?.user?.user_id) {
@@ -609,12 +840,17 @@ exports.acceptBusiness = (req, res) => {
 
     res.json({ success: true, message: 'Moved to in-review' });
 
-    // 🔔 SMS (same pattern/logs as other moves)
+    // 🔔 SMS + EMAIL
     fireSmsForBusiness(applicationId, 'in-review')
       .then(() => console.log("[SMS] done for", { table: 'business_permits', id: applicationId, status: 'in-review' }))
       .catch((e) => console.error("[SMS] background error:", e?.response?.data || e));
+
+    fireEmailForBusiness(applicationId, 'in-review')
+      .then(() => console.log("[EMAIL] done for", { table: 'business_permits', id: applicationId, status: 'in-review' }))
+      .catch((e) => console.error("[EMAIL] background error:", e));
   });
 };
+
 // Draft storage directory
 const DRAFT_DIR = path.join(__dirname, '../uploads/business_drafts');
 

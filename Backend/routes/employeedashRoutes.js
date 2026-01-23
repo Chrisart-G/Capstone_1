@@ -13,8 +13,8 @@ router.get('/electronics-applications', isAuthenticated, C.getAllElectronicsPerm
 router.get('/building-applications', isAuthenticated, C.getAllBuildingPermitsForEmployee);
 router.get('/fencing-applications', isAuthenticated, C.getAllFencingPermitsForEmployee);
 router.get('/electrical-applications', isAuthenticated, C.getAllElectricalPermitsForEmployee);
-
-
+// Add this route in your routes file
+router.get('/applications/lgu-requirements-status/:application_id', isAuthenticated, C.getLGURequirementsStatus);
 /* ===================== GET BY ID ===================== */
 router.get('/plumbing-applications/:id', isAuthenticated, C.getPlumbingById);
 router.get('/electronics-applications/:id', isAuthenticated, C.getElectronicsById);

@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import AdminSidebar from '../Header/Adminsidebar'; 
+// src/Component/Addemployee/Addemployee.js
+import { useState, useEffect } from 'react';
+import AdminSidebar from '../Header/Adminsidebar';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 
-const API_BASE_URL = "http://localhost:8081";
+const API_BASE_URL = 'http://localhost:8081';
 
 export default function AddEmployeeForm() {
   const [formData, setFormData] = useState({
@@ -14,10 +15,10 @@ export default function AddEmployeeForm() {
     lastName: '',
     phone: '',
     position: '',
-    department: '',
+    department: '', // will store office_code
     startDate: '',
   });
-  
+
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -25,59 +26,142 @@ export default function AddEmployeeForm() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+
+  const [offices, setOffices] = useState([]);
+  const [positionOptions, setPositionOptions] = useState([]);
   const navigate = useNavigate();
-  
+
+  // Load offices + current admin email
+  useEffect(() => {
+    const fetchOffices = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/api/offices`, {
+          withCredentials: true,
+        });
+
+        if (Array.isArray(res.data)) {
+          const active = res.data.filter(
+            (o) => o.status === 'active' || o.is_active
+          );
+          setOffices(active);
+        } else {
+          console.warn('Unexpected offices response:', res.data);
+          setOffices([]);
+        }
+      } catch (err) {
+        console.error('Error fetching offices:', err);
+      }
+    };
+
+    fetchOffices();
+
+    const storedUser = sessionStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUserEmail(userData.email || '');
+      } catch (e) {
+        console.error('Error parsing user data', e);
+      }
+    }
+  }, []);
+
+  const fetchPositionsForOfficeCode = async (officeCode) => {
+    const office = offices.find((o) => o.office_code === officeCode);
+    if (!office) {
+      setPositionOptions([]);
+      return;
+    }
+
+    try {
+      const res = await axios.get(
+        `${API_BASE_URL}/api/offices/${office.office_id}/positions`,
+        { withCredentials: true }
+      );
+
+      if (Array.isArray(res.data)) {
+        setPositionOptions(res.data);
+      } else if (Array.isArray(res.data.positions)) {
+        setPositionOptions(res.data.positions);
+      } else {
+        setPositionOptions([]);
+      }
+    } catch (err) {
+      console.error('Error fetching positions:', err);
+      setPositionOptions([]);
+    }
+  };
+
   const validate = () => {
     const newErrors = {};
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
     }
-    
+
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     }
-    
-    if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
-    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
-    if (!formData.position.trim()) newErrors.position = 'Position is required';
-    if (!formData.department.trim()) newErrors.department = 'Department is required';
+
+    if (!formData.firstName.trim())
+      newErrors.firstName = 'First name is required';
+    if (!formData.lastName.trim())
+      newErrors.lastName = 'Last name is required';
+
+    if (!formData.position.trim())
+      newErrors.position = 'Position is required';
+
+    if (!formData.department.trim())
+      newErrors.department = 'Department / Office is required';
+
     if (!formData.startDate) newErrors.startDate = 'Start date is required';
-    
+
     return newErrors;
   };
-  
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    if (name === 'department') {
+      // When department (office) changes, reset position and load new list
+      setFormData((prev) => ({
+        ...prev,
+        department: value,
+        position: '',
+      }));
+      setPositionOptions([]);
+      if (value) {
+        fetchPositionsForOfficeCode(value);
+      }
+    }
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     setIsError(false);
     setErrorMessage('');
-    
+
     const newErrors = validate();
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length === 0) {
       try {
-        await axios.post(
-          `${API_BASE_URL}/api/addemployee`, 
-          formData,
-          { withCredentials: true }
-        );
-        
+        await axios.post(`${API_BASE_URL}/api/addemployee`, formData, {
+          withCredentials: true,
+        });
+
         setIsSuccess(true);
-        
+
         setFormData({
           email: '',
           password: '',
@@ -88,15 +172,15 @@ export default function AddEmployeeForm() {
           department: '',
           startDate: '',
         });
-        
+        setPositionOptions([]);
+
         setTimeout(() => setIsSuccess(false), 3000);
-        
       } catch (error) {
-        console.error("Error adding employee:", error);
+        console.error('Error adding employee:', error);
         setIsError(true);
         setErrorMessage(
-          error.response?.data?.message || 
-          "Failed to add employee. Please try again."
+          error.response?.data?.message ||
+            'Failed to add employee. Please try again.'
         );
       } finally {
         setIsSubmitting(false);
@@ -109,31 +193,33 @@ export default function AddEmployeeForm() {
   const handleLogout = async () => {
     try {
       setIsLoading(true);
-      await axios.post(`${API_BASE_URL}/api/logout`, {}, { 
-        withCredentials: true 
-      });
+      await axios.post(
+        `${API_BASE_URL}/api/logout`,
+        {},
+        {
+          withCredentials: true,
+        }
+      );
       navigate('/');
     } catch (error) {
-      console.error("Logout error:", error);
-      alert("Failed to logout. Please try again.");
+      console.error('Logout error:', error);
+      alert('Failed to logout. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <div
       className="flex min-h-screen bg-white text-slate-900 overflow-x-hidden"
       style={{
-        fontFamily: 'Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily:
+          'Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       {/* Sidebar */}
-      <AdminSidebar 
-        handleLogout={handleLogout}
-        isLoading={isLoading}
-      />
-      
+      <AdminSidebar handleLogout={handleLogout} isLoading={isLoading} />
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
@@ -174,7 +260,7 @@ export default function AddEmployeeForm() {
             </div>
           </div>
         </header>
-        
+
         {/* Form Content */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 md:py-8">
           <div className="max-w-3xl mx-auto">
@@ -193,13 +279,13 @@ export default function AddEmployeeForm() {
                   Employee added successfully!
                 </div>
               )}
-              
+
               {isError && (
                 <div className="mb-4 sm:mb-5 p-3 rounded-xl border border-red-200 bg-red-50 text-xs sm:text-sm text-red-700">
                   {errorMessage}
                 </div>
               )}
-              
+
               <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   {/* Email */}
@@ -221,10 +307,12 @@ export default function AddEmployeeForm() {
                       }`}
                     />
                     {errors.email && (
-                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.email}</p>
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">
+                        {errors.email}
+                      </p>
                     )}
                   </div>
-                  
+
                   {/* Password */}
                   <div>
                     <label
@@ -244,10 +332,12 @@ export default function AddEmployeeForm() {
                       }`}
                     />
                     {errors.password && (
-                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.password}</p>
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">
+                        {errors.password}
+                      </p>
                     )}
                   </div>
-                  
+
                   {/* First Name */}
                   <div>
                     <label
@@ -267,10 +357,12 @@ export default function AddEmployeeForm() {
                       }`}
                     />
                     {errors.firstName && (
-                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.firstName}</p>
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">
+                        {errors.firstName}
+                      </p>
                     )}
                   </div>
-                  
+
                   {/* Last Name */}
                   <div>
                     <label
@@ -290,10 +382,12 @@ export default function AddEmployeeForm() {
                       }`}
                     />
                     {errors.lastName && (
-                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.lastName}</p>
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">
+                        {errors.lastName}
+                      </p>
                     )}
                   </div>
-                  
+
                   {/* Phone */}
                   <div>
                     <label
@@ -311,37 +405,15 @@ export default function AddEmployeeForm() {
                       className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500/60"
                     />
                   </div>
-                  
-                  {/* Position */}
-                  <div>
-                    <label
-                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
-                      htmlFor="position"
-                    >
-                      Position<span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="position"
-                      name="position"
-                      value={formData.position}
-                      onChange={handleChange}
-                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                        errors.position ? 'border-red-500' : 'border-slate-300'
-                      }`}
-                    />
-                    {errors.position && (
-                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.position}</p>
-                    )}
-                  </div>
-                  
-                  {/* Department */}
+
+                  {/* Department (Office) */}
                   <div>
                     <label
                       className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
                       htmlFor="department"
                     >
-                      Department<span className="text-red-500">*</span>
+                      Department / Office
+                      <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="department"
@@ -349,19 +421,83 @@ export default function AddEmployeeForm() {
                       value={formData.department}
                       onChange={handleChange}
                       className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                        errors.department ? 'border-red-500' : 'border-slate-300'
+                        errors.department
+                          ? 'border-red-500'
+                          : 'border-slate-300'
                       }`}
                     >
                       <option value="">Select Department</option>
-                      <option value="BLPO">Business And Licensing Office</option>
-                      <option value="MPDO">Municipal Planning and Development Office</option>
-                      <option value="HMO">Municipal Health Office</option>
+                      {offices.map((office) => (
+                        <option
+                          key={office.office_id}
+                          value={office.office_code}
+                        >
+                          {office.office_name}
+                        </option>
+                      ))}
                     </select>
                     {errors.department && (
-                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.department}</p>
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">
+                        {errors.department}
+                      </p>
                     )}
                   </div>
-                  
+
+                  {/* Position (from DB positions) */}
+                  <div>
+                    <label
+                      className="block text-[11px] sm:text-xs font-medium text-slate-600 mb-1.5"
+                      htmlFor="position"
+                    >
+                      Position<span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="position"
+                      name="position"
+                      value={formData.position}
+                      onChange={handleChange}
+                      disabled={
+                        !formData.department || positionOptions.length === 0
+                      }
+                      className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
+                        errors.position
+                          ? 'border-red-500'
+                          : 'border-slate-300'
+                      } ${
+                        !formData.department || positionOptions.length === 0
+                          ? 'bg-slate-50 text-slate-400 cursor-not-allowed'
+                          : ''
+                      }`}
+                    >
+                      {!formData.department ? (
+                        <option value="">
+                          Select a department first
+                        </option>
+                      ) : positionOptions.length === 0 ? (
+                        <option value="">
+                          No positions configured for this office
+                        </option>
+                      ) : (
+                        <>
+                          <option value="">Select Position</option>
+                          {positionOptions.map((pos) => (
+                            <option
+                              key={pos.position_id || pos.position_name}
+                              value={pos.position_name}
+                            >
+                              {pos.position_name}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                    {errors.position && (
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">
+                        {errors.position}
+                      </p>
+                    )}
+                  </div>
+
                   {/* Start Date */}
                   <div>
                     <label
@@ -377,15 +513,19 @@ export default function AddEmployeeForm() {
                       value={formData.startDate}
                       onChange={handleChange}
                       className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                        errors.startDate ? 'border-red-500' : 'border-slate-300'
+                        errors.startDate
+                          ? 'border-red-500'
+                          : 'border-slate-300'
                       }`}
                     />
                     {errors.startDate && (
-                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">{errors.startDate}</p>
+                      <p className="text-[11px] sm:text-xs text-red-500 mt-1">
+                        {errors.startDate}
+                      </p>
                     )}
                   </div>
                 </div>
-                
+
                 <div className="pt-2 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
                   <button
                     type="button"

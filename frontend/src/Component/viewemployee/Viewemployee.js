@@ -1,18 +1,21 @@
+// src/Component/Manageemployee/Viewemployee.js
 import { useState, useEffect } from 'react';
 import AdminSidebar from '../Header/Adminsidebar';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Edit, Trash2, X, Save } from 'lucide-react';
 
-const API_BASE_URL = "http://localhost:8081";
+const API_BASE_URL = 'http://localhost:8081';
 
 export default function Viewemployee() {
   const [userEmail, setUserEmail] = useState('');
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
   const [showModal, setShowModal] = useState(false);
   const [editEmployee, setEditEmployee] = useState(null);
+
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -21,42 +24,85 @@ export default function Viewemployee() {
     department: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
   const [formErrors, setFormErrors] = useState({});
 
+  // ✅ NEW: offices + positions from DB
+  const [offices, setOffices] = useState([]); // from tbl_offices
+  const [positionOptions, setPositionOptions] = useState([]); // from tbl_office_positions
+  const [isPositionsLoading, setIsPositionsLoading] = useState(false);
+
   const navigate = useNavigate();
 
-  // Fetch employees on component mount
+  // Get admin email for header
+  useEffect(() => {
+    const storedUser = sessionStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUserEmail(userData.email || '');
+      } catch (e) {
+        console.error('Error parsing user data', e);
+      }
+    }
+  }, []);
+
+  // Fetch employees + offices on mount
   useEffect(() => {
     fetchEmployees();
+    fetchOffices();
   }, []);
 
   const fetchEmployees = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/api/employees`, { 
-        withCredentials: true 
+      const response = await axios.get(`${API_BASE_URL}/api/employees`, {
+        withCredentials: true,
       });
       setEmployees(response.data);
     } catch (error) {
-      console.error("Error fetching employees:", error);
-      alert("Failed to fetch employees. Please try again.");
+      console.error('Error fetching employees:', error);
+      alert('Failed to fetch employees. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ✅ get list of offices from DB (used as "departments")
+  const fetchOffices = async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/offices`, {
+        withCredentials: true,
+      });
+
+      if (Array.isArray(res.data)) {
+        setOffices(res.data);
+      } else if (res.data && Array.isArray(res.data.offices)) {
+        setOffices(res.data.offices);
+      } else {
+        setOffices([]);
+      }
+    } catch (err) {
+      console.error('Error fetching offices:', err);
+      setOffices([]);
     }
   };
 
   const handleLogout = async () => {
     try {
       setIsLoading(true);
-      await axios.post(`${API_BASE_URL}/api/logout`, {}, { 
-        withCredentials: true 
-      });
+      await axios.post(
+        `${API_BASE_URL}/api/logout`,
+        {},
+        {
+          withCredentials: true,
+        }
+      );
       navigate('/');
     } catch (error) {
-      console.error("Logout error:", error);
-      alert("Failed to logout. Please try again.");
+      console.error('Logout error:', error);
+      alert('Failed to logout. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -67,15 +113,66 @@ export default function Viewemployee() {
       try {
         setIsDeleting(true);
         await axios.delete(`${API_BASE_URL}/api/employees/${employeeId}`, {
-          withCredentials: true
+          withCredentials: true,
         });
         fetchEmployees();
       } catch (error) {
-        console.error("Error deleting employee:", error);
-        alert("Failed to delete employee. Please try again.");
+        console.error('Error deleting employee:', error);
+        alert('Failed to delete employee. Please try again.');
       } finally {
         setIsDeleting(false);
       }
+    }
+  };
+
+  // ✅ helper: find office_id from department code (office_code)
+  const getOfficeIdByCode = (code) => {
+    if (!code) return null;
+    const office = offices.find((o) => o.office_code === code);
+    return office ? office.office_id : null;
+  };
+
+  // ✅ load positions for department from tbl_office_positions
+  const loadPositionsForDepartment = async (departmentCode, currentPosition = '') => {
+    const officeId = getOfficeIdByCode(departmentCode);
+
+    if (!departmentCode || !officeId) {
+      // if office not found, just keep current position as only option
+      setPositionOptions(currentPosition ? [currentPosition] : []);
+      return;
+    }
+
+    try {
+      setIsPositionsLoading(true);
+
+      const res = await axios.get(
+        `${API_BASE_URL}/api/offices/${officeId}/positions`,
+        { withCredentials: true }
+      );
+
+      let rows = [];
+      if (Array.isArray(res.data)) {
+        rows = res.data;
+      } else if (res.data && Array.isArray(res.data.positions)) {
+        rows = res.data.positions;
+      }
+
+      let names = rows
+        .map((p) => p.position_name)
+        .filter((n) => !!n);
+
+      // make sure current position (if any) is included
+      if (currentPosition && !names.includes(currentPosition)) {
+        names = [currentPosition, ...names];
+      }
+
+      setPositionOptions(names);
+    } catch (err) {
+      console.error('Error loading positions:', err);
+      // fallback: only current position
+      setPositionOptions(currentPosition ? [currentPosition] : []);
+    } finally {
+      setIsPositionsLoading(false);
     }
   };
 
@@ -86,91 +183,123 @@ export default function Viewemployee() {
       last_name: employee.last_name,
       phone: employee.phone,
       position: employee.position,
-      department: employee.department,
+      department: employee.department, // this is office_code
       email: employee.email,
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
     });
+    setFormErrors({});
     setShowModal(true);
+
+    // first attempt (if offices already loaded)
+    loadPositionsForDepartment(employee.department, employee.position);
   };
+
+  // when offices first load AND modal is open, re-fetch positions
+  useEffect(() => {
+    if (showModal && formData.department) {
+      loadPositionsForDepartment(formData.department, formData.position);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offices]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+
+    // If department changes, clear position + reload options
+    if (name === 'department') {
+      setFormData((prev) => ({
+        ...prev,
+        department: value,
+        position: '', // force re-select based on new office
+      }));
+
+      loadPositionsForDepartment(value, '');
+
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const validateForm = () => {
     const errors = {};
-    
-    if (!formData.first_name) errors.first_name = "First name is required";
-    if (!formData.last_name) errors.last_name = "Last name is required";
-    if (!formData.position) errors.position = "Position is required";
-    if (!formData.department) errors.department = "Department is required";
-    if (!formData.email) errors.email = "Email is required";
-    
+
+    if (!formData.first_name) errors.first_name = 'First name is required';
+    if (!formData.last_name) errors.last_name = 'Last name is required';
+    if (!formData.position) errors.position = 'Position is required';
+    if (!formData.department) errors.department = 'Department is required';
+    if (!formData.email) errors.email = 'Email is required';
+
     if (formData.password) {
       if (formData.password.length < 6) {
-        errors.password = "Password must be at least 6 characters";
+        errors.password = 'Password must be at least 6 characters';
       }
       if (formData.password !== formData.confirmPassword) {
         errors.confirmPassword = "Passwords don't match";
       }
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     try {
       setIsLoading(true);
-      
+
       const updateData = {
         first_name: formData.first_name,
         last_name: formData.last_name,
         phone: formData.phone,
         position: formData.position,
-        department: formData.department,
-        email: formData.email
+        department: formData.department, // still the office_code
+        email: formData.email,
       };
-      
+
       if (formData.password) {
         updateData.password = formData.password;
       }
-      
-      await axios.put(`${API_BASE_URL}/api/employees/${editEmployee.employee_id}`, updateData, {
-        withCredentials: true
-      });
-      
+
+      await axios.put(
+        `${API_BASE_URL}/api/employees/${editEmployee.employee_id}`,
+        updateData,
+        { withCredentials: true }
+      );
+
       setShowModal(false);
       fetchEmployees();
     } catch (error) {
-      console.error("Error updating employee:", error);
-      alert("Failed to update employee. Please try again.");
+      console.error('Error updating employee:', error);
+      alert('Failed to update employee. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // for Department dropdown: keep current value even if it's not in tbl_offices (old data)
+  const knownDeptCodes = offices.map((o) => o.office_code);
+  const shouldIncludeCurrentDept =
+    formData.department &&
+    !knownDeptCodes.includes(formData.department);
+
   return (
     <div
       className="flex min-h-screen bg-white text-slate-900"
       style={{
-        fontFamily: 'Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily:
+          'Poppins, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       {/* Sidebar */}
-      <AdminSidebar 
-        handleLogout={handleLogout}
-        isLoading={isLoading}
-      />
+      <AdminSidebar handleLogout={handleLogout} isLoading={isLoading} />
 
       {/* Main area */}
       <div className="flex-1 flex flex-col">
@@ -212,7 +341,7 @@ export default function Viewemployee() {
             </div>
           </div>
         </header>
-        
+
         {/* Content */}
         <main className="px-6 py-6 md:py-8">
           <div className="max-w-6xl mx-auto">
@@ -223,7 +352,8 @@ export default function Viewemployee() {
                     Employee List
                   </h2>
                   <p className="text-sm text-slate-500 mt-1">
-                    Manage registered employees assigned to different municipal departments.
+                    Manage registered employees assigned to different municipal
+                    departments.
                   </p>
                 </div>
                 <button
@@ -233,7 +363,7 @@ export default function Viewemployee() {
                   + Add New Employee
                 </button>
               </div>
-              
+
               {isLoading ? (
                 <div className="flex justify-center py-10">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700"></div>
@@ -299,7 +429,9 @@ export default function Viewemployee() {
                                 <Edit size={18} />
                               </button>
                               <button
-                                onClick={() => handleDelete(employee.employee_id)}
+                                onClick={() =>
+                                  handleDelete(employee.employee_id)
+                                }
                                 className="inline-flex items-center justify-center text-red-600 hover:text-red-800 disabled:opacity-60"
                                 disabled={isDeleting}
                               >
@@ -326,7 +458,7 @@ export default function Viewemployee() {
           </div>
         </main>
       </div>
-      
+
       {/* Edit Employee Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
@@ -347,7 +479,7 @@ export default function Viewemployee() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleUpdate} className="px-5 py-4 md:py-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -360,7 +492,9 @@ export default function Viewemployee() {
                     value={formData.first_name}
                     onChange={handleInputChange}
                     className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                      formErrors.first_name ? 'border-red-500' : 'border-slate-300'
+                      formErrors.first_name
+                        ? 'border-red-500'
+                        : 'border-slate-300'
                     }`}
                   />
                   {formErrors.first_name && (
@@ -369,7 +503,7 @@ export default function Viewemployee() {
                     </p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">
                     Last Name
@@ -380,7 +514,9 @@ export default function Viewemployee() {
                     value={formData.last_name}
                     onChange={handleInputChange}
                     className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                      formErrors.last_name ? 'border-red-500' : 'border-slate-300'
+                      formErrors.last_name
+                        ? 'border-red-500'
+                        : 'border-slate-300'
                     }`}
                   />
                   {formErrors.last_name && (
@@ -389,7 +525,7 @@ export default function Viewemployee() {
                     </p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">
                     Phone
@@ -402,27 +538,41 @@ export default function Viewemployee() {
                     className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500/60"
                   />
                 </div>
-                
+
+                {/* Position */}
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">
                     Position
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="position"
                     value={formData.position}
                     onChange={handleInputChange}
                     className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                      formErrors.position ? 'border-red-500' : 'border-slate-300'
+                      formErrors.position
+                        ? 'border-red-500'
+                        : 'border-slate-300'
                     }`}
-                  />
+                  >
+                    <option value="">
+                      {isPositionsLoading
+                        ? 'Loading positions...'
+                        : 'Select Position'}
+                    </option>
+                    {positionOptions.map((pos) => (
+                      <option key={pos} value={pos}>
+                        {pos}
+                      </option>
+                    ))}
+                  </select>
                   {formErrors.position && (
                     <p className="mt-1 text-xs text-red-500">
                       {formErrors.position}
                     </p>
                   )}
                 </div>
-                
+
+                {/* Department (Office) */}
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">
                     Department
@@ -432,13 +582,28 @@ export default function Viewemployee() {
                     value={formData.department}
                     onChange={handleInputChange}
                     className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                      formErrors.department ? 'border-red-500' : 'border-slate-300'
+                      formErrors.department
+                        ? 'border-red-500'
+                        : 'border-slate-300'
                     }`}
                   >
                     <option value="">Select Department</option>
-                    <option value="BLPO">Business And Licensing Office</option>
-                    <option value="MDO">Municipal Planning and Development Office</option>
-                    <option value="MHO">Municipal Health Office</option>
+
+                    {/* include current code even if office was deleted / not found */}
+                    {shouldIncludeCurrentDept && (
+                      <option value={formData.department}>
+                        {formData.department}
+                      </option>
+                    )}
+
+                    {offices.map((office) => (
+                      <option
+                        key={office.office_id}
+                        value={office.office_code}
+                      >
+                        {office.office_name}
+                      </option>
+                    ))}
                   </select>
                   {formErrors.department && (
                     <p className="mt-1 text-xs text-red-500">
@@ -446,7 +611,7 @@ export default function Viewemployee() {
                     </p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">
                     Email
@@ -466,14 +631,17 @@ export default function Viewemployee() {
                     </p>
                   )}
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <div className="border-t border-slate-200 my-3"></div>
                   <p className="text-xs text-slate-500 mb-2">
-                    Change Password <span className="text-slate-400">(leave blank to keep current password)</span>
+                    Change Password{' '}
+                    <span className="text-slate-400">
+                      (leave blank to keep current password)
+                    </span>
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">
                     New Password
@@ -484,7 +652,9 @@ export default function Viewemployee() {
                     value={formData.password}
                     onChange={handleInputChange}
                     className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                      formErrors.password ? 'border-red-500' : 'border-slate-300'
+                      formErrors.password
+                        ? 'border-red-500'
+                        : 'border-slate-300'
                     }`}
                   />
                   {formErrors.password && (
@@ -493,7 +663,7 @@ export default function Viewemployee() {
                     </p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">
                     Confirm Password
@@ -504,7 +674,9 @@ export default function Viewemployee() {
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
                     className={`w-full px-3 py-2 text-sm rounded-lg border outline-none focus:ring-2 focus:ring-blue-500/60 ${
-                      formErrors.confirmPassword ? 'border-red-500' : 'border-slate-300'
+                      formErrors.confirmPassword
+                        ? 'border-red-500'
+                        : 'border-slate-300'
                     }`}
                   />
                   {formErrors.confirmPassword && (
@@ -514,7 +686,7 @@ export default function Viewemployee() {
                   )}
                 </div>
               </div>
-              
+
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   type="button"

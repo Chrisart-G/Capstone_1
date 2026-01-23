@@ -34,7 +34,23 @@ function fileExistsRel(rel) {
     return false;
   }
 }
-
+/* Find latest USER-FILLED file path */
+async function getLatestUserFilledPath(application_id) {
+  const rows = await q(
+    `SELECT pdf_path AS p, uploaded_at
+       FROM tbl_application_requirements
+      WHERE application_type='business'
+        AND application_id=?
+        AND file_path = 'Business Permit – Verification Sheet (User Filled)'
+      ORDER BY uploaded_at DESC
+      LIMIT 1`,
+    [application_id]
+  );
+  if (!rows.length) return null;
+  
+  const rel = toRelUploadsPath(rows[0].p);
+  return rel && fileExistsRel(rel) ? rel : null;
+}
 /* DB helper */
 function q(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -113,20 +129,87 @@ function mapHeaderRow(row) {
   };
 }
 
-/* Coordinates for sections on p3–p4 */
-function sectionBlock(yTop) {
+/* NEW HELPER FUNCTIONS FOR MERGING DATA */
+// Helper to merge existing data with new department data
+async function mergePDFData(existingSheet, newData, department) {
+  // Start with existing data or empty object
+  const merged = existingSheet || {};
+  
+  // Department to section mapping
+  const departmentSections = {
+    'MPDO': ['zoning', 'fitness'],
+    'MEO': ['environment', 'market'],
+    'MHO': ['sanitation'],
+    'MAO': ['agriculture']
+  };
+  
+  // Get sections this department can update
+  const sectionsToUpdate = departmentSections[department] || [];
+  
+  // Only update sections that this department has access to
+  sectionsToUpdate.forEach(section => {
+    if (newData[section]) {
+      merged[section] = newData[section];
+    }
+  });
+  
+  return merged;
+}
+
+// Get existing form data
+async function getExistingFormData(appId) {
+  const existingForm = (await q(
+    `SELECT zoning, fitness, environment, sanitation, market, agriculture, status
+     FROM business_clearance_form WHERE application_id=? LIMIT 1`, 
+    [appId]
+  ))[0];
+
+  if (!existingForm) return {};
+
   return {
-    APPROVED:           { x: 260, y: yTop - 20 },
-    APPROVED_WITH_COND: { x: 260, y: yTop - 40 },
-    DENIED:             { x: 260, y: yTop - 60 },
-    DEF_1: { x: 740, y: yTop - 15 },
-    DEF_2: { x: 740, y: yTop - 31 },
-    DEF_3: { x: 740, y: yTop - 47 },
-    DEF_4: { x: 740, y: yTop - 63 },
-    DEF_5: { x: 740, y: yTop - 79 },
-    REMARKS: { x: 205, y: yTop - 100 },
+    zoning: existingForm.zoning ? JSON.parse(existingForm.zoning) : {},
+    fitness: existingForm.fitness ? JSON.parse(existingForm.fitness) : {},
+    environment: existingForm.environment ? JSON.parse(existingForm.environment) : {},
+    sanitation: existingForm.sanitation ? JSON.parse(existingForm.sanitation) : {},
+    market: existingForm.market ? JSON.parse(existingForm.market) : {},
+    agriculture: existingForm.agriculture ? JSON.parse(existingForm.agriculture) : {}
   };
 }
+
+// Check if all departments have completed their sections
+async function checkAllDepartmentsComplete(appId) {
+  const form = (await q(
+    `SELECT zoning, fitness, environment, sanitation, market, agriculture, status
+     FROM business_clearance_form WHERE application_id=? LIMIT 1`, 
+    [appId]
+  ))[0];
+
+  if (!form) return false;
+
+  try {
+    const sections = {
+      zoning: form.zoning ? JSON.parse(form.zoning) : {},
+      fitness: form.fitness ? JSON.parse(form.fitness) : {},
+      environment: form.environment ? JSON.parse(form.environment) : {},
+      sanitation: form.sanitation ? JSON.parse(form.sanitation) : {},
+      market: form.market ? JSON.parse(form.market) : {},
+      agriculture: form.agriculture ? JSON.parse(form.agriculture) : {}
+    };
+
+    // Check if all sections have an action set
+    const allSections = Object.values(sections);
+    const allHaveAction = allSections.every(section => 
+      section && section.action && section.action.trim() !== ''
+    );
+    
+    return allHaveAction;
+  } catch (error) {
+    console.error('Error checking completion:', error);
+    return false;
+  }
+}
+
+// Replace your entire XY configuration with this corrected version:
 const XY = {
   page3: {
     header: {
@@ -137,9 +220,42 @@ const XY = {
       BUSINESS_ADDRESS: { x: 190, y: 728 },
       CONTACT_NO:       { x: 190, y: 708 },
     },
-    sec1: sectionBlock(600),
-    sec2: sectionBlock(480),
-    sec3: sectionBlock(360),
+    // Section 1: Zoning (Page 3, first section)
+    sec1: {
+      APPROVED:           { x: 100, y: 670 },  // Checkbox for Approved
+      APPROVED_WITH_COND: { x: 200, y: 670 },  // Checkbox for Approved with Conditions
+      DENIED:             { x: 350, y: 670 },  // Checkbox for Denied
+      DEF_1: { x: 205, y: 585 },
+      DEF_2: { x: 205, y: 569 },
+      DEF_3: { x: 205, y: 553 },
+      DEF_4: { x: 205, y: 537 },
+      DEF_5: { x: 205, y: 521 },
+      REMARKS: { x: 205, y: 500 },
+    },
+    // Section 2: Fitness (Page 3, second section)
+    sec2: {
+      APPROVED:           { x: 100, y: 450 },  // Checkbox for Approved
+      APPROVED_WITH_COND: { x: 200, y: 450 },  // Checkbox for Approved with Conditions
+      DENIED:             { x: 350, y: 450 },  // Checkbox for Denied
+      DEF_1: { x: 205, y: 465 },
+      DEF_2: { x: 205, y: 449 },
+      DEF_3: { x: 205, y: 433 },
+      DEF_4: { x: 205, y: 417 },
+      DEF_5: { x: 205, y: 401 },
+      REMARKS: { x: 205, y: 380 },
+    },
+    // Section 3: Environment/Solid Waste (Page 3, third section)
+    sec3: {
+      APPROVED:           { x: 100, y: 230 },  // Checkbox for Approved
+      APPROVED_WITH_COND: { x: 200, y: 230 },  // Checkbox for Approved with Conditions
+      DENIED:             { x: 350, y: 230 },  // Checkbox for Denied
+      DEF_1: { x: 205, y: 345 },
+      DEF_2: { x: 205, y: 329 },
+      DEF_3: { x: 205, y: 313 },
+      DEF_4: { x: 205, y: 297 },
+      DEF_5: { x: 205, y: 281 },
+      REMARKS: { x: 205, y: 260 },
+    },
   },
   page4: {
     header: {
@@ -150,22 +266,65 @@ const XY = {
       BUSINESS_ADDRESS: { x: 190, y: 728 },
       CONTACT_NO:       { x: 190, y: 708 },
     },
-    sec4: sectionBlock(600),
-    sec5: sectionBlock(480),
-    sec6: sectionBlock(360),
+    // Section 4: Sanitation (Page 4, first section)
+    sec4: {
+      APPROVED:           { x: 100, y: 670 },  // Checkbox for Approved
+      APPROVED_WITH_COND: { x: 200, y: 670 },  // Checkbox for Approved with Conditions
+      DENIED:             { x: 350, y: 670 },  // Checkbox for Denied
+      DEF_1: { x: 205, y: 585 },
+      DEF_2: { x: 205, y: 569 },
+      DEF_3: { x: 205, y: 553 },
+      DEF_4: { x: 205, y: 537 },
+      DEF_5: { x: 205, y: 521 },
+      REMARKS: { x: 205, y: 500 },
+    },
+    // Section 5: Public Market (Page 4, second section)
+    sec5: {
+      APPROVED:           { x: 100, y: 450 },  // Checkbox for Approved
+      APPROVED_WITH_COND: { x: 200, y: 450 },  // Checkbox for Approved with Conditions
+      DENIED:             { x: 350, y: 450 },  // Checkbox for Denied
+      DEF_1: { x: 180, y: 555 },
+      DEF_2: { x: 180, y: 539 },
+      DEF_3: { x: 180, y: 523 },
+      DEF_4: { x: 180, y: 507 },
+      DEF_5: { x: 180, y: 491 },
+      REMARKS: { x: 180, y: 470 },
+    },
+    // Section 6: Agriculture (Page 4, third section)
+    sec6: {
+      APPROVED:           { x: 100, y: 230 },  // Checkbox for Approved
+      APPROVED_WITH_COND: { x: 200, y: 230 },  // Checkbox for Approved with Conditions
+      DENIED:             { x: 350, y: 230 },  // Checkbox for Denied
+      DEF_1: { x: 205, y: 345 },
+      DEF_2: { x: 205, y: 329 },
+      DEF_3: { x: 205, y: 313 },
+      DEF_4: { x: 205, y: 297 },
+      DEF_5: { x: 205, y: 281 },
+      REMARKS: { x: 205, y: 260 },
+    },
   },
   fontSize: 9,
 };
-
 /* Draw helpers */
 function drawText(page, font, text, xy, size = XY.fontSize) {
   const t = String(text ?? "").trim();
   if (!t) return;
   page.drawText(t, { x: xy.x, y: xy.y, size, font });
 }
-function mark(page, font, xy, markChar = "_______") {
-  page.drawText(markChar, { x: xy.x, y: xy.y, size: XY.fontSize, font });
+/* Update the mark() function to be more visible */
+function mark(page, font, xy, markChar = "X") {  // Changed from "_______" to "X"
+  page.drawText(markChar, { 
+    x: xy.x, 
+    y: xy.y, 
+    size: XY.fontSize, 
+    font,
+    color: rgb(255, 0, 0) // Ensure black color
+  });
 }
+
+
+// Add this at the top of your file after the imports
+const { rgb } = require('pdf-lib');
 
 /* Render onto p3–p4; if only 2 pages, use p2 for both groups */
 async function renderSheet({ basePdfBytes, header, sheet }) {
@@ -259,7 +418,16 @@ exports.user_getForm = async (req, res) => {
       if (t?.url) admin_template_url = t.url;
     } catch {}
 
-    return res.json({ success: true, draft: draftPayload, admin_template_url, user_filled_url });
+    // Check completion status
+    const is_complete = await checkAllDepartmentsComplete(appId);
+
+    return res.json({ 
+      success: true, 
+      draft: draftPayload, 
+      admin_template_url, 
+      user_filled_url,
+      is_complete 
+    });
   } catch (e) {
     console.error("business user_getForm error:", e);
     return res.status(500).json({ success: false, message: "Failed to load form." });
@@ -269,31 +437,46 @@ exports.user_getForm = async (req, res) => {
 /* ───────── POST: save draft ───────── */
 exports.user_saveDraft = async (req, res) => {
   try {
-    const { application_id, data } = req.body || {};
+    const { application_id, data, department } = req.body || {};
     const appId = Number(application_id);
     if (!Number.isFinite(appId) || appId <= 0) {
       return res.status(400).json({ success: false, message: "application_id is required" });
     }
 
-    const zoning      = JSON.stringify(data?.zoning || {});
-    const fitness     = JSON.stringify(data?.fitness || {});
-    const environment = JSON.stringify(data?.environment || {});
-    const sanitation  = JSON.stringify(data?.sanitation || {});
-    const market      = JSON.stringify(data?.market || {});
-    const agriculture = JSON.stringify(data?.agriculture || {});
+    // Get existing data
+    const existingData = await getExistingFormData(appId);
+    
+    // Merge with new data based on department
+    const mergedData = await mergePDFData(existingData, data, department);
+
+    // Save merged data
+    const zoning = JSON.stringify(mergedData.zoning || {});
+    const fitness = JSON.stringify(mergedData.fitness || {});
+    const environment = JSON.stringify(mergedData.environment || {});
+    const sanitation = JSON.stringify(mergedData.sanitation || {});
+    const market = JSON.stringify(mergedData.market || {});
+    const agriculture = JSON.stringify(mergedData.agriculture || {});
 
     await q(
       `INSERT INTO business_clearance_form
          (application_id, status, zoning, fitness, environment, sanitation, market, agriculture, updated_at)
        VALUES (?, 'draft', ?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
-         status='draft', zoning=VALUES(zoning), fitness=VALUES(fitness), environment=VALUES(environment),
-         sanitation=VALUES(sanitation), market=VALUES(market), agriculture=VALUES(agriculture),
+         status='draft', zoning=VALUES(zoning), fitness=VALUES(fitness), 
+         environment=VALUES(environment), sanitation=VALUES(sanitation), 
+         market=VALUES(market), agriculture=VALUES(agriculture),
          updated_at=NOW()`,
       [appId, zoning, fitness, environment, sanitation, market, agriculture]
     );
 
-    return res.json({ success: true, message: "Draft saved." });
+    // Check completion status
+    const is_complete = await checkAllDepartmentsComplete(appId);
+
+    return res.json({ 
+      success: true, 
+      message: "Draft saved.",
+      is_complete 
+    });
   } catch (e) {
     console.error("business user_saveDraft error:", e);
     return res.status(500).json({ success: false, message: "Failed to save draft." });
@@ -303,7 +486,7 @@ exports.user_saveDraft = async (req, res) => {
 /* ───────── POST: preview (writes to /uploads/requirements) ───────── */
 exports.user_generatePreview = async (req, res) => {
   try {
-    const { application_id, data } = req.body || {};
+    const { application_id, data, department } = req.body || {};
     const appId = Number(application_id);
     if (!Number.isFinite(appId) || appId <= 0) {
       return res.status(400).json({ success: false, message: "application_id is required" });
@@ -312,6 +495,12 @@ exports.user_generatePreview = async (req, res) => {
     const appRow = await getBusinessApp(appId);
     if (!appRow) return res.status(404).json({ success: false, message: "Business application not found." });
 
+    // Get existing data
+    const existingData = await getExistingFormData(appId);
+    
+    // Merge with new data based on department
+    const mergedData = await mergePDFData(existingData, data, department);
+
     let baseAbs = TEMPLATE_PATH;
     const resolved = await resolveEmployeeTemplate(appId);
     if (resolved?.abs) baseAbs = resolved.abs;
@@ -319,50 +508,85 @@ exports.user_generatePreview = async (req, res) => {
     const header = mapHeaderRow(appRow);
     const baseBytes = fs.readFileSync(baseAbs);
 
-    const outBytes = await renderSheet({ basePdfBytes: baseBytes, header, sheet: data || {} });
-    const fname = `business_permit_${appId}_lgu_form_preview.pdf`;
-    const abs = path.join(REQUIREMENTS_DIR, fname);
-    fs.writeFileSync(abs, outBytes);
-
-    const rel = toUrlRel("uploads", "requirements", fname);
+    const outBytes = await renderSheet({ basePdfBytes: baseBytes, header, sheet: mergedData || {} });
+    
+    // Check if preview already exists
+    let rel;
+    const existingPreview = await getLatestUserFilledPath(appId);
+    
+    if (existingPreview && existingPreview.includes('preview')) {
+      // Update existing preview file
+      const abs = path.join(__dirname, "..", existingPreview.replace(/^\/+/, "").replace(/\//g, path.sep));
+      fs.writeFileSync(abs, outBytes);
+      rel = existingPreview;
+    } else {
+      // Create new preview file
+      const fname = `business_permit_${appId}_lgu_form_preview.pdf`;
+      const abs = path.join(REQUIREMENTS_DIR, fname);
+      fs.writeFileSync(abs, outBytes);
+      rel = toUrlRel("uploads", "requirements", fname);
+    }
+    
     await q(`UPDATE business_clearance_form SET draft_pdf_path=?, updated_at=NOW() WHERE application_id=?`, [rel, appId]);
 
-    return res.json({ success: true, preview_url: `${PUBLIC_BASE_URL}${rel}` });
+    // Check completion status
+    const is_complete = await checkAllDepartmentsComplete(appId);
+
+    return res.json({ 
+      success: true, 
+      preview_url: `${PUBLIC_BASE_URL}${rel}`,
+      is_complete 
+    });
   } catch (e) {
     console.error("business user_generatePreview error:", e);
     return res.status(500).json({ success: false, message: "Failed to build preview." });
   }
 };
 
-/* ───────── POST: submit (render FINAL + attach) ───────── */
+/* ───────── POST: submit (render FINAL + UPDATE existing file) ───────── */
 exports.user_submitFilled = async (req, res) => {
   try {
-    const { application_id, data } = req.body || {};
+    const { application_id, data, department } = req.body || {};
     const appId = Number(application_id);
     if (!Number.isFinite(appId) || appId <= 0) {
       return res.status(400).json({ success: false, message: "application_id is required" });
     }
 
-    const zoning      = JSON.stringify(data?.zoning || {});
-    const fitness     = JSON.stringify(data?.fitness || {});
-    const environment = JSON.stringify(data?.environment || {});
-    const sanitation  = JSON.stringify(data?.sanitation || {});
-    const market      = JSON.stringify(data?.market || {});
-    const agriculture = JSON.stringify(data?.agriculture || {});
+    // Get existing form data
+    const existingData = await getExistingFormData(appId);
+    
+    // Merge new data with existing data based on department
+    const mergedData = await mergePDFData(existingData, data, department);
+
+    // Check if all departments are now complete
+    const is_complete = await checkAllDepartmentsComplete(appId);
+    
+    // Determine status based on completion
+    const status = is_complete ? 'submitted' : 'in_progress';
+
+    // Save merged form data
+    const zoning = JSON.stringify(mergedData.zoning || {});
+    const fitness = JSON.stringify(mergedData.fitness || {});
+    const environment = JSON.stringify(mergedData.environment || {});
+    const sanitation = JSON.stringify(mergedData.sanitation || {});
+    const market = JSON.stringify(mergedData.market || {});
+    const agriculture = JSON.stringify(mergedData.agriculture || {});
 
     await q(
       `INSERT INTO business_clearance_form
          (application_id, status, zoning, fitness, environment, sanitation, market, agriculture, updated_at)
-       VALUES (?, 'submitted', ?, ?, ?, ?, ?, ?, NOW())
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
-         status='submitted', zoning=VALUES(zoning), fitness=VALUES(fitness), environment=VALUES(environment),
-         sanitation=VALUES(sanitation), market=VALUES(market), agriculture=VALUES(agriculture),
+         status=VALUES(status), zoning=VALUES(zoning), fitness=VALUES(fitness), 
+         environment=VALUES(environment), sanitation=VALUES(sanitation), 
+         market=VALUES(market), agriculture=VALUES(agriculture),
          updated_at=NOW()`,
-      [appId, zoning, fitness, environment, sanitation, market, agriculture]
+      [appId, status, zoning, fitness, environment, sanitation, market, agriculture]
     );
 
     const appRow = await getBusinessApp(appId);
     if (!appRow) return res.status(404).json({ success: false, message: "Business application not found." });
+    
     const header = mapHeaderRow(appRow);
 
     let baseAbs = TEMPLATE_PATH;
@@ -370,32 +594,58 @@ exports.user_submitFilled = async (req, res) => {
     if (resolved?.abs) baseAbs = resolved.abs;
 
     const baseBytes = fs.readFileSync(baseAbs);
-    const outBytes = await renderSheet({ basePdfBytes: baseBytes, header, sheet: data || {} });
+    const outBytes = await renderSheet({ basePdfBytes: baseBytes, header, sheet: mergedData || {} });
 
-    const fname = `business_permit_${appId}_lgu_form_user.pdf`;
-    const abs = path.join(REQUIREMENTS_DIR, fname);
-    fs.writeFileSync(abs, outBytes);
+    let rel, url;
+    const existingUserFilled = await getLatestUserFilledPath(appId);
+    
+    if (existingUserFilled) {
+      // UPDATE existing file - overwrite it
+      const abs = path.join(__dirname, "..", existingUserFilled.replace(/^\/+/, "").replace(/\//g, path.sep));
+      fs.writeFileSync(abs, outBytes);
+      rel = existingUserFilled;
+      url = `${PUBLIC_BASE_URL}${rel}`;
+      
+      // Update the timestamp in database (same record, same file)
+      await q(
+        `UPDATE tbl_application_requirements 
+         SET uploaded_at=NOW()
+         WHERE application_type='business' 
+           AND application_id=?
+           AND pdf_path = ?`,
+        [appId, existingUserFilled]
+      );
+    } else {
+      // CREATE new file (first time submission) - use a consistent filename
+      const fname = `business_permit_${appId}_filled_final.pdf`;
+      const abs = path.join(REQUIREMENTS_DIR, fname);
+      fs.writeFileSync(abs, outBytes);
+      rel = toUrlRel("uploads", "requirements", fname);
+      url = `${PUBLIC_BASE_URL}${rel}`;
 
-    const rel = toUrlRel("uploads", "requirements", fname);
-    const url = `${PUBLIC_BASE_URL}${rel}`;
+      // Insert new record
+      await q(
+        `INSERT INTO tbl_application_requirements
+           (app_uid, user_id, file_path, application_type, application_id, pdf_path, uploaded_at)
+         VALUES (
+           (SELECT app_uid FROM application_index WHERE application_type='business' AND application_id=? LIMIT 1),
+           (SELECT user_id FROM business_permits WHERE BusinessP_id=? LIMIT 1),
+           'Business Permit – Verification Sheet (User Filled)', 'business', ?, ?, NOW()
+         )`,
+        [appId, appId, appId, rel]
+      );
+    }
 
-    // Attach under the same app
-    await q(
-      `INSERT INTO tbl_application_requirements
-         (app_uid, user_id, file_path, application_type, application_id, pdf_path, uploaded_at)
-       VALUES (
-         (SELECT app_uid FROM application_index WHERE application_type='business' AND application_id=? LIMIT 1),
-         (SELECT user_id FROM business_permits WHERE BusinessP_id=? LIMIT 1),
-         'Business Permit – Verification Sheet (User Filled)', 'business', ?, ?, NOW()
-       )
-       ON DUPLICATE KEY UPDATE pdf_path=VALUES(pdf_path), uploaded_at=NOW()`,
-      [appId, appId, appId, rel]
-    );
-
-    // Update final_pdf_path with the new, valid /uploads/requirements path
+    // Update final_pdf_path
     await q(`UPDATE business_clearance_form SET final_pdf_path=?, updated_at=NOW() WHERE application_id=?`, [rel, appId]);
 
-    return res.json({ success: true, user_filled_url: url });
+    return res.json({ 
+      success: true, 
+      user_filled_url: url,
+      updated_existing: !!existingUserFilled,
+      is_complete: is_complete,
+      message: existingUserFilled ? "Form updated successfully." : "Form submitted successfully."
+    });
   } catch (e) {
     console.error("business user_submitFilled error:", e);
     return res.status(500).json({ success: false, message: "Failed to submit filled form." });

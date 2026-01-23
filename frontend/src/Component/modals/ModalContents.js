@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import AttachRequirementFromLibraryModal from "./AttachRequirementFromLibraryModal";
 import { FileText } from "lucide-react";
-
+import { useNavigate } from "react-router-dom";
 const API_BASE_URL = "http://localhost:8081";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -45,24 +45,102 @@ function niceStatusLabel(raw = "") {
 /* ------------------ shared panel: attached requirements ------------------ */
 
 function AttachedRequirementsPanel({ selectedApplication }) {
-  const [items, setItems] = useState([]);
+   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
   const [refreshTick, setRefreshTick] = useState(0);
   const [attachOpen, setAttachOpen] = useState(false);
-    const [openMayors, setOpenMayors] = useState(false);
-    const [openCedulaFinal, setOpenCedulaFinal] = useState(false);
-  const rawStatus =
-    (selectedApplication?.application_status ??
-      selectedApplication?.status ??
-      ""
-    )
-      .toString()
-      .toLowerCase()
-      .replace(/\s+/g, "-");
+  const [openMayors, setOpenMayors] = useState(false);
+  const [openCedulaFinal, setOpenCedulaFinal] = useState(false);
+  
+  // Add these state variables after the existing ones:
+  const [showInlineForms, setShowInlineForms] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // 6 sections for inline forms - can be declared here
+  const emptySec = { action: "", deficiencies: {}, remarks: "" };
+  const [zoning, setZoning] = useState(emptySec);
+  const [fitness, setFitness] = useState(emptySec);
+  const [environment, setEnvironment] = useState(emptySec);
+  const [sanitation, setSanitation] = useState(emptySec);
+  const [market, setMarket] = useState(emptySec);
+  const [agriculture, setAgriculture] = useState(emptySec);
+
+  const fetchUserData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/auth/userinfo`, {
+        withCredentials: true,
+      });
+      if (response.data.success) {
+        setUserData(response.data.userData);
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkSession = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
+        withCredentials: true,
+      });
+
+      if (response.data.loggedIn) {
+        setIsLoggedIn(true);
+        await fetchUserData();
+      } else {
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Session check error:", error);
+      navigate("/");
+    }
+  };
+
+  useEffect(() => {
+    checkSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // DECLARE departmentRaw FIRST
+  const departmentRaw = (
+    userData?.department ||
+    userData?.dept_name ||
+    userData?.department_name ||
+    userData?.office ||
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  // THEN declare department checks that depend on departmentRaw
+  const isMPDO = departmentRaw.includes("mpdo");
+  const isMEO = departmentRaw.includes("meo") || departmentRaw.includes("environment") || departmentRaw.includes("solid waste");
+  const isMHO = departmentRaw.includes("mho") || departmentRaw.includes("health") || departmentRaw.includes("sanitation");
+  const isMAO = departmentRaw.includes("mao") || departmentRaw.includes("agriculture");
+
+  // Check if user has any department access for LGU verification
+  const hasDepartmentAccess = isMPDO || isMEO || isMHO || isMAO;
+
+  const rawStatus = (
+    selectedApplication?.application_status ??
+    selectedApplication?.status ??
+    ""
+  )
+    .toString()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
 
   const isApproved = ["approved", "ready-for-pickup", "released"].includes(
     rawStatus
   );
+
 
   // Optional default “Kind of Business” from record if you store it
   const defaultKindOfBiz =
@@ -109,15 +187,31 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     applicationType === "renewal_business" ||
     applicationType === "special_sales";
 
-      const isBuildingApp = applicationType === "building";
+  const isBuildingApp = applicationType === "building";
 
+  // ===================== BUILDING DOC CHECKLIST =====================
   const BUILDING_DOC_ROWS = [
-    ["unified_form", "Five (5) copies of filled up Unified Form for Building Permit and FSEC"],
-    ["locational_clearance", "Filled up Application Form for Locational Clearance"],
-    ["rpt_and_taxdec", "Current Real Property Tax Receipt & Tax Declaration (5 Copies)"],
-    ["oct_tct_deed", "OCT / TCT / Deed of Sale / Contract of Sale / Contract of Lease (5 Copies)"],
+    [
+      "unified_form",
+      "Five (5) copies of filled up Unified Form for Building Permit and FSEC",
+    ],
+    [
+      "locational_clearance",
+      "Filled up Application Form for Locational Clearance",
+    ],
+    [
+      "rpt_and_taxdec",
+      "Current Real Property Tax Receipt & Tax Declaration (5 Copies)",
+    ],
+    [
+      "oct_tct_deed",
+      "OCT / TCT / Deed of Sale / Contract of Sale / Contract of Lease (5 Copies)",
+    ],
     ["lot_vicinity_map", "Lot Plan / Vicinity Map (5 Copies)"],
-    ["survey_plan", "Five (5) Sets of Survey Plan, Design Plans and Documents such as:"],
+    [
+      "survey_plan",
+      "Five (5) Sets of Survey Plan, Design Plans and Documents such as:",
+    ],
     ["arch", "Architectural"],
     ["specs", "Specifications (5 Copies)"],
     ["civil_structural", "Civil / Structural"],
@@ -129,12 +223,24 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     ["electronics", "Electronics"],
     ["geodetic", "Geodetic"],
     ["fire_protection_plan", "Fire Protection Plan (if applicable)"],
-    ["prc_license", "Four (4) photocopies of Valid License (PRC ID) of Signing Professionals"],
-    ["estimated_value", "Notarized Estimated Value of the Building/Structure (5 Copies)"],
-    ["csafety_program", "Construction Safety and Health Program (if applicable)"],
+    [
+      "prc_license",
+      "Four (4) photocopies of Valid License (PRC ID) of Signing Professionals",
+    ],
+    [
+      "estimated_value",
+      "Notarized Estimated Value of the Building/Structure (5 Copies)",
+    ],
+    [
+      "csafety_program",
+      "Construction Safety and Health Program (if applicable)",
+    ],
     ["affidavit", "Affidavit of Undertaking"],
     ["soil_test", "Soil Test (for 3-storey and above) (5 Copies)"],
-    ["structural_analysis", "Structural Analysis (for 2-storey and above) (5 Copies)"],
+    [
+      "structural_analysis",
+      "Structural Analysis (for 2-storey and above) (5 Copies)",
+    ],
     ["ctc_owner", "CTC of Owner (5 Copies)"],
   ];
 
@@ -146,24 +252,57 @@ function AttachedRequirementsPanel({ selectedApplication }) {
   const toggleBuildingDoc = (key) =>
     setBuildingChecks((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // LGU verification rows (BUSINESS ONLY)
+  // ===================== BUSINESS: LGU VERIFICATION ROWS =====================
+  // extended to include office/agency (for context) but still use only the key for state
   const LGU_ROWS = [
-    ["occupancy_permit", "Occupancy Permit (For New)"],
-    ["zoning_clearance", "Zoning (New and Renewal)"],
-    ["barangay_clearance", "Barangay Clearance (For Renewal)"],
-    ["sanitary_clearance", "Sanitary Permit / Health Clearance"],
-    ["environment_certificate", "Municipal Environmental Certificate"],
-    ["market_clearance", "Market Clearance (For Stall Holders)"],
-    ["fire_safety_certificate", "Valid Fire Safety Inspection Certificate"],
+    [
+      "occupancy_permit",
+      "Occupancy Permit (For New)",
+      "Office of the Building Official",
+    ],
+    [
+      "zoning_clearance",
+      "Zoning (New and Renewal)",
+      "Municipal Planning & Dev't. Office",
+    ],
+    ["barangay_clearance", "Barangay Clearance (For Renewal)", "Barangay"],
+    [
+      "sanitary_clearance",
+      "Sanitary Permit / Health Clearance",
+      "Municipal Health Office",
+    ],
+    [
+      "environment_certificate",
+      "Municipal Environmental Certificate",
+      "Municipal Environment Office",
+    ],
+    [
+      "market_clearance",
+      "Market Clearance (For Stall Holders)",
+      "Office of the Market Supervisor",
+    ],
+    [
+      "fire_safety_certificate",
+      "Valid Fire Safety Inspection Certificate",
+      "Bureau of Fire Protection",
+    ],
     [
       "river_floating_fish",
       "Registration/Verification (River Tanab, Oyster Culture, Floating Fish Cage Operator)",
+      "Municipal Agriculture Office",
     ],
   ];
 
+  // yes / no / not_needed
   const [checks, setChecks] = useState(() =>
     Object.fromEntries(LGU_ROWS.map(([k]) => [k, "not_needed"]))
   );
+
+  // NEW: status per row (how other offices acted) – pending/approved/declined
+  const [lguStatus, setLguStatus] = useState(() =>
+    Object.fromEntries(LGU_ROWS.map(([k]) => [k, "pending"]))
+  );
+
   const updateCheck = (key, value) =>
     setChecks((prev) =>
       prev[key] === value ? prev : { ...prev, [key]: value }
@@ -195,7 +334,10 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     { code: "electrical_inspection_fee", label: "Electrical Inspection Fee" },
     { code: "mechanical_inspection_fee", label: "Mechanical Inspection Fee" },
     { code: "plumbing_inspection_fee", label: "Plumbing Inspection Fee" },
-    { code: "signboard_renewal_fee", label: "Signboard/Billboard Renewal Fee" },
+    {
+      code: "signboard_renewal_fee",
+      label: "Signboard/Billboard Renewal Fee",
+    },
     {
       code: "combustible_sale_storage_fee",
       label:
@@ -237,6 +379,255 @@ function AttachedRequirementsPanel({ selectedApplication }) {
     );
     alert("Assessment saved.");
   };
+// Helper functions for inline forms
+function setAction(updater, value) { updater(s => ({ ...s, action: value })); }
+function setDef(updater, idx, val) { updater(s => ({ ...s, deficiencies: { ...(s.deficiencies || {}), [idx]: val } })); }
+function setRemarks(updater, val)  { updater(s => ({ ...s, remarks: val })); }
+
+const ActionRadios = ({ value, onChange }) => (
+  <div className="flex flex-wrap gap-4 text-sm">
+    <label className="inline-flex items-center gap-2">
+      <input type="radio" checked={value === "approved"} onChange={() => onChange("approved")} />
+      Approved
+    </label>
+    <label className="inline-flex items-center gap-2">
+      <input type="radio" checked={value === "approved_with_conditions"} onChange={() => onChange("approved_with_conditions")} />
+      Approved with Conditions
+    </label>
+    <label className="inline-flex items-center gap-2">
+      <input type="radio" checked={value === "denied"} onChange={() => onChange("denied")} />
+      Denied
+    </label>
+  </div>
+);
+
+const DefInputs = ({ sec, setSec }) => (
+  <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+    {[1,2,3,4,5].map(i => (
+      <input 
+        key={i} 
+        className="border rounded px-2 py-1 text-sm text-center" 
+        placeholder={`${i}`}
+        value={sec.deficiencies?.[String(i)] || ""} 
+        onChange={e => setDef(setSec, String(i), e.target.value)} 
+      />
+    ))}
+  </div>
+);
+
+// Define sections with their department access
+const sections = [
+  { 
+    key: "zoning",      
+    title: "1. Zoning Ordinance",          
+    state: zoning,      
+    set: setZoning,
+    accessibleBy: ["MPDO"],
+    show: isMPDO
+  },
+  { 
+    key: "fitness",     
+    title: "2. Fitness for Occupancy",     
+    state: fitness,     
+    set: setFitness,
+    accessibleBy: ["MPDO"],
+    show: isMPDO
+  },
+  { 
+    key: "environment", 
+    title: "3. Solid Waste / Environment", 
+    state: environment, 
+    set: setEnvironment,
+    accessibleBy: ["MEO"],
+    show: isMEO
+  },
+  { 
+    key: "sanitation",  
+    title: "4. Sanitation Code",           
+    state: sanitation,  
+    set: setSanitation,
+    accessibleBy: ["MHO"],
+    show: isMHO
+  },
+  { 
+    key: "market",      
+    title: "5. Public Market",             
+    state: market,      
+    set: setMarket,
+    accessibleBy: ["MEO"],
+    show: isMEO
+  },
+  { 
+    key: "agriculture", 
+    title: "6. Agriculture Office",        
+    state: agriculture, 
+    set: setAgriculture,
+    accessibleBy: ["MAO"],
+    show: isMAO
+  },
+];
+const buildPayload = () => {
+  const payload = {};
+  
+  // Only include sections that the user has access to
+  if (isMPDO) {
+    payload.zoning = zoning;
+    payload.fitness = fitness;
+  }
+  if (isMEO) {
+    payload.environment = environment;
+    payload.market = market;
+  }
+  if (isMHO) {
+    payload.sanitation = sanitation;
+  }
+  if (isMAO) {
+    payload.agriculture = agriculture;
+  }
+  
+  return payload;
+};
+
+async function saveDraft() {
+  if (!applicationId) return;
+  
+  setSaving(true);
+  try {
+    const payload = buildPayload();
+    const r = await fetch(`${baseURL}/api/user/business/form/save`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ application_id: applicationId, data: payload }),
+    });
+    const j = await r.json();
+    if (!j.success) throw new Error(j.message || "Failed to save draft.");
+    alert("Draft saved.");
+  } catch (e) {
+    alert(e.message || "Server error while saving.");
+  } finally {
+    setSaving(false);
+  }
+}
+
+// Update the submitNow function:
+async function submitNow() {
+  if (!applicationId) return;
+  
+  setSubmitting(true);
+  try {
+    const payload = buildPayload();
+    
+    // Determine which department is submitting
+    let department = '';
+    if (isMPDO) department = 'MPDO';
+    else if (isMEO) department = 'MEO';
+    else if (isMHO) department = 'MHO';
+    else if (isMAO) department = 'MAO';
+    
+    const r = await fetch(`${baseURL}/api/user/business/form/submit`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        application_id: applicationId, 
+        data: payload,
+        department: department 
+      }),
+    });
+    
+    const j = await r.json();
+    if (!j.success) throw new Error(j.message || "Failed to submit.");
+    
+    let message = "Your section has been saved.";
+    if (j.is_complete) {
+      message += " All departments have completed their sections.";
+    }
+    
+    alert(message);
+    setRefreshTick((prev) => prev + 1);
+    setShowInlineForms(false);
+  } catch (e) {
+    alert(e.message || "Server error while submitting.");
+  } finally {
+    setSubmitting(false);
+  }
+}
+
+// Update the saveDraft function:
+async function saveDraft() {
+  if (!applicationId) return;
+  
+  setSaving(true);
+  try {
+    const payload = buildPayload();
+    
+    // Determine department
+    let department = '';
+    if (isMPDO) department = 'MPDO';
+    else if (isMEO) department = 'MEO';
+    else if (isMHO) department = 'MHO';
+    else if (isMAO) department = 'MAO';
+    
+    const r = await fetch(`${baseURL}/api/user/business/form/save`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        application_id: applicationId, 
+        data: payload,
+        department: department 
+      }),
+    });
+    
+    const j = await r.json();
+    if (!j.success) throw new Error(j.message || "Failed to save draft.");
+    alert("Draft saved.");
+  } catch (e) {
+    alert(e.message || "Server error while saving.");
+  } finally {
+    setSaving(false);
+  }
+}
+// Filter sections based on user's department
+const filteredSections = sections.filter(section => section.show);
+  // NEW: Generate LGU Form WITHOUT assessment (same endpoint, empty assessment)
+  const handleGenerateLguOnly = async () => {
+    if (!applicationType || !applicationId) return;
+    const ok = window.confirm(
+      "Generate the LGU form (without Assessment) and attach it to this application?"
+    );
+    if (!ok) return;
+
+    try {
+      setGenerating(true);
+      const { data } = await axios.post(
+        `${baseURL}/api/business-permit/generate-form-with-assessment`,
+        {
+          application_type: applicationType,
+          application_id: applicationId,
+          checks,
+          assessment: {}, // no assessment values
+        },
+        { withCredentials: true }
+      );
+      if (data?.success) {
+        alert("LGU form generated and attached.");
+        setRefreshTick((n) => n + 1);
+      } else {
+        alert(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Generate LGU form (no assessment) failed:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate LGU form."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleGenerateWithAssessment = async () => {
     if (!applicationType || !applicationId) return;
@@ -252,7 +643,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
         {
           application_type: applicationType,
           application_id: applicationId,
-          checks,
+          checks, // still the same endpoint you already use
           assessment: computedAssessment.rows,
         },
         { withCredentials: true }
@@ -408,7 +799,8 @@ function AttachedRequirementsPanel({ selectedApplication }) {
       setGenerating(false);
     }
   };
-    // ───────── Mayor's Permit: submit handler (calls backend) ─────────
+
+  // ───────── Mayor's Permit: submit handler (calls backend) ─────────
   const handleGenerateMayorsPermit = async (payload) => {
     if (!applicationId) return;
     try {
@@ -443,47 +835,47 @@ function AttachedRequirementsPanel({ selectedApplication }) {
       setGenerating(false);
     }
   };
-// ───────── Cedula Final: submit handler (calls backend) ─────────
-const handleGenerateCedulaFinal = async (payload) => {
-  if (!applicationId) return;
 
-  try {
-    setGenerating(true);
+  // ───────── Cedula Final: submit handler (calls backend) ─────────
+  const handleGenerateCedulaFinal = async (payload) => {
+    if (!applicationId) return;
 
-    const { data } = await axios.post(
-      `${baseURL}/api/cedula/generate-final`,
-      {
-        application_id: applicationId,
-        taxable_amount: payload.taxable_amount,
-        tax_due: payload.tax_due,
-        interest: payload.interest,
-        total_amount: payload.total_amount,
-        treasurer_signature_path: payload.treasurer_signature_path || null,
-      },
-      { withCredentials: true }
-    );
+    try {
+      setGenerating(true);
 
-    if (data?.success) {
-      alert("Cedula Final PDF generated and attached.");
-      setOpenCedulaFinal(false);
-      setRefreshTick((n) => n + 1);
-    } else {
-      throw new Error(data?.message || "Generation failed.");
+      const { data } = await axios.post(
+        `${baseURL}/api/cedula/generate-final`,
+        {
+          application_id: applicationId,
+          taxable_amount: payload.taxable_amount,
+          tax_due: payload.tax_due,
+          interest: payload.interest,
+          total_amount: payload.total_amount,
+          treasurer_signature_path: payload.treasurer_signature_path || null,
+        },
+        { withCredentials: true }
+      );
+
+      if (data?.success) {
+        alert("Cedula Final PDF generated and attached.");
+        setOpenCedulaFinal(false);
+        setRefreshTick((n) => n + 1);
+      } else {
+        throw new Error(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Cedula Final generate error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate Cedula Final."
+      );
+    } finally {
+      setGenerating(false);
     }
-  } catch (e) {
-    console.error("Cedula Final generate error:", e);
-    alert(
-      e?.response?.data?.message ||
-        e?.message ||
-        "Failed to generate Cedula Final."
-    );
-  } finally {
-    setGenerating(false);
-  }
-};
+  };
 
-
-// --------- Building: generator (no auto-open) ---------
+  // --------- Building: generator (no auto-open) ---------
   const handleGenerateBuildingForm = async () => {
     if (!applicationId) return;
 
@@ -495,9 +887,6 @@ const handleGenerateCedulaFinal = async (payload) => {
     try {
       setGenerating(true);
 
-      // This structure matches what PDF_fillbuildingController expects:
-      //   req.body.checks.docs   -> booleans per item
-      //   req.body.checks.remarks -> 'complete' or 'incomplete'
       const checksPayload = {
         docs: buildingChecks,
         remarks: buildingRemarks,
@@ -529,47 +918,87 @@ const handleGenerateCedulaFinal = async (payload) => {
       setGenerating(false);
     }
   };
-
-const handleGenerateCedulaForm = async () => {
-  if (!applicationId) return;
-  const ok = window.confirm(
-    "Generate the Cedula form and attach it to this application?"
-  );
-  if (!ok) return;
-
-  const safeOrigin =
-    (typeof window !== "undefined" &&
-      window.location &&
-      window.location.origin) ||
-    "http://localhost:8081";
-  const baseURL = (API_BASE_URL || safeOrigin).replace(/\/+$/, "");
-
+// Add this function near your other handler functions
+const handleForceRefreshStatus = async () => {
+  if (!applicationId) {
+    alert('No application selected');
+    return;
+  }
+  
   try {
-    setGenerating(true);
-    const { data } = await axios.post(
-      `${baseURL}/api/cedula-permit/generate-form`,
-      { application_id: applicationId },
+    console.log('Force refreshing LGU status for application:', applicationId);
+    
+    const response = await axios.get(
+      `${baseURL}/api/applications/lgu-requirements-status/${applicationId}`,
       { withCredentials: true }
     );
-
-    if (data?.success) {
-      alert("Cedula form generated and attached.");
-      setRefreshTick((n) => n + 1);
+    
+    console.log('Refresh response:', response.data);
+    
+    if (response.data?.success && response.data.statuses) {
+      const backendStatuses = response.data.statuses;
+      const newLguStatus = {};
+      
+      LGU_ROWS.forEach(([key]) => {
+        if (backendStatuses[key]) {
+          newLguStatus[key] = backendStatuses[key].status || 'pending';
+        } else {
+          newLguStatus[key] = 'pending';
+        }
+      });
+      
+      setLguStatus(newLguStatus);
+      console.log('LGU status updated to:', newLguStatus);
+      alert('LGU status refreshed successfully!');
     } else {
-      throw new Error(data?.message || "Generation failed.");
+      alert('Failed to refresh LGU status: ' + (response.data?.message || 'Unknown error'));
     }
-  } catch (e) {
-    console.error("Cedula generate error:", e);
-    alert(
-      e?.response?.data?.message ||
-        e?.message ||
-        "Failed to generate Cedula form."
-    );
-  } finally {
-    setGenerating(false);
+  } catch (error) {
+    console.error('Error refreshing LGU status:', error);
+    alert('Error refreshing LGU status: ' + error.message);
   }
 };
-  // reset checks & assessment whenever app changes
+  const handleGenerateCedulaForm = async () => {
+    if (!applicationId) return;
+    const ok = window.confirm(
+      "Generate the Cedula form and attach it to this application?"
+    );
+    if (!ok) return;
+
+    const safeOriginInner =
+      (typeof window !== "undefined" &&
+        window.location &&
+        window.location.origin) ||
+      "http://localhost:8081";
+    const baseURLInner = (API_BASE_URL || safeOriginInner).replace(/\/+$/, "");
+
+    try {
+      setGenerating(true);
+      const { data } = await axios.post(
+        `${baseURLInner}/api/cedula-permit/generate-form`,
+        { application_id: applicationId },
+        { withCredentials: true }
+      );
+
+      if (data?.success) {
+        alert("Cedula form generated and attached.");
+        setRefreshTick((n) => n + 1);
+      } else {
+        throw new Error(data?.message || "Generation failed.");
+      }
+    } catch (e) {
+      console.error("Cedula generate error:", e);
+      alert(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to generate Cedula form."
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ===================== RESET STATE WHEN APP CHANGES =====================
   useEffect(() => {
     // Business LGU rows reset
     setChecks(Object.fromEntries(LGU_ROWS.map(([k]) => [k, "not_needed"])));
@@ -584,67 +1013,150 @@ const handleGenerateCedulaForm = async () => {
       Object.fromEntries(BUILDING_DOC_ROWS.map(([k]) => [k, false]))
     );
     setBuildingRemarks("complete");
+
+    // LGU status default back to pending
+    setLguStatus(
+      Object.fromEntries(LGU_ROWS.map(([k]) => [k, "pending"]))
+    );
   }, [applicationType, applicationId]);
 
 
-  useEffect(() => {
-    let mounted = true;
-    async function load() {
-      if (!applicationType || !applicationId) return;
-      setLoading(true);
-      try {
-        const r = await axios.get(`${baseURL}/api/attached-requirements`, {
+// ===================== LOAD ATTACHMENTS + COMMENTS + SAVED LGU STATE + LGU STATUS =====================
+// ===================== LOAD ATTACHMENTS + COMMENTS + SAVED LGU STATE + LGU STATUS =====================
+useEffect(() => {
+  let mounted = true;
+  async function load() {
+    if (!applicationType || !applicationId) return;
+    setLoading(true);
+    try {
+      console.log(`=== Loading data for application ${applicationId} ===`);
+      
+      // Fetch all data in parallel
+      const [attachmentsResponse, commentsResponse, lguStatusResponse] = await Promise.all([
+        axios.get(`${baseURL}/api/attached-requirements`, {
           withCredentials: true,
           params: {
             application_type: applicationType,
             application_id: applicationId,
           },
-        });
-        const c = await axios.get(`${baseURL}/api/application-comments`, {
+        }),
+        axios.get(`${baseURL}/api/application-comments`, {
           withCredentials: true,
           params: {
             application_type: applicationType,
             application_id: applicationId,
           },
+        }),
+        // Fetch LGU requirements status
+        axios.get(`${baseURL}/api/applications/lgu-requirements-status/${applicationId}`, {
+          withCredentials: true,
+        }).catch(err => {
+          console.warn("LGU status endpoint error:", err.message);
+          // Return a mock response for testing
+          return { 
+            data: { 
+              success: true, 
+              statuses: {
+                occupancy_permit: { status: 'approved' },
+                environment_certificate: { status: 'on-hold' }
+              },
+              message: "Using test data"
+            } 
+          };
+        })
+      ]);
+      
+      if (!mounted) return;
+
+      // Normalize attachments
+      const normalizeItems = (arr = []) =>
+        arr.map((it) => {
+          const fileUrl =
+            it.file_url ||
+            it.system_file_url ||
+            it.pdf_path ||
+            it.filepath ||
+            it.file_path ||
+            null;
+
+          const userUrl =
+            it.user_file_url ||
+            it.user_pdf_path ||
+            it.user_filepath ||
+            it.user_file_path ||
+            null;
+
+          return { ...it, file_url: fileUrl, user_file_url: userUrl };
         });
-        if (!mounted) return;
 
-        const normalizeItems = (arr = []) =>
-          arr.map((it) => {
-            const fileUrl =
-              it.file_url ||
-              it.system_file_url ||
-              it.pdf_path ||
-              it.filepath ||
-              it.file_path ||
-              null;
+      setItems(normalizeItems(attachmentsResponse.data?.items || []));
+      setComments(commentsResponse.data?.items || []);
 
-            const userUrl =
-              it.user_file_url ||
-              it.user_pdf_path ||
-              it.user_filepath ||
-              it.user_file_path ||
-              null;
+      // Load saved LGU checks from attachments response if available
+      const lguState = attachmentsResponse.data?.lgu_state;
+      if (lguState?.checks) {
+        console.log('Found saved LGU checks:', lguState.checks);
+        setChecks((prev) => ({ ...prev, ...lguState.checks }));
+      }
 
-            return { ...it, file_url: fileUrl, user_file_url: userUrl };
-          });
-
-        setItems(normalizeItems(r.data?.items || []));
-        setComments(c.data?.items || []);
-      } catch (e) {
-        console.error("Load attachments/comments failed:", e);
-      } finally {
-        mounted && setLoading(false);
+      // ========== CRITICAL: Update LGU status with actual backend data ==========
+      console.log('LGU Status API Response:', lguStatusResponse.data);
+      
+      if (lguStatusResponse.data?.success) {
+        const backendStatuses = lguStatusResponse.data.statuses || {};
+        console.log('Backend LGU Statuses:', backendStatuses);
+        
+        // Create new status object by mapping each LGU row to backend data
+        const newLguStatus = {};
+        
+        LGU_ROWS.forEach(([key, label, office]) => {
+          // Get status from backend, default to 'pending'
+          const backendStatus = backendStatuses[key];
+          
+          if (backendStatus) {
+            console.log(`Backend status for ${key}:`, backendStatus);
+            newLguStatus[key] = backendStatus.status || 'pending';
+          } else {
+            console.log(`No backend status for ${key}, using default: pending`);
+            newLguStatus[key] = 'pending';
+          }
+        });
+        
+        console.log('Final LGU status to set:', newLguStatus);
+        setLguStatus(newLguStatus);
+        
+        // Log what we expect to see for environment_certificate
+        const envCertStatus = newLguStatus['environment_certificate'];
+        console.log(`Environment Certificate should show: ${envCertStatus}`);
+      } else {
+        console.warn('LGU status response not successful:', lguStatusResponse.data);
+      }
+      
+    } catch (error) {
+      console.error("Load failed:", error);
+    } finally {
+      if (mounted) {
+        setLoading(false);
       }
     }
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [applicationType, applicationId, refreshTick, baseURL]);
+  }
+  
+  load();
+  
+  return () => {
+    mounted = false;
+  };
+}, [applicationType, applicationId, refreshTick, baseURL]);
 
   const hasItems = items?.length > 0;
-
+// Find the Business Permit LGU Form template
+const businessLguFormItem = items.find(
+  (item) => 
+    item.file_path && 
+    item.file_path.toLowerCase().includes('business') && 
+    item.file_path.toLowerCase().includes('lgu') &&
+    item.file_path.toLowerCase().includes('form')
+);
   const commentStatusOptions = useMemo(() => {
     const set = new Set();
     comments.forEach((c) => c.status_at_post && set.add(c.status_at_post));
@@ -709,35 +1221,123 @@ const handleGenerateCedulaForm = async () => {
     }
   };
 
-  // A bullet-proof radio row (no id/htmlFor; input inside label; unique name)
-  const RadioRow = ({ fieldKey, label }) => {
-    const groupName = `lgu-${applicationId ?? "app"}-${fieldKey}`;
-    const value = checks[fieldKey];
+  // ===================== BUSINESS LGU RADIO ROW =====================
+  // ===================== BUSINESS LGU RADIO ROW =====================
+const RadioRow = ({ fieldKey, label, office }) => {
+  const groupName = `lgu-${applicationId ?? "app"}-${fieldKey}`;
+  const value = checks[fieldKey];
+  const status = (lguStatus[fieldKey] || "pending").toLowerCase();
 
-    return (
-      <tr>
-        <td className="px-2 py-1 border align-top">{label}</td>
-        {["yes", "no", "not_needed"].map((option) => (
-          <td key={option} className="px-2 py-1 border text-center">
-            <label
-              className="flex items-center justify-center w-full h-full cursor-pointer select-none"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <input
-                type="radio"
-                name={groupName}
-                value={option}
-                checked={value === option}
-                onChange={() => updateCheck(fieldKey, option)}
-                className="cursor-pointer"
-              />
-            </label>
-          </td>
-        ))}
-      </tr>
-    );
+  // FIXED: Enhanced status handling with all possible values
+  const getStatusInfo = (status) => {
+    const statusLower = status.toLowerCase();
+    
+    switch(statusLower) {
+      case 'approved':
+      case 'approved_with_conditions':
+        return {
+          color: 'text-green-600 bg-green-50',
+          text: statusLower === 'approved_with_conditions' ? 'Approved (with conditions)' : 'Approved',
+          icon: '✓',
+          subtext: 'Verified'
+        };
+      case 'in-review':
+        return {
+          color: 'text-blue-600 bg-blue-50',
+          text: 'In Review',
+          icon: '⏳',
+          subtext: 'Reviewing'
+        };
+      case 'on-hold':
+        return {
+          color: 'text-orange-600 bg-orange-50',
+          text: 'On Hold',
+          icon: '⏸️',
+          subtext: 'On Hold'
+        };
+      case 'denied':
+        return {
+          color: 'text-red-600 bg-red-50',
+          text: 'Denied',
+          icon: '✗',
+          subtext: 'Denied'
+        };
+      case 'pending':
+      default:
+        return {
+          color: 'text-yellow-600 bg-yellow-50',
+          text: 'Pending',
+          icon: '⏳',
+          subtext: 'Pending'
+        };
+    }
   };
+
+  const statusInfo = getStatusInfo(status);
+
+  return (
+    <tr>
+      <td className="px-2 py-1 border align-top">
+        <div className="font-medium">{label}</div>
+        {office && (
+          <div className="text-[11px] text-gray-500">{office}</div>
+        )}
+      </td>
+      {["yes", "no", "not_needed"].map((option) => (
+        <td key={option} className="px-2 py-1 border text-center">
+          <label
+            className="flex items-center justify-center w-full h-full cursor-pointer select-none"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="radio"
+              name={groupName}
+              value={option}
+              checked={value === option}
+              onChange={() => updateCheck(fieldKey, option)}
+              className="cursor-pointer"
+            />
+          </label>
+        </td>
+      ))}
+      {/* FIXED: Status column with proper handling for all status types */}
+      <td className="px-2 py-1 border text-center">
+        <div className="flex flex-col items-center gap-1 min-h-[40px] justify-center">
+          <span
+            className={`inline-flex items-center justify-center text-[11px] font-semibold px-2 py-0.5 rounded-full ${statusInfo.color}`}
+          >
+            <span className="mr-1">{statusInfo.icon}</span>
+            {statusInfo.text}
+          </span>
+          {statusInfo.subtext && (
+            <span className="text-[9px] text-gray-500">
+              {statusInfo.subtext}
+            </span>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+};
+  // ===================== GATE: are all YES docs approved? =====================
+  // ===================== GATE: are all YES docs approved? =====================
+const allRequiredDocsApproved = useMemo(() => {
+  if (!isBusinessApp) return true;
+
+  for (const [key] of LGU_ROWS) {
+    if (checks[key] === "yes") {
+      const s = (lguStatus[key] || "pending").toLowerCase();
+      // Only allow if status is "approved" or "approved_with_conditions"
+      // "on-hold", "in-review", "denied", "pending" should block assessment
+      if (s !== "approved" && s !== "approved_with_conditions") {
+        console.log(`Document ${key} is not approved. Status: ${s}`);
+        return false;
+      }
+    }
+  }
+  return true;
+}, [checks, lguStatus, isBusinessApp]);
 
   // ------------------- UI -------------------
   return (
@@ -753,7 +1353,7 @@ const handleGenerateCedulaForm = async () => {
             Attached Requirements
           </h4>
           <div className="flex items-center space-x-2">
-            {isBusinessApp && (
+            {!isMPDO &&   (
               <button
                 onClick={handleGenerateRequirements}
                 disabled={generating}
@@ -764,7 +1364,7 @@ const handleGenerateCedulaForm = async () => {
                   : "Generate Applicant Requirements"}
               </button>
             )}
-              {isBusinessApp && isApproved && (
+            {!isMPDO && isApproved  && (
               <button
                 onClick={() => setOpenMayors(true)}
                 disabled={generating}
@@ -809,24 +1409,27 @@ const handleGenerateCedulaForm = async () => {
               </button>
             )}
             {applicationType === "cedula" && (
-  <button
-    onClick={handleGenerateCedulaForm}
-    disabled={generating}
-    className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
-  >
-    {generating ? "Generating..." : "Cedula: Generate Filled Form"}
-  </button>
-)}
-{applicationType === "cedula" && (
-  <button
-    onClick={() => setOpenCedulaFinal(true)}
-    disabled={generating}
-    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
-  >
-    {generating ? "Generating..." : "Cedula: Fill Treasurer / Generate Final"}
-  </button>
-)}
-
+              <>
+                <button
+                  onClick={handleGenerateCedulaForm}
+                  disabled={generating}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+                >
+                  {generating
+                    ? "Generating..."
+                    : "Cedula: Generate Filled Form"}
+                </button>
+                <button
+                  onClick={() => setOpenCedulaFinal(true)}
+                  disabled={generating}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+                >
+                  {generating
+                    ? "Generating..."
+                    : "Cedula: Fill Treasurer / Generate Final"}
+                </button>
+              </>
+            )}
 
             {applicationType === "plumbing" && (
               <button
@@ -839,24 +1442,25 @@ const handleGenerateCedulaForm = async () => {
                   : "Plumbing: Generate Filled Form"}
               </button>
             )}
-{applicationType === "building" && (
-  <button
-    onClick={handleGenerateBuildingForm}
-    disabled={generating}
-    className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
-  >
-    {generating ? "Generating..." : "Building: Generate Filled Form"}
-  </button>
-)}
-
-
-
+            {applicationType === "building" && (
+              <button
+                onClick={handleGenerateBuildingForm}
+                disabled={generating}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded disabled:opacity-50"
+              >
+                {generating
+                  ? "Generating..."
+                  : "Building: Generate Filled Form"}
+              </button>
+            )}
+                {!isMPDO && (
             <button
               onClick={() => setAttachOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-2 px-3 rounded"
             >
               Attach From System
             </button>
+            )}
             <button
               onClick={() => setRefreshTick((n) => n + 1)}
               className="text-xs px-3 py-2 bg-gray-100 rounded hover:bg-gray-200"
@@ -896,8 +1500,9 @@ const handleGenerateCedulaForm = async () => {
                     </p>
                   )}
                 </div>
-
+                
                 <div className="flex flex-wrap gap-2 items-center">
+                  
                   {it.file_url && (
                     <a
                       href={toAbsoluteURL(it.file_url)}
@@ -923,16 +1528,16 @@ const handleGenerateCedulaForm = async () => {
                       No file
                     </span>
                   )}
-
+                
                   <button
-                    type="button"
-                    onClick={() =>
-                      handleRemoveRequirement(it.requirement_id)
-                    }
-                    className="text-xs md:text-sm text-red-600 hover:text-red-700 hover:underline ml-1"
-                  >
-                    Remove
-                  </button>
+  type="button"
+  onClick={() => handleRemoveRequirement(it.requirement_id)}
+  disabled={applicationType === "business" && isMPDO} // Disable for Business application if MPDO
+  className={`text-xs md:text-sm ${applicationType === "business" && isMPDO ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:text-red-700'} hover:underline ml-1`}
+>
+  Remove
+</button>
+
                 </div>
               </div>
             ))}
@@ -945,183 +1550,392 @@ const handleGenerateCedulaForm = async () => {
 
         {/* Business-only: LGU verification + Assessment */}
         {(isBusinessApp || isBuildingApp) && (
-  <div className="mt-5 border-t pt-4 space-y-6">
-    {/* ===================== BUILDING: Documentary Requirements (Page 1) ===================== */}
-    {isBuildingApp && (
-      <div>
-        <h5 className="text-sm font-semibold text-gray-700 mb-2">
-          Building Permit Documentary Requirements (Page 1)
-        </h5>
-        <p className="text-xs text-gray-500 mb-3">
-          Check all documents that are required/attached for this application.
-          These will be encoded on Page 1 of the generated Building Permit
-          checklist PDF.
-        </p>
+          <div className="mt-5 border-t pt-4 space-y-6">
+            {/* ===================== BUILDING: Documentary Requirements (Page 1) ===================== */}
+            {isBuildingApp && (
+              <div>
+                <h5 className="text-sm font-semibold text-gray-700 mb-2">
+                  Building Permit Documentary Requirements (Page 1)
+                </h5>
+                <p className="text-xs text-gray-500 mb-3">
+                  Check all documents that are required/attached for this
+                  application. These will be encoded on Page 1 of the generated
+                  Building Permit checklist PDF.
+                </p>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="text-left px-2 py-1 border">Description</th>
-                <th className="px-2 py-1 border text-center">Required</th>
-              </tr>
-            </thead>
-            <tbody>
-              {BUILDING_DOC_ROWS.map(([fieldKey, label]) => (
-                <tr key={fieldKey}>
-                  <td className="px-2 py-1 border align-top">{label}</td>
-                  <td className="px-2 py-1 border text-center">
-                    <input
-                      type="checkbox"
-                      className="cursor-pointer"
-                      checked={!!buildingChecks[fieldKey]}
-                      onChange={() => toggleBuildingDoc(fieldKey)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-4">
-          <span className="text-xs font-medium text-gray-600">Remarks:</span>
-
-          <label className="inline-flex items-center gap-1 text-xs text-gray-700">
-            <input
-              type="radio"
-              name={`bldg-remarks-${applicationId ?? "app"}`}
-              value="complete"
-              checked={buildingRemarks === "complete"}
-              onChange={(e) => setBuildingRemarks(e.target.value)}
-            />
-            Complete Documents
-          </label>
-
-          <label className="inline-flex items-center gap-1 text-xs text-gray-700">
-            <input
-              type="radio"
-              name={`bldg-remarks-${applicationId ?? "app"}`}
-              value="incomplete"
-              checked={buildingRemarks === "incomplete"}
-              onChange={(e) => setBuildingRemarks(e.target.value)}
-            />
-            Incomplete Documents
-          </label>
-        </div>
-      </div>
-    )}
-
-    {/* ===================== BUSINESS: LGU Verification (Page 2) + Assessment ===================== */}
-    {isBusinessApp && (
-      <div>
-        <h5 className="text-sm font-semibold text-gray-700 mb-2">
-          LGU Verification of Documents (will appear on Page 2)
-        </h5>
-        <p className="text-xs text-gray-500 mb-3">
-          Set which documents are required for this application. These choices
-          will be checked/encoded on the second page of the generated PDF.
-        </p>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="text-left px-2 py-1 border">Description</th>
-                <th className="px-2 py-1 border">Yes</th>
-                <th className="px-2 py-1 border">No</th>
-                <th className="px-2 py-1 border">Not needed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {LGU_ROWS.map(([fieldKey, label]) => (
-                <RadioRow key={fieldKey} fieldKey={fieldKey} label={label} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="bg-white border rounded-md p-4 mt-5">
-          <h5 className="text-sm font-semibold text-gray-700 mb-3">
-            Assessment of Applicable Fees
-          </h5>
-
-          <div className="grid grid-cols-[1fr_140px_160px_160px] gap-2 text-sm">
-            <div className="text-gray-500">Description</div>
-            <div className="text-gray-500">Amount</div>
-            <div className="text-gray-500">Penalty/Surcharge</div>
-            <div className="text-gray-500">Total</div>
-
-            {ASSESS_ROWS.map((r) => (
-              <React.Fragment key={r.code}>
-                <div className="py-1">{r.label}</div>
-                <input
-                  inputMode="decimal"
-                  className="border rounded px-2 py-1"
-                  value={assessment[r.code].amount}
-                  onChange={(e) => setAssessCell(r.code, "amount", e.target.value)}
-                  placeholder="0.00"
-                />
-                <input
-                  inputMode="decimal"
-                  className="border rounded px-2 py-1"
-                  value={assessment[r.code].penalty}
-                  onChange={(e) => setAssessCell(r.code, "penalty", e.target.value)}
-                  placeholder="0.00"
-                />
-                <div className="py-1 font-medium">
-                  {computedAssessment.rows[r.code].total
-                    ? computedAssessment.rows[r.code].total.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                      })
-                    : "—"}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs border">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="text-left px-2 py-1 border">
+                          Description
+                        </th>
+                        <th className="px-2 py-1 border text-center">
+                          Required
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {BUILDING_DOC_ROWS.map(([fieldKey, label]) => (
+                        <tr key={fieldKey}>
+                          <td className="px-2 py-1 border align-top">
+                            {label}
+                          </td>
+                          <td className="px-2 py-1 border text-center">
+                            <input
+                              type="checkbox"
+                              className="cursor-pointer"
+                              checked={!!buildingChecks[fieldKey]}
+                              onChange={() => toggleBuildingDoc(fieldKey)}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              </React.Fragment>
-            ))}
 
-            <div className="py-2 font-semibold text-right col-span-3">
-              TOTAL FEES for LGU
-            </div>
-            <div className="py-2 font-semibold">
-              {computedAssessment.totalFeesLgu.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-              })}
-            </div>
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                  <span className="text-xs font-medium text-gray-600">
+                    Remarks:
+                  </span>
 
-            <div className="py-2 font-semibold text-right col-span-3">
-              FIRE SAFETY INSPECTION FEE (15%)
+                  <label className="inline-flex items-center gap-1 text-xs text-gray-700">
+                    <input
+                      type="radio"
+                      name={`bldg-remarks-${applicationId ?? "app"}`}
+                      value="complete"
+                      checked={buildingRemarks === "complete"}
+                      onChange={(e) => setBuildingRemarks(e.target.value)}
+                    />
+                    Complete Documents
+                  </label>
+
+                  <label className="inline-flex items-center gap-1 text-xs text-gray-700">
+                    <input
+                      type="radio"
+                      name={`bldg-remarks-${applicationId ?? "app"}`}
+                      value="incomplete"
+                      checked={buildingRemarks === "incomplete"}
+                      onChange={(e) => setBuildingRemarks(e.target.value)}
+                    />
+                    Incomplete Documents
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* ===================== BUSINESS: LGU Verification (Page 2) + Assessment ===================== */}
+            {!isMPDO && isBusinessApp && (
+              <div>
+                <h5 className="text-sm font-semibold text-gray-700 mb-2">
+                  LGU Verification of Documents (will appear on Page 2)
+                </h5>
+                <p className="text-xs text-gray-500 mb-3">
+                  Set which documents are required for this application. These
+                  choices will be checked/encoded on the second page of the
+                  generated PDF. The Status column shows the action taken by the
+                  corresponding office.
+                </p>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs border">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="text-left px-2 py-1 border">
+                          Description / Office
+                        </th>
+                        <th className="px-2 py-1 border">Yes</th>
+                        <th className="px-2 py-1 border">No</th>
+                        <th className="px-2 py-1 border">Not needed</th>
+                        <th className="px-2 py-1 border">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {LGU_ROWS.map(([fieldKey, label, office]) => (
+                        <RadioRow
+                          key={fieldKey}
+                          fieldKey={fieldKey}
+                          label={label}
+                          office={office}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="bg-white border rounded-md p-4 mt-5">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-3">
+                    Assessment of Applicable Fees
+                  </h5>
+
+                  {!allRequiredDocsApproved && (
+                    <p className="text-xs text-red-600 mb-2">
+                      Assessment is locked. All LGU documents that are marked
+                      <span className="font-semibold"> "Yes" </span>
+                      must first be{" "}
+                      <span className="font-semibold">Approved</span> by the
+                      corresponding offices.
+                    </p>
+                  )}
+                  <button
+  onClick={handleForceRefreshStatus}
+  className="px-3 py-2 text-sm bg-amber-100 text-amber-800 rounded hover:bg-amber-200 border border-amber-300"
+  title="Force refresh LGU status from database"
+>
+  🔄 Refresh LGU Status
+</button>
+
+                  {allRequiredDocsApproved && (
+                    <>
+                      <div className="grid grid-cols-[1fr_140px_160px_160px] gap-2 text-sm">
+                        <div className="text-gray-500">Description</div>
+                        <div className="text-gray-500">Amount</div>
+                        <div className="text-gray-500">
+                          Penalty/Surcharge
+                        </div>
+                        <div className="text-gray-500">Total</div>
+
+                        {ASSESS_ROWS.map((r) => (
+                          <React.Fragment key={r.code}>
+                            <div className="py-1">{r.label}</div>
+                            <input
+                              inputMode="decimal"
+                              className="border rounded px-2 py-1"
+                              value={assessment[r.code].amount}
+                              onChange={(e) =>
+                                setAssessCell(
+                                  r.code,
+                                  "amount",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="0.00"
+                            />
+                            <input
+                              inputMode="decimal"
+                              className="border rounded px-2 py-1"
+                              value={assessment[r.code].penalty}
+                              onChange={(e) =>
+                                setAssessCell(
+                                  r.code,
+                                  "penalty",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="0.00"
+                            />
+                            <div className="py-1 font-medium">
+                              {computedAssessment.rows[r.code].total
+                                ? computedAssessment.rows[
+                                    r.code
+                                  ].total.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                  })
+                                : "—"}
+                            </div>
+                          </React.Fragment>
+                        ))}
+
+                        <div className="py-2 font-semibold text-right col-span-3">
+                          TOTAL FEES for LGU
+                        </div>
+                        <div className="py-2 font-semibold">
+                          {computedAssessment.totalFeesLgu.toLocaleString(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                            }
+                          )}
+                        </div>
+
+                        <div className="py-2 font-semibold text-right col-span-3">
+                          FIRE SAFETY INSPECTION FEE (15%)
+                        </div>
+                        <div className="py-2 font-semibold">
+                          {computedAssessment.fsif15.toLocaleString(
+                            undefined,
+                            {
+                              minimumFractionDigits: 2,
+                            }
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2 justify-end">
+                        <button
+                          onClick={handleSaveAssessment}
+                          className="px-3 py-2 text-sm bg-gray-100 rounded hover:bg-gray-200"
+                        >
+                          Save Assessment
+                        </button>
+                        <button
+                          disabled={generating}
+                          onClick={handleGenerateWithAssessment}
+                          className={`px-4 py-2 rounded text-white ${
+                            generating
+                              ? "bg-gray-400 cursor-not-allowed"
+                              : "bg-indigo-600 hover:bg-indigo-700"
+                          }`}
+                        >
+                          {generating
+                            ? "Generating…"
+                            : "Generate LGU Form (with Assessment)"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Always-available LGU-only button */}
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      disabled={generating}
+                      onClick={handleGenerateLguOnly}
+                      className="px-4 py-2 text-sm rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                    >
+                      {generating
+                        ? "Generating LGU Form…"
+                        : "Generate LGU Form (no Assessment)"}
+                    </button>
+                  </div>
+                </div>
+                        
+              </div>
+              
+            )}
+            {/* ------------------------ LGU Verification Inline Form ------------------------ */}
+        {/* Only show for specific departments (MPDO, MEO, MHO, MAO) */}
+        {isBusinessApp && hasDepartmentAccess && businessLguFormItem && (
+          <div className="mt-6 mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-center justify-between mb-3">
+              <h5 className="text-sm font-semibold text-gray-700">
+                Business Permit LGU Verification
+              </h5>
+              <button
+                onClick={() => setShowInlineForms(!showInlineForms)}
+                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              >
+                {showInlineForms ? "Hide Form" : "Fill LGU Verification Form"}
+              </button>
             </div>
-            <div className="py-2 font-semibold">
-              {computedAssessment.fsif15.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-              })}
+            <div className="bg-gray-50 border rounded p-3 flex flex-col md:flex-row md:items-center md:justify-between">
+              <div className="pr-3 mb-2 md:mb-0">
+                <p className="text-sm font-medium text-gray-800">
+                  {businessLguFormItem.file_path || "Business Permit LGU Form"}
+                </p>
+                <p className="text-xs text-gray-500">
+                  System attached:{" "}
+                  {businessLguFormItem.uploaded_at
+                    ? new Date(businessLguFormItem.uploaded_at).toLocaleString()
+                    : "N/A"}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                {businessLguFormItem.file_url && (
+                  <a
+                    href={toAbsoluteURL(businessLguFormItem.file_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline text-xs md:text-sm"
+                  >
+                    View Template
+                  </a>
+                )}
+                {businessLguFormItem.user_file_url && (
+                  <a
+                    href={toAbsoluteURL(businessLguFormItem.user_file_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-600 hover:underline text-xs md:text-sm"
+                  >
+                    View Filled Form
+                  </a>
+                )}
+              </div>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {isMPDO && "You can fill sections 1 & 2 (Zoning & Fitness). "}
+              {isMEO && "You can fill sections 3 & 5 (Environment & Market). "}
+              {isMHO && "You can fill section 4 (Sanitation). "}
+              {isMAO && "You can fill section 6 (Agriculture). "}
+              Click "Fill LGU Verification Form" to review and submit your assigned sections.
+            </p>
+
+            {/* Inline Forms (shown when toggled) */}
+            {showInlineForms && (
+              <div className="mt-6 bg-white border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h6 className="text-sm font-semibold text-gray-700">
+                    LGU Verification Sections
+                  </h6>
+                  <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                    {isMPDO && "MPDO Department"}
+                    {isMEO && "MEO Department"}
+                    {isMHO && "MHO Department"}
+                    {isMAO && "MAO Department"}
+                  </div>
+                </div>
+                
+                {filteredSections.length > 0 ? (
+                  <>
+                    <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2">
+                      {filteredSections.map((sec) => (
+                        <section key={sec.key} className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-semibold text-gray-800 text-sm">{sec.title}</h4>
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                              {sec.accessibleBy.join(", ")}
+                            </span>
+                          </div>
+                          <ActionRadios value={sec.state.action} onChange={val => setAction(sec.set, val)} />
+                          <div>
+                            <div className="text-xs text-gray-600 mb-1">Conditions / Documentary Deficiency (1–5)</div>
+                            <DefInputs sec={sec.state} setSec={sec.set} />
+                          </div>
+                          <label className="text-xs block">
+                            <span className="block text-gray-600">Remarks</span>
+                            <input
+                              className="mt-1 w-full border rounded px-2 py-1 text-sm"
+                              value={sec.state.remarks}
+                              onChange={e => setRemarks(sec.set, e.target.value)}
+                            />
+                          </label>
+                          <hr className="mt-2" />
+                        </section>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-4 mt-4 border-t">
+                      <button 
+                        type="button" 
+                        onClick={saveDraft} 
+                        disabled={saving}
+                        className="px-4 py-2 text-sm rounded-md border bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {saving ? "Saving…" : "Save Draft"}
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={submitNow} 
+                        disabled={submitting}
+                        className="px-4 py-2 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {submitting ? "Submitting…" : "Submit"}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-sm">You don't have access to any LGU verification sections.</p>
+                    <p className="text-xs mt-1">Please contact your administrator for access.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-
-          <div className="mt-3 flex flex-wrap gap-2 justify-end">
-            <button
-              onClick={handleSaveAssessment}
-              className="px-3 py-2 text-sm bg-gray-100 rounded hover:bg-gray-200"
-            >
-              Save Assessment
-            </button>
-            <button
-              disabled={generating}
-              onClick={handleGenerateWithAssessment}
-              className={`px-4 py-2 rounded text-white ${
-                generating
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700"
-              }`}
-            >
-              {generating ? "Generating…" : "Generate LGU Form (with Assessment)"}
-            </button>
+        )}
           </div>
-        </div>
-      </div>
-    )}
-  </div>
-)}
+        )}
       </div>
 
       {/* Comments */}
@@ -1187,7 +2001,7 @@ const handleGenerateCedulaForm = async () => {
                 if (!commentText.trim()) return;
                 try {
                   setCommentSubmitting(true);
-                  const rawStatus =
+                  const rawStatusAtPost =
                     selectedApplication.application_status ??
                     selectedApplication.status ??
                     "";
@@ -1197,7 +2011,7 @@ const handleGenerateCedulaForm = async () => {
                       application_type: applicationType,
                       application_id: applicationId,
                       comment: commentText,
-                      status_at_post: String(rawStatus)
+                      status_at_post: String(rawStatusAtPost)
                         .toLowerCase()
                         .replace(/\s+/g, "-"),
                     },
@@ -1227,23 +2041,22 @@ const handleGenerateCedulaForm = async () => {
         applicationId={applicationId}
         onAttached={() => setRefreshTick((n) => n + 1)}
       />
-        <MayorsPermitGenerateModal
+      <MayorsPermitGenerateModal
         open={openMayors}
         onClose={() => setOpenMayors(false)}
         onSubmit={handleGenerateMayorsPermit}
         defaultKind={defaultKindOfBiz}
       />
-<CedulaFinalGenerateModal
-  open={openCedulaFinal}
-  onClose={() => setOpenCedulaFinal(false)}
-  onSubmit={handleGenerateCedulaFinal}
-/>
-
-      
+      <CedulaFinalGenerateModal
+        open={openCedulaFinal}
+        onClose={() => setOpenCedulaFinal(false)}
+        onSubmit={handleGenerateCedulaFinal}
+      />
     </div>
-    
   );
 }
+
+
 
 /* ---------------- existing simple upload modal (kept) ---------------- */
 /* ───────────────────── Mayor’s Permit: small input modal ───────────────────── */

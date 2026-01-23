@@ -65,10 +65,44 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
 
   // ✅ reactive pathname (updates when route changes)
   const pathname = useMemo(() => location.pathname || "", [location.pathname]);
-
   const activePath = (href) => pathname === href;
 
-  const Item = ({ href, icon: Icon, label, right, active, accent = "indigo" }) => {
+  const dept = (userData?.department || "").toUpperCase().trim();
+  const pos = (userData?.position || "").toUpperCase().trim();
+
+  // ✅ Treasurer (MTO) – walang Applications menu at siya lang may Payment Verifications
+  const isTreasury = useMemo(() => {
+    if (!dept && !pos) return false;
+    if (dept === "MTO") return true;
+    if (dept.includes("TREASURER")) return true;
+    if (pos.includes("TREASURER")) return true;
+    return false;
+  }, [dept, pos]);
+
+  // ✅ decide kung old dash o new dash gagamitin (non-MTO lang)
+  const isLegacyApplications = useMemo(() => {
+    if (isTreasury) return false; // irrelevant, MTO doesn't see Applications
+    // BPLO or MPDO by department OR position
+    if (dept === "BPLO" || dept === "MPDO") return true;
+    if (pos.includes("BPLO") || pos.includes("MPDO")) return true;
+    return false;
+  }, [dept, pos, isTreasury]);
+
+  const applicationsHref = isLegacyApplications
+    ? "/EmployDash" // old dashboard
+    : "/Newemployeedash"; // new dashboard
+
+  // Only MTO / Treasurer can see Payment Verifications
+  const canSeePayments = isTreasury;
+
+  const Item = ({
+    href,
+    icon: Icon,
+    label,
+    right,
+    active,
+    accent = "indigo",
+  }) => {
     // Accent maps for active state
     const accentMap = {
       indigo: {
@@ -153,23 +187,35 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
 
         {/* Nav */}
         <nav className="px-1">
-          <Item
-            href="/EmployDash"
-            icon={FileText}
-            label="Applications"
-            active={activePath("/EmployDash")}
-            accent="indigo"
-            right={!loadingBadges ? <Dot show={badges.applications > 0} /> : null}
-          />
+          {/* ✅ Applications – hidden for MTO / Treasurer */}
+          {!isTreasury && (
+            <Item
+              href={applicationsHref}
+              icon={FileText}
+              label="Applications"
+              active={activePath(applicationsHref)}
+              accent="indigo"
+              right={
+                !loadingBadges ? (
+                  <Dot show={badges.applications > 0} />
+                ) : null
+              }
+            />
+          )}
 
-          <Item
-            href="/employeepayment"
-            icon={CheckSquare}
-            label="Payment Verifications"
-            active={activePath("/employeepayment")}
-            accent="emerald"
-            right={!loadingBadges ? <Dot show={badges.payments > 0} /> : null}
-          />
+          {/* ✅ Payment Verifications – ONLY for MTO / Treasurer */}
+          {canSeePayments && (
+            <Item
+              href="/employeepayment"
+              icon={CheckSquare}
+              label="Payment Verifications"
+              active={activePath("/employeepayment")}
+              accent="emerald"
+              right={
+                !loadingBadges ? <Dot show={badges.payments > 0} /> : null
+              }
+            />
+          )}
 
           <Item
             href="/Employeehistory"
@@ -216,7 +262,8 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
                     {userData.fullName || "User"}
                   </p>
                   <p className="text-[11px] text-white/60 truncate max-w-[160px]">
-                    {userData.position || "Employee"} ({userData.department || "Department"})
+                    {userData.position || "Employee"} (
+                    {userData.department || "Department"})
                   </p>
                 </>
               ) : (
