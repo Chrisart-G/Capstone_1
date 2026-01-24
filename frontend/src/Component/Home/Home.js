@@ -7,6 +7,9 @@ import axios from "axios";
 
 const API_BASE_URL = "http://localhost:8081";
 
+// ✅ logo path
+const HINIGARAN_LOGO = "img/logo.png";
+
 const MunicipalLandingPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,7 +57,11 @@ const MunicipalLandingPage = () => {
           withCredentials: true,
         });
 
-        if (res.data && res.data.success && Array.isArray(res.data.announcements)) {
+        if (
+          res.data &&
+          res.data.success &&
+          Array.isArray(res.data.announcements)
+        ) {
           setAnnouncements(res.data.announcements);
         } else {
           setAnnouncements([]);
@@ -100,22 +107,29 @@ const MunicipalLandingPage = () => {
             <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-blue-200/40 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-sky-200/40 blur-3xl" />
 
-            <p className="relative text-[11px] md:text-xs uppercase tracking-[0.25em] text-slate-500 mb-3">
+            {/* ✅ Watermark logo behind titles */}
+            <img
+              src={HINIGARAN_LOGO}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute inset-0 m-auto w-[850px] md:w-[1000px] lg:w-[1150px] opacity-10 blur-[0.1px] drop-shadow-2xl"
+            />
+            <p className="relative z-10 text-[11px] md:text-xs uppercase tracking-[0.25em] text-slate-500 mb-3">
               Online Municipal Services
             </p>
 
-            <h1 className="relative text-3xl md:text-5xl lg:text-6xl font-bold leading-tight text-slate-900">
+            <h1 className="relative z-10 text-3xl md:text-5xl lg:text-6xl font-bold leading-tight text-slate-900">
               Online Document Processing{" "}
               <span className="text-blue-600">Municipality of Hinigaran</span>
             </h1>
 
-            <p className="relative mt-4 text-sm md:text-base text-slate-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="relative z-10 mt-4 text-sm md:text-base text-slate-600 max-w-3xl mx-auto leading-relaxed">
               Request municipal documents, track their status, and receive
               updates without visiting the municipal hall. Secure, simple, and
               accessible from your home.
             </p>
 
-            <div className="relative mt-7 flex flex-col items-center gap-3">
+            <div className="relative z-10 mt-7 flex flex-col items-center gap-3">
               <button className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-8 py-3 rounded-full text-sm md:text-base font-semibold shadow-md shadow-blue-600/25 transition focus:outline-none focus:ring-4 focus:ring-blue-200">
                 Get Started
               </button>
@@ -150,7 +164,6 @@ const MunicipalLandingPage = () => {
             <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
               <div className="border-l-4 border-blue-600 px-5 py-4 md:px-6 md:py-5 bg-gradient-to-r from-blue-50 to-white">
                 {announcementLoading ? (
-                  // 🔹 Skeleton while loading
                   <>
                     <div className="h-4 w-40 bg-slate-200 rounded animate-pulse mb-2" />
                     <div className="h-3 w-24 bg-slate-100 rounded animate-pulse mb-3" />
@@ -158,7 +171,6 @@ const MunicipalLandingPage = () => {
                     <div className="h-3 w-5/6 bg-slate-100 rounded animate-pulse" />
                   </>
                 ) : announcements.length > 0 ? (
-                  // 🔹 Render ALL announcements
                   <div className="space-y-5">
                     {announcements.map((item) => (
                       <div
@@ -178,7 +190,6 @@ const MunicipalLandingPage = () => {
                     ))}
                   </div>
                 ) : (
-                  // 🔹 No active announcement
                   <>
                     <h3 className="text-base md:text-lg font-semibold text-slate-900">
                       No Active Announcements

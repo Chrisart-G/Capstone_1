@@ -170,10 +170,7 @@ export default function PlumbingPermitForm() {
   // NEW: Save as Draft
   const handleSaveDraft = () => {
     try {
-      localStorage.setItem(
-        "plumbingPermitDraft",
-        JSON.stringify(formData)
-      );
+      localStorage.setItem("plumbingPermitDraft", JSON.stringify(formData));
       setDraftStatus("Draft saved locally on this device.");
     } catch (err) {
       console.error("Error saving plumbing draft:", err);
@@ -264,10 +261,7 @@ export default function PlumbingPermitForm() {
       }
     } catch (err) {
       console.error("Error submitting form:", err);
-      setError(
-        err.message ||
-          "An error occurred while submitting the application"
-      );
+      setError(err.message || "An error occurred while submitting the application");
     } finally {
       setIsSubmitting(false);
     }
@@ -282,394 +276,444 @@ export default function PlumbingPermitForm() {
   return (
     <div>
       <Uheader />
-      <div className="max-w-4xl mx-auto p-4 bg-white">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="text-center space-y-1">
-            <div className="flex justify-center mb-2">
-              <div className="w-16 h-16 rounded-full border-2 border-red-500 flex items-center justify-center text-xs text-center">
-                Official Seal
-              </div>
-            </div>
-            <p className="text-sm font-semibold">Republic of the Philippines</p>
-            <p className="text-sm font-semibold">Municipality of Hinigaran</p>
-            <p className="text-sm font-semibold">
-              Province of Negros Occidental
-            </p>
-            <p className="text-sm font-semibold">
-              OFFICE OF THE BUILDING OFFICIAL
-            </p>
-            <p className="text-sm">Area Code 06034</p>
-            <h1 className="text-xl font-bold mt-4">PLUMBING PERMIT</h1>
-          </div>
 
-          {/* Auto-fill status */}
-          {(isLoadingUserInfo || autoFillError) && (
-            <div>
-              {isLoadingUserInfo && (
-                <div className="flex items-center text-xs text-gray-600 mb-1">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
-                  <span>Loading your profile information...</span>
-                </div>
-              )}
-              {autoFillError && !isLoadingUserInfo && (
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded">
-                  {autoFillError}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Error / Success banners */}
-          {error && (
-            <div
-              className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-              role="alert"
-            >
-              <strong className="font-bold">Error: </strong>
-              <span className="block sm:inline">{error}</span>
-            </div>
-          )}
-
-          {success && (
-            <div
-              className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative"
-              role="alert"
-            >
-              <strong className="font-bold">Success! </strong>
-              <span className="block sm:inline">{success}</span>
-            </div>
-          )}
-
-          {/* Draft status */}
-          {draftStatus && (
-            <p className="text-xs text-gray-600 text-right">{draftStatus}</p>
-          )}
-
-          {/* Information Note */}
-          <div className="bg-blue-50 border border-blue-200 rounded p-3">
-            <p className="text-xs text-blue-800">
-              <strong>Note:</strong> Application numbers (APPLICATION NO., PP
-              NO., and BUILDING PERMIT NO.) will be automatically generated upon
-              successful submission.
-            </p>
-          </div>
-
-          {/* BOX 1 - Owner/Applicant Information */}
-          <div className="border border-gray-500 p-2">
-            <p className="text-sm font-bold mb-2">
-              BOX 1 (TO BE ACCOMPLISHED IN PRINT BY THE OWNER/APPLICANT)
-            </p>
-
-            {/* Name Fields */}
-            <div className="grid grid-cols-4 gap-2 mb-2">
-              {/* LAST NAME auto-fill, read-only */}
-              <div className="col-span-2 border border-gray-300 p-1">
-                <p className="text-xs mb-1">
-                  LAST NAME <span className="text-red-500">*</span>
-                </p>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  required
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="Auto-filled from your account information"
+      {/* Page wrapper like fencing */}
+      <div className="bg-gray-100 py-6">
+        <div className="max-w-4xl mx-auto p-4 bg-white shadow-sm">
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="text-center space-y-1">
+              <div className="flex justify-center mb-2">
+                <div className="w-20 h-20 rounded-full border-1 flex items-center justify-center overflow-hidden bg-white">
+                <img
+                src="/img/logo.png"
+                alt="Municipality of Hinigaran Seal"
+                className="w-full h-full object-cover"
                 />
-                <p className="text-[10px] text-gray-500 mt-1">
-                  * Auto-filled from your account information
-                </p>
+                </div>
               </div>
-              {/* FIRST NAME auto-fill, read-only */}
-              <div className="col-span-1 border border-gray-300 p-1">
-                <p className="text-xs mb-1">
-                  FIRST NAME <span className="text-red-500">*</span>
-                </p>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  required
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="Auto-filled from your account information"
-                />
-                <p className="text-[10px] text-gray-500 mt-1">
-                  * Auto-filled from your account information
-                </p>
-              </div>
-              {/* M.I + TIN */}
-              <div className="col-span-1 border border-gray-300 p-1">
-                <div className="grid grid-cols-2">
-                  <div>
-                    <p className="text-xs">M.I.</p>
-                    <input
-                      type="text"
-                      name="middleInitial"
-                      value={formData.middleInitial}
-                      onChange={handleChange}
-                      maxLength={1}
-                      readOnly
-                      className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                      placeholder="M"
-                      title="Auto-filled from your account information"
-                    />
+
+              <h1 className="text-xl font-bold mt-4 text-gray-900">
+                PLUMBING PERMIT
+              </h1>
+            </div>
+
+            {/* Auto-fill status */}
+            {(isLoadingUserInfo || autoFillError) && (
+              <div>
+                {isLoadingUserInfo && (
+                  <div className="flex items-center text-xs text-gray-600 mb-1">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2" />
+                    <span>Loading your profile information...</span>
                   </div>
-                  <div>
-                    <p className="text-xs">TIN</p>
-                    <input
-                      type="text"
-                      name="tin"
-                      value={formData.tin}
-                      onChange={handleChange}
-                      className="w-full focus:outline-none text-sm"
-                    />
+                )}
+                {autoFillError && !isLoadingUserInfo && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded">
+                    {autoFillError}
                   </div>
-                </div>
+                )}
               </div>
-            </div>
+            )}
 
-            {/* Construction Info */}
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">FOR CONSTRUCTION OWNED</p>
-                <input
-                  type="text"
-                  name="constructionOwned"
-                  value={formData.constructionOwned}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
+            {/* Error / Success banners */}
+            {error && (
+              <div
+                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
+                <strong className="font-bold">Error: </strong>
+                <span className="block sm:inline">{error}</span>
               </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">FORM OF OWNERSHIP</p>
-                <input
-                  type="text"
-                  name="formOfOwnership"
-                  value={formData.formOfOwnership}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">USE OR CHARACTER OF OCCUPANCY</p>
-                <input
-                  type="text"
-                  name="useOrCharacter"
-                  value={formData.useOrCharacter}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
+            )}
 
-            {/* Address Fields */}
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">NO.</p>
-                <input
-                  type="text"
-                  name="addressNo"
-                  value={formData.addressNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
+            {success && (
+              <div
+                className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
+                <strong className="font-bold">Success! </strong>
+                <span className="block sm:inline">{success}</span>
               </div>
-              {/* STREET auto-fill */}
-              <div className="col-span-2 border border-gray-300 p-1">
-                <p className="text-xs">STREET</p>
-                <input
-                  type="text"
-                  name="addressStreet"
-                  value={formData.addressStreet}
-                  onChange={handleChange}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="Auto-filled from your account information"
-                />
-                <p className="text-[10px] text-gray-500 mt-1">
-                  * Auto-filled from your account information
-                </p>
-              </div>
-              {/* BARANGAY manual again */}
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">BARANGAY</p>
-                <input
-                  type="text"
-                  name="addressBarangay"
-                  value={formData.addressBarangay}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              {/* CITY auto-fill */}
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">CITY/MUNICIPALITY</p>
-                <input
-                  type="text"
-                  name="addressCity"
-                  value={formData.addressCity}
-                  onChange={handleChange}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="Auto-filled from your account information"
-                />
-                <p className="text-[10px] text-gray-500 mt-1">
-                  * Auto-filled from your account information
-                </p>
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">ZIP CODE</p>
-                <input
-                  type="text"
-                  name="addressZipCode"
-                  value={formData.addressZipCode}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
+            )}
 
-            {/* Phone Number auto-fill */}
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-6 border border-gray-300 p-1">
-                <p className="text-xs text-center">TELEPHONE NO.</p>
-                <input
-                  type="text"
-                  name="telephoneNo"
-                  value={formData.telephoneNo}
-                  onChange={handleChange}
-                  readOnly
-                  className="w-1/2 mx-auto block text-center border-b border-gray-300 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  placeholder="Enter phone number"
-                  title="Auto-filled from your account information"
-                />
-                <p className="text-[10px] text-gray-500 mt-1 text-center">
-                  * Auto-filled from your account information
-                </p>
-              </div>
-            </div>
+            {/* Draft status */}
+            {draftStatus && (
+              <p className="text-xs text-gray-600 text-right">{draftStatus}</p>
+            )}
 
-            {/* Location of Construction */}
-            <div className="mb-1">
-              <p className="text-xs font-bold">LOCATION OF CONSTRUCTION:</p>
-            </div>
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-2 border border-gray-300 p-1">
-                <p className="text-xs">STREET</p>
-                <input
-                  type="text"
-                  name="locationStreet"
-                  value={formData.locationStreet}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">LOT NO.</p>
-                <input
-                  type="text"
-                  name="locationLotNo"
-                  value={formData.locationLotNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">BLK NO.</p>
-                <input
-                  type="text"
-                  name="locationBlkNo"
-                  value={formData.locationBlkNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">TCT NO.</p>
-                <input
-                  type="text"
-                  name="locationTctNo"
-                  value={formData.locationTctNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">TAX DEC. NO.</p>
-                <input
-                  type="text"
-                  name="locationTaxDecNo"
-                  value={formData.locationTaxDecNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-3 border border-gray-300 p-1">
-                <p className="text-xs">BARANGAY</p>
-                <input
-                  type="text"
-                  name="locationBarangay"
-                  value={formData.locationBarangay}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="col-span-3 border border-gray-300 p-1">
-                <p className="text-xs">CITY/MUNICIPALITY</p>
-                <input
-                  type="text"
-                  name="locationCity"
-                  value={formData.locationCity}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Scope of Work */}
-            <div className="mb-1">
-              <p className="text-xs font-bold">
-                SCOPE OF WORK <span className="text-red-500">*</span>
+            {/* NOTE box like fencing (light blue) */}
+            <div className="bg-blue-50 border border-blue-200 rounded p-3">
+              <p className="text-xs text-blue-800">
+                <strong>Note:</strong> Application numbers (APPLICATION NO., PP
+                NO., and BUILDING PERMIT NO.) will be automatically generated upon
+                successful submission.
               </p>
             </div>
-            <div className="border border-gray-300 p-2">
-              <div className="mb-2">
-                <label className="block text-xs mb-1">
-                  Select Scope of Work:
-                </label>
-                <select
-                  name="scopeOfWork"
-                  value={formData.scopeOfWork}
-                  onChange={handleChange}
-                  required
-                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="none">-- Select an option --</option>
-                  <option value="newConstruction">NEW CONSTRUCTION</option>
-                  <option value="erection">ERECTION</option>
-                  <option value="addition">ADDITION</option>
-                  <option value="alteration">ALTERATION</option>
-                  <option value="renovation">RENOVATION</option>
-                  <option value="moving">MOVING</option>
-                  <option value="repair">REPAIR</option>
-                  <option value="conversion">CONVERSION</option>
-                  <option value="accessoryBuilding">
-                    ACCESSORY BUILDING/STRUCTURE
-                  </option>
-                  <option value="demolition">DEMOLITION</option>
-                  <option value="others">OTHERS (Specify)</option>
-                </select>
+
+            {/* OWNER / APPLICANT blue bar */}
+            <div className="bg-blue-600 text-white text-center font-bold py-2 text-sm">
+              OWNER / APPLICANT
+            </div>
+
+            {/* BOX 1 - Owner/Applicant Information */}
+            <div className="border border-gray-300">
+              <div className="p-3">
+                <p className="text-xs font-bold text-gray-700 mb-3">
+                  BOX 1 (TO BE ACCOMPLISHED IN PRINT BY THE OWNER/APPLICANT)
+                </p>
+
+                {/* Name Fields */}
+                <div className="grid grid-cols-4 gap-2 mb-2">
+                  {/* LAST NAME auto-fill, read-only */}
+                  <div className="col-span-2">
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      LAST NAME <span className="text-red-500">*</span>
+                    </p>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      required
+                      readOnly
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none bg-gray-100 cursor-not-allowed"
+                      title="Auto-filled from your account information"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      * Auto-filled from your account information
+                    </p>
+                  </div>
+
+                  {/* FIRST NAME auto-fill, read-only */}
+                  <div className="col-span-1">
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      FIRST NAME <span className="text-red-500">*</span>
+                    </p>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      required
+                      readOnly
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none bg-gray-100 cursor-not-allowed"
+                      title="Auto-filled from your account information"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      * Auto-filled from your account information
+                    </p>
+                  </div>
+
+                  {/* M.I + TIN */}
+                  <div className="col-span-1">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[11px] font-bold text-gray-700 mb-1">
+                          M.I.
+                        </p>
+                        <input
+                          type="text"
+                          name="middleInitial"
+                          value={formData.middleInitial}
+                          onChange={handleChange}
+                          maxLength={1}
+                          readOnly
+                          className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none bg-gray-100 cursor-not-allowed"
+                          placeholder="M"
+                          title="Auto-filled from your account information"
+                        />
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          * Auto-filled from your account information
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold text-gray-700 mb-1">
+                          TIN
+                        </p>
+                        <input
+                          type="text"
+                          name="tin"
+                          value={formData.tin}
+                          onChange={handleChange}
+                          className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Construction Info */}
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      FOR CONSTRUCTION OWNED
+                    </p>
+                    <input
+                      type="text"
+                      name="constructionOwned"
+                      value={formData.constructionOwned}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      FORM OF OWNERSHIP
+                    </p>
+                    <input
+                      type="text"
+                      name="formOfOwnership"
+                      value={formData.formOfOwnership}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      USE OR CHARACTER OF OCCUPANCY
+                    </p>
+                    <input
+                      type="text"
+                      name="useOrCharacter"
+                      value={formData.useOrCharacter}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Address Fields */}
+                <div className="grid grid-cols-6 gap-2 mb-2">
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">NO.</p>
+                    <input
+                      type="text"
+                      name="addressNo"
+                      value={formData.addressNo}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* STREET auto-fill */}
+                  <div className="col-span-2">
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      STREET
+                    </p>
+                    <input
+                      type="text"
+                      name="addressStreet"
+                      value={formData.addressStreet}
+                      onChange={handleChange}
+                      readOnly
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none bg-gray-100 cursor-not-allowed"
+                      title="Auto-filled from your account information"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      * Auto-filled from your account information
+                    </p>
+                  </div>
+
+                  {/* BARANGAY manual */}
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      BARANGAY
+                    </p>
+                    <input
+                      type="text"
+                      name="addressBarangay"
+                      value={formData.addressBarangay}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* CITY auto-fill */}
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      CITY / MUNICIPALITY
+                    </p>
+                    <input
+                      type="text"
+                      name="addressCity"
+                      value={formData.addressCity}
+                      onChange={handleChange}
+                      readOnly
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none bg-gray-100 cursor-not-allowed"
+                      title="Auto-filled from your account information"
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      * Auto-filled from your account information
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-700 mb-1">
+                      ZIP CODE
+                    </p>
+                    <input
+                      type="text"
+                      name="addressZipCode"
+                      value={formData.addressZipCode}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone Number auto-fill */}
+                <div className="border border-gray-200 rounded p-2 mb-2">
+                  <p className="text-[11px] font-bold text-gray-700 text-center mb-1">
+                    TELEPHONE NO.
+                  </p>
+                  <input
+                    type="text"
+                    name="telephoneNo"
+                    value={formData.telephoneNo}
+                    onChange={handleChange}
+                    readOnly
+                    className="w-1/2 mx-auto block text-center border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none bg-gray-100 cursor-not-allowed"
+                    placeholder="Enter phone number"
+                    title="Auto-filled from your account information"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1 text-center">
+                    * Auto-filled from your account information (phone number)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* LOCATION OF CONSTRUCTION blue bar */}
+            <div className="bg-blue-600 text-white text-center font-bold py-2 text-sm">
+              LOCATION OF CONSTRUCTION:
+            </div>
+
+            <div className="border border-gray-300 p-3">
+              <div className="grid grid-cols-6 gap-2 mb-2">
+                <div className="col-span-2">
+                  <p className="text-[11px] font-bold text-gray-700 mb-1">
+                    STREET
+                  </p>
+                  <input
+                    type="text"
+                    name="locationStreet"
+                    value={formData.locationStreet}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-700 mb-1">
+                    LOT NO.
+                  </p>
+                  <input
+                    type="text"
+                    name="locationLotNo"
+                    value={formData.locationLotNo}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-700 mb-1">
+                    BLK NO.
+                  </p>
+                  <input
+                    type="text"
+                    name="locationBlkNo"
+                    value={formData.locationBlkNo}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-700 mb-1">
+                    TCT NO.
+                  </p>
+                  <input
+                    type="text"
+                    name="locationTctNo"
+                    value={formData.locationTctNo}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-700 mb-1">
+                    TAX DEC. NO.
+                  </p>
+                  <input
+                    type="text"
+                    name="locationTaxDecNo"
+                    value={formData.locationTaxDecNo}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
               </div>
 
+              <div className="grid grid-cols-6 gap-2">
+                <div className="col-span-3">
+                  <p className="text-[11px] font-bold text-gray-700 mb-1">
+                    BARANGAY
+                  </p>
+                  <input
+                    type="text"
+                    name="locationBarangay"
+                    value={formData.locationBarangay}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+                <div className="col-span-3">
+                  <p className="text-[11px] font-bold text-gray-700 mb-1">
+                    CITY / MUNICIPALITY
+                  </p>
+                  <input
+                    type="text"
+                    name="locationCity"
+                    value={formData.locationCity}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SCOPE OF WORK blue bar */}
+            <div className="bg-blue-600 text-white text-center font-bold py-2 text-sm">
+              SCOPE OF WORK
+            </div>
+
+            <div className="border border-gray-300 p-3">
+              <label className="block text-[11px] font-bold text-gray-700 mb-2 text-center">
+                SELECT SCOPE OF WORK <span className="text-red-500">*</span>
+              </label>
+
+              <select
+                name="scopeOfWork"
+                value={formData.scopeOfWork}
+                onChange={handleChange}
+                required
+                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="none">-- Select an option --</option>
+                <option value="newConstruction">NEW CONSTRUCTION</option>
+                <option value="erection">ERECTION</option>
+                <option value="addition">ADDITION</option>
+                <option value="alteration">ALTERATION</option>
+                <option value="renovation">RENOVATION</option>
+                <option value="moving">MOVING</option>
+                <option value="repair">REPAIR</option>
+                <option value="conversion">CONVERSION</option>
+                <option value="accessoryBuilding">ACCESSORY BUILDING/STRUCTURE</option>
+                <option value="demolition">DEMOLITION</option>
+                <option value="others">OTHERS (Specify)</option>
+              </select>
+
               {formData.scopeOfWork === "others" && (
-                <div>
-                  <label className="block text-xs mb-1">
+                <div className="mt-3">
+                  <label className="block text-xs mb-1 text-gray-700 font-semibold">
                     Please specify: <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -678,42 +722,43 @@ export default function PlumbingPermitForm() {
                     value={formData.otherScopeSpecify}
                     onChange={handleChange}
                     required
-                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
                     placeholder="Specify other scope of work"
                   />
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Buttons: Save Draft + Review & Submit */}
-          <div className="flex justify-center space-x-4 mt-4">
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              className="px-6 py-2 rounded text-white bg-yellow-500 hover:bg-yellow-600"
-            >
-              Save as Draft
-            </button>
-            <button
-              type="button"
-              onClick={handleReviewClick}
-              disabled={isSubmitting || isLoadingUserInfo}
-              className={`px-6 py-2 rounded text-white ${
-                isSubmitting || isLoadingUserInfo
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-500 hover:bg-blue-700"
-              }`}
-            >
-              {isSubmitting ? "Submitting..." : "Review & Submit"}
-            </button>
-          </div>
+            {/* Buttons: Save Draft + Review & Submit */}
+            <div className="flex justify-end space-x-3 mt-4">
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                className="px-6 py-2 rounded text-white bg-yellow-500 hover:bg-yellow-600"
+              >
+                Save as Draft
+              </button>
 
-          {/* Required Fields Note */}
-          <div className="text-center">
-            <p className="text-xs text-gray-600">
-              <span className="text-red-500">*</span> Required fields
-            </p>
+              <button
+                type="button"
+                onClick={handleReviewClick}
+                disabled={isSubmitting || isLoadingUserInfo}
+                className={`px-6 py-2 rounded text-white ${
+                  isSubmitting || isLoadingUserInfo
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {isSubmitting ? "Submitting..." : "Review & Submit"}
+              </button>
+            </div>
+
+            {/* Required Fields Note */}
+            <div className="text-center">
+              <p className="text-xs text-gray-600">
+                <span className="text-red-500">*</span> Required fields
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -763,7 +808,7 @@ export default function PlumbingPermitForm() {
                 <p className="font-semibold uppercase">
                   {formData.scopeOfWork}
                   {formData.scopeOfWork === "others" &&
-                    formData.otherScopeSpecify
+                  formData.otherScopeSpecify
                     ? ` – ${formData.otherScopeSpecify}`
                     : ""}
                 </p>

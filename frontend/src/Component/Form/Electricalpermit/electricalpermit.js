@@ -258,9 +258,7 @@ export default function ElectricalPermitForm() {
           scopeOfWork: "none",
         });
       } else {
-        setSubmitMessage(
-          `Error: ${result.message || "Unknown error occurred"}`
-        );
+        setSubmitMessage(`Error: ${result.message || "Unknown error occurred"}`);
       }
     } catch (error) {
       console.error("Submission error:", error);
@@ -282,12 +280,11 @@ export default function ElectricalPermitForm() {
   const renderFormStatus = () => {
     if (submitSuccess && isModalOpen) {
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md border border-gray-200">
             <h2 className="text-xl font-bold text-green-600 mb-2">Success!</h2>
             <p className="text-gray-700 mb-4">
-              Your electrical permit application has been submitted
-              successfully.
+              Your electrical permit application has been submitted successfully.
             </p>
             <div className="flex justify-end">
               <button
@@ -308,316 +305,353 @@ export default function ElectricalPermitForm() {
     return null;
   };
 
+  // shared UI classes (design only)
+  const inputBase =
+    "w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const inputReadOnly =
+    "w-full border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100 cursor-not-allowed focus:outline-none";
+  const fieldBox = "border border-gray-300 bg-white p-2";
+  const fieldBoxSoft = "border border-gray-300 bg-gray-50 p-2";
+
+  const sectionBar =
+    "w-full bg-blue-600 text-white text-center font-bold uppercase text-sm py-2 rounded-sm";
+
   return (
-    <div>
+    <div className="min-h-screen bg-gray-100">
       <Uheader />
-      <div className="max-w-4xl mx-auto p-4 bg-white">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="text-center space-y-1">
-            <div className="flex justify-center mb-2">
-              <div className="w-16 h-16 rounded-full border-2 border-red-500 flex items-center justify-center text-xs text-center">
-                Official Seal
+
+      {/* page wrapper like fencing */}
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="bg-white border border-gray-200 shadow-sm rounded-md overflow-hidden">
+          <div className="p-6 space-y-6">
+            {/* Header (same content, fencing-like spacing) */}
+            <div className="text-center space-y-1">
+              <div className="flex justify-center mb-2">
+                <div className="w-20 h-20 rounded-full border-1 flex items-center justify-center overflow-hidden bg-white">
+                <img
+                src="/img/logo.png"
+                alt="Municipality of Hinigaran Seal"
+                className="w-full h-full object-cover"
+                />
               </div>
-            </div>
-            <p className="text-sm font-semibold">Republic of the Philippines</p>
-            <p className="text-sm font-semibold">Municipality of Hinigaran</p>
-            <p className="text-sm font-semibold">
-              Province of Negros Occidental
-            </p>
-            <p className="text-sm font-semibold">
-              OFFICE OF THE BUILDING OFFICIAL
-            </p>
-            <p className="text-sm">Area Code 06034</p>
-            <h1 className="text-xl font-bold mt-4">ELECTRICAL PERMIT</h1>
-          </div>
+              </div>
 
-          {/* Loading indicator */}
-          {isLoadingUserInfo && (
-            <div className="flex justify-center items-center py-4 mb-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-2 text-gray-600">
-                Loading user information...
-              </span>
+              {/* Title style like fencing */}
+              <h1 className="text-lg font-extrabold tracking-wide mt-4">
+                ELECTRICAL PERMIT FORM
+              </h1>
             </div>
-          )}
 
-          {/* Info about auto-generated numbers */}
-          <div className="border border-gray-500 p-2">
-            <div className="text-center mb-4">
-              <p className="text-xs font-bold text-gray-600">
-                APPLICATION NO., EP NO., and BUILDING PERMIT NO. will be
-                generated automatically
+            {/* Loading indicator */}
+            {isLoadingUserInfo && (
+              <div className="flex justify-center items-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-2 text-gray-600">
+                  Loading user information...
+                </span>
+              </div>
+            )}
+
+            {/* Note box like fencing */}
+            <div className="border border-blue-200 bg-blue-50 rounded px-3 py-2">
+              <p className="text-xs font-semibold text-gray-700 text-center">
+                Note: APPLICATION NO., EP NO., and BUILDING PERMIT NO. will be
+                generated automatically upon successful submission.
               </p>
             </div>
-          </div>
 
-          {/* BOX 1 - Owner/Applicant Information */}
-          <div className="border border-gray-500 p-2">
-            <p className="text-sm font-bold mb-2">
-              BOX 1 (TO BE ACCOMPLISHED IN PRINT BY THE OWNER/APPLICANT)
-            </p>
+            {/* Section bar like fencing */}
+            <div className={sectionBar}>OWNER / APPLICANT</div>
 
-            {/* Name Fields - Auto-filled and Read-only */}
-            <div className="grid grid-cols-4 gap-2 mb-2">
-              <div className="col-span-2 border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs mb-1">LAST NAME *</p>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500 mt-1">* Auto-filled</p>
-              </div>
-              <div className="col-span-1 border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs mb-1">FIRST NAME *</p>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500 mt-1">* Auto-filled</p>
-              </div>
-              <div className="col-span-1 border border-gray-300 p-1">
-                <div className="grid grid-cols-2">
-                  <div className="bg-gray-50">
-                    <p className="text-xs">M.I.</p>
-                    <input
-                      type="text"
-                      name="middleInitial"
-                      value={formData.middleInitial}
-                      readOnly
-                      className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                      maxLength="5"
-                      title="This field is auto-filled from your account information and cannot be edited"
-                    />
-                    <p className="text-xs text-gray-500">* Auto-filled</p>
-                  </div>
-                  <div>
-                    <p className="text-xs">TIN</p>
-                    <input
-                      type="text"
-                      name="tin"
-                      value={formData.tin}
-                      onChange={handleChange}
-                      className="w-full focus:outline-none text-sm"
-                    />
+            {/* BOX 1 - Owner/Applicant Information */}
+            <div className="space-y-3">
+              {/* Name Fields */}
+              <div className="grid grid-cols-4 gap-3">
+                <div className={`col-span-2 ${fieldBoxSoft} rounded`}>
+                  <p className="text-[11px] font-semibold mb-1">
+                    LAST NAME <span className="text-red-600">*</span>
+                  </p>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    readOnly
+                    className={inputReadOnly}
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    * Auto-filled from your account information
+                  </p>
+                </div>
+
+                <div className={`col-span-1 ${fieldBoxSoft} rounded`}>
+                  <p className="text-[11px] font-semibold mb-1">
+                    FIRST NAME <span className="text-red-600">*</span>
+                  </p>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    readOnly
+                    className={inputReadOnly}
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    * Auto-filled from your account information
+                  </p>
+                </div>
+
+                <div className={`${fieldBox} rounded`}>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-gray-50 border border-gray-200 rounded p-2">
+                      <p className="text-[11px] font-semibold">M.I.</p>
+                      <input
+                        type="text"
+                        name="middleInitial"
+                        value={formData.middleInitial}
+                        readOnly
+                        className={inputReadOnly}
+                        maxLength="5"
+                        title="This field is auto-filled from your account information and cannot be edited"
+                      />
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        * Auto-filled
+                      </p>
+                    </div>
+
+                    <div className="border border-gray-200 rounded p-2">
+                      <p className="text-[11px] font-semibold">TIN</p>
+                      <input
+                        type="text"
+                        name="tin"
+                        value={formData.tin}
+                        onChange={handleChange}
+                        className={inputBase}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Construction Info */}
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">FOR CONSTRUCTION OWNED</p>
-                <input
-                  type="text"
-                  name="constructionOwned"
-                  value={formData.constructionOwned}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
+              {/* Construction Info */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold mb-1">
+                    FOR CONSTRUCTION OWNED
+                  </p>
+                  <input
+                    type="text"
+                    name="constructionOwned"
+                    value={formData.constructionOwned}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold mb-1">
+                    FORM OF OWNERSHIP
+                  </p>
+                  <input
+                    type="text"
+                    name="formOfOwnership"
+                    value={formData.formOfOwnership}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold mb-1">
+                    USE OR CHARACTER OF OCCUPANCY
+                  </p>
+                  <input
+                    type="text"
+                    name="useOrCharacter"
+                    value={formData.useOrCharacter}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
               </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">FORM OF OWNERSHIP</p>
-                <input
-                  type="text"
-                  name="formOfOwnership"
-                  value={formData.formOfOwnership}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">USE OR CHARACTER OF OCCUPANCY</p>
-                <input
-                  type="text"
-                  name="useOrCharacter"
-                  value={formData.useOrCharacter}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
 
-            {/* Address Fields */}
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">NO.</p>
-                <input
-                  type="text"
-                  name="addressNo"
-                  value={formData.addressNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="col-span-2 border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs">STREET</p>
-                <input
-                  type="text"
-                  name="addressStreet"
-                  value={formData.addressStreet}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500">* Auto-filled</p>
-              </div>
-              <div className="border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs">BARANGAY</p>
-                <input
-                  type="text"
-                  name="addressBarangay"
-                  value={formData.addressBarangay}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500">* Auto-filled</p>
-              </div>
-              <div className="border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs">CITY/MUNICIPALITY</p>
-                <input
-                  type="text"
-                  name="addressCity"
-                  value={formData.addressCity}
-                  readOnly
-                  className="w-full focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
-                  title="This field is auto-filled from your account information and cannot be edited"
-                />
-                <p className="text-xs text-gray-500">* Auto-filled</p>
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">ZIP CODE</p>
-                <input
-                  type="text"
-                  name="addressZipCode"
-                  value={formData.addressZipCode}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
+              {/* Address Fields */}
+              <div className="grid grid-cols-6 gap-3">
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">NO.</p>
+                  <input
+                    type="text"
+                    name="addressNo"
+                    value={formData.addressNo}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
 
-            {/* Phone Number */}
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-6 border border-gray-300 p-1 bg-gray-50">
-                <p className="text-xs text-center">TELEPHONE NO.</p>
+                <div className={`col-span-2 ${fieldBoxSoft} rounded`}>
+                  <p className="text-[11px] font-semibold">STREET</p>
+                  <input
+                    type="text"
+                    name="addressStreet"
+                    value={formData.addressStreet}
+                    readOnly
+                    className={inputReadOnly}
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    * Auto-filled from your account information
+                  </p>
+                </div>
+
+                <div className={`${fieldBoxSoft} rounded`}>
+                  <p className="text-[11px] font-semibold">BARANGAY</p>
+                  <input
+                    type="text"
+                    name="addressBarangay"
+                    value={formData.addressBarangay}
+                    readOnly
+                    className={inputReadOnly}
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    * Auto-filled from your account information
+                  </p>
+                </div>
+
+                <div className={`${fieldBoxSoft} rounded`}>
+                  <p className="text-[11px] font-semibold">CITY / MUNICIPALITY</p>
+                  <input
+                    type="text"
+                    name="addressCity"
+                    value={formData.addressCity}
+                    readOnly
+                    className={inputReadOnly}
+                    title="This field is auto-filled from your account information and cannot be edited"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    * Auto-filled from your account information
+                  </p>
+                </div>
+
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">ZIP CODE</p>
+                  <input
+                    type="text"
+                    name="addressZipCode"
+                    value={formData.addressZipCode}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+              </div>
+
+              {/* Phone Number */}
+              <div className={`${fieldBoxSoft} rounded`}>
+                <p className="text-[11px] font-semibold text-center">
+                  TELEPHONE NO.
+                </p>
                 <input
                   type="text"
                   name="telephoneNo"
                   value={formData.telephoneNo}
                   readOnly
-                  className="w-1/2 mx-auto block text-center border-b border-gray-300 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                  className="w-1/2 mx-auto block text-center border border-gray-300 rounded px-2 py-1 text-sm bg-gray-100 cursor-not-allowed focus:outline-none"
                   title="This field is auto-filled from your account information and cannot be edited"
                 />
-                <p className="text-xs text-gray-500 text-center mt-1">
-                  * Auto-filled from account
+                <p className="text-[10px] text-gray-500 text-center mt-1">
+                  * Auto-filled from your account information (phone number)
                 </p>
               </div>
-            </div>
 
-            {/* Location of Construction */}
-            <div className="mb-1">
-              <p className="text-xs font-bold">LOCATION OF CONSTRUCTION:</p>
-            </div>
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-2 border border-gray-300 p-1">
-                <p className="text-xs">STREET</p>
-                <input
-                  type="text"
-                  name="locationStreet"
-                  value={formData.locationStreet}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">LOT NO.</p>
-                <input
-                  type="text"
-                  name="locationLotNo"
-                  value={formData.locationLotNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">BLK NO.</p>
-                <input
-                  type="text"
-                  name="locationBlkNo"
-                  value={formData.locationBlkNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">TCT NO.</p>
-                <input
-                  type="text"
-                  name="locationTctNo"
-                  value={formData.locationTctNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs">TAX DEC. NO.</p>
-                <input
-                  type="text"
-                  name="locationTaxDecNo"
-                  value={formData.locationTaxDecNo}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-6 gap-2 mb-2">
-              <div className="col-span-3 border border-gray-300 p-1">
-                <p className="text-xs">BARANGAY</p>
-                <input
-                  type="text"
-                  name="locationBarangay"
-                  value={formData.locationBarangay}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-              <div className="col-span-3 border border-gray-300 p-1">
-                <p className="text-xs">CITY/MUNICIPALITY</p>
-                <input
-                  type="text"
-                  name="locationCity"
-                  value={formData.locationCity}
-                  onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                />
-              </div>
-            </div>
+              {/* Location Section Header like fencing */}
+              <div className={sectionBar}>LOCATION OF CONSTRUCTION</div>
 
-            {/* Scope of Work */}
-            <div className="mb-1">
-              <p className="text-xs font-bold">SCOPE OF WORK *</p>
-            </div>
-            <div className="border border-gray-300 p-2">
-              <div className="mb-2">
-                <label className="block text-xs mb-1">
-                  Select Scope of Work:
+              <div className="grid grid-cols-6 gap-3">
+                <div className={`col-span-2 ${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">STREET</p>
+                  <input
+                    type="text"
+                    name="locationStreet"
+                    value={formData.locationStreet}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">LOT NO.</p>
+                  <input
+                    type="text"
+                    name="locationLotNo"
+                    value={formData.locationLotNo}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">BLK NO.</p>
+                  <input
+                    type="text"
+                    name="locationBlkNo"
+                    value={formData.locationBlkNo}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">TCT NO.</p>
+                  <input
+                    type="text"
+                    name="locationTctNo"
+                    value={formData.locationTctNo}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+                <div className={`${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">TAX DEC. NO.</p>
+                  <input
+                    type="text"
+                    name="locationTaxDecNo"
+                    value={formData.locationTaxDecNo}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-6 gap-3">
+                <div className={`col-span-3 ${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">BARANGAY</p>
+                  <input
+                    type="text"
+                    name="locationBarangay"
+                    value={formData.locationBarangay}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+                <div className={`col-span-3 ${fieldBox} rounded`}>
+                  <p className="text-[11px] font-semibold">CITY / MUNICIPALITY</p>
+                  <input
+                    type="text"
+                    name="locationCity"
+                    value={formData.locationCity}
+                    onChange={handleChange}
+                    className={inputBase}
+                  />
+                </div>
+              </div>
+
+              {/* Scope Section Header like fencing */}
+              <div className={sectionBar}>SCOPE OF WORK</div>
+
+              <div className={`${fieldBox} rounded`}>
+                <label className="block text-[11px] font-semibold mb-2">
+                  SELECT SCOPE OF WORK <span className="text-red-600">*</span>
                 </label>
                 <select
                   name="scopeOfWork"
                   value={formData.scopeOfWork}
                   onChange={handleChange}
-                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="none">-- Select an option --</option>
@@ -639,201 +673,195 @@ export default function ElectricalPermitForm() {
                 </select>
               </div>
             </div>
-          </div>
 
-          {/* Status Message */}
-          {submitMessage && !isModalOpen && (
-            <div className="mt-4 p-3 rounded bg-green-100 text-gray-800">
-              {submitMessage}
+            {/* Status Message */}
+            {submitMessage && !isModalOpen && (
+              <div className="mt-4 p-3 rounded border border-green-200 bg-green-50 text-gray-800">
+                {submitMessage}
+              </div>
+            )}
+
+            {/* Draft status */}
+            {draftStatus && (
+              <p className="mt-2 text-xs text-gray-600 text-right">
+                {draftStatus}
+              </p>
+            )}
+
+            {/* Buttons row like fencing (yellow + green) */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                className="px-6 py-2 rounded text-white bg-yellow-500 hover:bg-yellow-600 font-semibold"
+              >
+                Save as Draft
+              </button>
+
+              <button
+                type="button"
+                onClick={handleReviewClick}
+                disabled={isSubmitting || isLoadingUserInfo}
+                className={`px-6 py-2 rounded text-white font-semibold ${
+                  isSubmitting || isLoadingUserInfo
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {isSubmitting ? "Submitting..." : "Review & Submit"}
+              </button>
             </div>
-          )}
 
-          {/* Draft status */}
-          {draftStatus && (
-            <p className="mt-2 text-xs text-gray-600 text-right">
-              {draftStatus}
-            </p>
-          )}
+            {/* Success Modal */}
+            {renderFormStatus()}
 
-          {/* Buttons: Save Draft + Review & Submit */}
-          <div className="flex justify-center space-x-4 mt-4">
-            <button
-              type="button"
-              onClick={handleSaveDraft}
-              className="px-6 py-2 rounded text-white bg-yellow-500 hover:bg-yellow-600"
-            >
-              Save as Draft
-            </button>
-            <button
-              type="button"
-              onClick={handleReviewClick}
-              disabled={isSubmitting || isLoadingUserInfo}
-              className={`px-6 py-2 rounded text-white ${
-                isSubmitting || isLoadingUserInfo
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
-            >
-              {isSubmitting ? "Submitting..." : "Review & Submit"}
-            </button>
-          </div>
+            {/* REVIEW MODAL */}
+            {isReviewOpen && (
+              <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
+                <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto border border-gray-200">
+                  <h2 className="text-2xl font-bold mb-4">
+                    Review Electrical Permit Application
+                  </h2>
 
-          {/* Success Modal */}
-          {renderFormStatus()}
-
-          {/* REVIEW MODAL */}
-          {isReviewOpen && (
-            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-4">
-                  Review Electrical Permit Application
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Applicant Name</p>
-                    <p className="font-semibold">
-                      {formData.lastName}, {formData.firstName}{" "}
-                      {formData.middleInitial}
-                    </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Applicant Name</p>
+                      <p className="font-semibold">
+                        {formData.lastName}, {formData.firstName}{" "}
+                        {formData.middleInitial}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">TIN</p>
+                      <p className="font-semibold">{formData.tin || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Construction Owned</p>
+                      <p className="font-semibold">
+                        {formData.constructionOwned || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Form of Ownership</p>
+                      <p className="font-semibold">
+                        {formData.formOfOwnership || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        Use/Character of Occupancy
+                      </p>
+                      <p className="font-semibold">
+                        {formData.useOrCharacter || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Scope of Work</p>
+                      <p className="font-semibold uppercase">
+                        {formData.scopeOfWork}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">TIN</p>
-                    <p className="font-semibold">{formData.tin || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      Construction Owned
-                    </p>
-                    <p className="font-semibold">
-                      {formData.constructionOwned || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      Form of Ownership
-                    </p>
-                    <p className="font-semibold">
-                      {formData.formOfOwnership || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      Use/Character of Occupancy
-                    </p>
-                    <p className="font-semibold">
-                      {formData.useOrCharacter || "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Scope of Work</p>
-                    <p className="font-semibold uppercase">
-                      {formData.scopeOfWork}
-                    </p>
-                  </div>
-                </div>
 
-                <h3 className="font-bold mt-4 mb-2">Owner Address</h3>
-                <p className="text-sm mb-2">
-                  {[
-                    formData.addressNo,
-                    formData.addressStreet,
-                    formData.addressBarangay,
-                    formData.addressCity,
-                    formData.addressZipCode,
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || "—"}
-                </p>
+                  <h3 className="font-bold mt-4 mb-2">Owner Address</h3>
+                  <p className="text-sm mb-2">
+                    {[
+                      formData.addressNo,
+                      formData.addressStreet,
+                      formData.addressBarangay,
+                      formData.addressCity,
+                      formData.addressZipCode,
+                    ]
+                      .filter(Boolean)
+                      .join(", ") || "—"}
+                  </p>
 
-                <h3 className="font-bold mt-4 mb-2">
-                  Location of Construction
-                </h3>
-                <p className="text-sm mb-1">
-                  <span className="font-semibold">Street:</span>{" "}
-                  {formData.locationStreet || "—"}
-                </p>
-                <p className="text-sm mb-1">
-                  <span className="font-semibold">Lot/Blk:</span>{" "}
-                  {formData.locationLotNo || "—"} /{" "}
-                  {formData.locationBlkNo || "—"}
-                </p>
-                <p className="text-sm mb-1">
-                  <span className="font-semibold">TCT / Tax Dec:</span>{" "}
-                  {formData.locationTctNo || "—"} /{" "}
-                  {formData.locationTaxDecNo || "—"}
-                </p>
-                <p className="text-sm mb-1">
-                  <span className="font-semibold">Barangay / City:</span>{" "}
-                  {formData.locationBarangay || "—"} /{" "}
-                  {formData.locationCity || "—"}
-                </p>
+                  <h3 className="font-bold mt-4 mb-2">Location of Construction</h3>
+                  <p className="text-sm mb-1">
+                    <span className="font-semibold">Street:</span>{" "}
+                    {formData.locationStreet || "—"}
+                  </p>
+                  <p className="text-sm mb-1">
+                    <span className="font-semibold">Lot/Blk:</span>{" "}
+                    {formData.locationLotNo || "—"} /{" "}
+                    {formData.locationBlkNo || "—"}
+                  </p>
+                  <p className="text-sm mb-1">
+                    <span className="font-semibold">TCT / Tax Dec:</span>{" "}
+                    {formData.locationTctNo || "—"} /{" "}
+                    {formData.locationTaxDecNo || "—"}
+                  </p>
+                  <p className="text-sm mb-1">
+                    <span className="font-semibold">Barangay / City:</span>{" "}
+                    {formData.locationBarangay || "—"} /{" "}
+                    {formData.locationCity || "—"}
+                  </p>
 
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsReviewOpen(false)}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsConfirmOpen(true)}
-                    disabled={isSubmitting}
-                    className={`px-6 py-2 rounded text-white ${
-                      isSubmitting
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-green-600 hover:bg-green-700"
-                    }`}
-                  >
-                    Submit Application
-                  </button>
+                  <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsReviewOpen(false)}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmOpen(true)}
+                      disabled={isSubmitting}
+                      className={`px-6 py-2 rounded text-white font-semibold ${
+                        isSubmitting
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-green-600 hover:bg-green-700"
+                      }`}
+                    >
+                      Submit Application
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* CONFIRMATION MODAL */}
-          {isConfirmOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-                <h3 className="text-lg font-semibold mb-2">
-                  Confirm Submission
-                </h3>
-                <p className="text-sm text-gray-700 mb-4">
-                  Are you sure you want to submit this electrical permit
-                  application? Once submitted, changes can only be made by
-                  coordinating with the municipal office.
-                </p>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsConfirmOpen(false)}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={handleConfirmSubmit}
-                    className={`px-4 py-2 rounded text-white ${
-                      isSubmitting
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-green-600 hover:bg-green-700"
-                    }`}
-                  >
-                    {isSubmitting
-                      ? "Submitting..."
-                      : "Yes, Submit Application"}
-                  </button>
+            {/* CONFIRMATION MODAL */}
+            {isConfirmOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-2">
+                    Confirm Submission
+                  </h3>
+                  <p className="text-sm text-gray-700 mb-4">
+                    Are you sure you want to submit this electrical permit
+                    application? Once submitted, changes can only be made by
+                    coordinating with the municipal office.
+                  </p>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsConfirmOpen(false)}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={handleConfirmSubmit}
+                      className={`px-4 py-2 rounded text-white font-semibold ${
+                        isSubmitting
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-green-600 hover:bg-green-700"
+                      }`}
+                    >
+                      {isSubmitting ? "Submitting..." : "Yes, Submit Application"}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
+
       <UFooter />
     </div>
   );
