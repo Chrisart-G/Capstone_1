@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import FencingInlineForm from "../User/FencingInlineForm";
 import ElectricalInlineForm, { InlineModal } from "../User/ElectricalInlineForm";
+import BusinessAssessmentPaymentModal from '../DocumentStatusTracker/BusinessAssessmentPaymentModal';
 import ElectronicsInlineForm from "../User/ElectronicsInlineForm";
 import PlumbingInlineForms from "../User/PlumbingInlineForms";
 import BusinessinlineForms from "../User/BusinessinlineForms";
@@ -44,7 +45,12 @@ function DocumentStatusTracker() {
   const [updateContext, setUpdateContext] = useState(null);
   const [openPlumbingForm, setOpenPlumbingForm] = useState(false);
   const [plumbingContext, setPlumbingContext] = useState(null);
-
+// Add this state to your component
+const [assessmentsByApp, setAssessmentsByApp] = useState({}); // { [application.id]: { loading, data } }
+const [showPaymentModal, setShowPaymentModal] = useState(false);
+const [selectedAssessment, setSelectedAssessment] = useState(null);
+const [selectedBusinessId, setSelectedBusinessId] = useState(null);
+const [paymentStatusByApp, setPaymentStatusByApp] = useState({});
   const includesCI = (haystack, needle) =>
     String(haystack || '').toLowerCase().includes(String(needle || '').toLowerCase());
 
@@ -86,7 +92,8 @@ function DocumentStatusTracker() {
     'Electronics Permit': 'electronics',
     'Building Permit': 'building',
     'Fencing Permit': 'fencing',
-    'Cedula': 'cedula'
+    'Cedula': 'cedula',
+    'Zoning Permit': 'zoning'
   };
 
   function parseAppId(str) {
@@ -94,6 +101,53 @@ function DocumentStatusTracker() {
     const n = parts.length > 1 ? Number(parts[1]) : NaN;
     return Number.isFinite(n) ? n : null;
   }
+async function loadAssessmentForApplication(application) {
+  // Only for business permits
+  if (application.type !== 'Business Permit') return;
+
+  const appType = TYPE_TO_APP[application.type] || application.applicationType || '';
+  const appId = parseAppId(application.id);
+
+  if (!appType || !appId) {
+    console.warn('loadAssessmentForApplication: missing appType/appId', application);
+    return;
+  }
+
+  setAssessmentsByApp((prev) => ({
+    ...prev,
+    [application.id]: {
+      loading: true,
+      data: prev[application.id]?.data || null,
+    },
+  }));
+
+  try {
+    const q = new URLSearchParams({
+      application_type: appType,
+      application_id: String(appId),
+    });
+
+    const r = await fetch(
+      `http://localhost:8081/api/user/assessment?${q.toString()}`,
+      { credentials: 'include' }
+    );
+    const j = await r.json();
+
+    setAssessmentsByApp((prev) => ({
+      ...prev,
+      [application.id]: {
+        loading: false,
+        data: j.success && j.hasAssessment ? j.assessment : null,
+      },
+    }));
+  } catch (e) {
+    console.error('loadAssessmentForApplication error:', e);
+    setAssessmentsByApp((prev) => ({
+      ...prev,
+      [application.id]: { loading: false, data: null },
+    }));
+  }
+}
 
   // --- helpers for localStorage seen-map ---
   function loadSeenMap() {
@@ -115,6 +169,31 @@ function DocumentStatusTracker() {
     }
   }
 
+  async function checkPaymentStatus(application) {
+  if (application.type !== 'Business Permit') return;
+
+  const appType = TYPE_TO_APP[application.type] || application.applicationType || '';
+  const appId = parseAppId(application.id);
+
+  if (!appType || !appId) return;
+
+  try {
+    const response = await fetch(
+      `http://localhost:8081/api/payments/check?application_type=${appType}&application_id=${appId}`,
+      { credentials: 'include' }
+    );
+    const data = await response.json();
+
+    if (data.success && data.hasPayment) {
+      setPaymentStatusByApp(prev => ({
+        ...prev,
+        [application.id]: data.payment
+      }));
+    }
+  } catch (error) {
+    console.error('Error checking payment status:', error);
+  }
+} 
   async function loadRequirementsForApplication(application) {
     const appType =
       TYPE_TO_APP[application.type] || application.applicationType || '';
@@ -337,11 +416,13 @@ function DocumentStatusTracker() {
         electronicsResponse,
         buildingResponse,
         fencingResponse,
+        zoningResponse,
       ] = await Promise.all([
         fetch('http://localhost:8081/api/businesspermits', { credentials: 'include' }),
         fetch('http://localhost:8081/api/getelectrical-permits', { credentials: 'include' }),
         fetch('http://localhost:8081/api/cedulas-tracking', { credentials: 'include' }),
         fetch('http://localhost:8081/api/payments/tracking', { credentials: 'include' }),
+        fetch('http://localhost:8081/api/zoning-permits-tracking', { credentials: 'include' }), 
 
         // NEW endpoints:
         fetch('http://localhost:8081/api/plumbing-permits-tracking',   { credentials: 'include' }),
@@ -473,7 +554,25 @@ function DocumentStatusTracker() {
           console.log('Payment API error:', paymentData.message);
         }
       }
+const zoningData = await zoningResponse.json();
 
+// Transform zoning permits
+if (zoningData && zoningData.success && Array.isArray(zoningData.permits) && zoningData.permits.length > 0) {
+  const transformedZoning = zoningData.permits.map(p => ({
+    id: `zoning_${p.id}`,
+    title: `Zoning Permit - ${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Zoning Permit',
+    type: 'Zoning Permit',
+    status: p.status || 'pending',
+    email: '',
+    applicationDate: new Date(p.created_at).toLocaleString(),
+    createdAt: new Date(p.created_at).toLocaleString(),
+    applicationNo: p.application_no,
+    applicationType: 'zoning',
+    scopeOfWork: p.scope_of_work,
+    steps: transformStatusToSteps(p.status || 'pending')
+  }));
+  allApplications = [...allApplications, ...transformedZoning];
+}
       // NEW: Transform plumbing permits
       if (plumbingData && plumbingData.success && Array.isArray(plumbingData.permits) && plumbingData.permits.length > 0) {
         const transformedPlumbing = plumbingData.permits.map(p => ({
@@ -608,20 +707,22 @@ function DocumentStatusTracker() {
   };
 
   // Function to get form route based on application type
-  const getFormRoute = (applicationType) => {
-    const routes = {
-      'business': '/BusinessPermitForm',
-      'electrical': '/ElectricalPermitForm',
-      'plumbing': '/PlumbingPermitForm',
-      'cedula': '/CedulaPermitForm',
-      'fencing': '/FencingPermitForm',
-      'electronics': '/ElectronicsPermitForm',
-      'building': '/BuildingPermitForm',
-      'renewal_business': '/RenewalBusinessPermit',
-      'mayors': '/MayorsPermitForm'
-    };
-    return routes[applicationType] || null;
+  // Function to get form route based on application type
+const getFormRoute = (applicationType) => {
+  const routes = {
+    'business': '/BusinessPermitForm',
+    'electrical': '/ElectricalPermitForm',
+    'plumbing': '/PlumbingPermitForm',
+    'cedula': '/CedulaPermitForm',
+    'fencing': '/FencingPermitForm',
+    'electronics': '/ElectronicsPermitForm',
+    'building': '/BuildingPermitForm',
+    'renewal_business': '/RenewalBusinessPermit',
+    'mayors': '/MayorsPermitForm',
+    'zoning': '/ZoningPermitForm'  // ← ADD THIS LINE
   };
+  return routes[applicationType] || null;
+};
 
   // Do NOT mark form access used here; just guard and navigate
   const handleAccessForm = (application) => {
@@ -831,6 +932,7 @@ function DocumentStatusTracker() {
       case 'Building Permit':    return "bg-amber-100 text-amber-800";
       case 'Plumbing Permit':    return "bg-cyan-100 text-cyan-800";
       case 'Fencing Permit':     return "bg-lime-100 text-lime-800";
+      case 'Zoning Permit':      return "bg-violet-100 text-violet-800";
       case 'Cedula':             return "bg-green-100 text-green-800";
       case 'Payment Receipt':    return "bg-purple-100 text-purple-800";
       default:                   return "bg-gray-100 text-gray-800";
@@ -838,38 +940,42 @@ function DocumentStatusTracker() {
   }
 
   const toggleCard = (applicationId) => {
-    setExpandedCards(prev => {
-      const opening = !prev[applicationId];
-      const next = { ...prev, [applicationId]: opening };
+  setExpandedCards(prev => {
+    const opening = !prev[applicationId];
+    const next = { ...prev, [applicationId]: opening };
 
-      if (opening) {
-        const app = applications.find(a => a.id === applicationId);
+    if (opening) {
+      const app = applications.find(a => a.id === applicationId);
 
-        // load requirements + comments on first open
-        if (app) {
-          if (!requirementsByApp[applicationId]) {
-            loadRequirementsForApplication(app);
-          }
-          if (!commentsByApp[applicationId]) {
-            loadCommentsForApplication(app);
-          }
+      if (app) {
+        // Load requirements, comments, AND assessments on first open
+        if (!requirementsByApp[applicationId]) {
+          loadRequirementsForApplication(app);
         }
-
-        // mark notification as seen
-        if (app) {
-          setNewFlags((prevFlags) => ({
-            ...prevFlags,
-            [applicationId]: false,
-          }));
-          const seen = loadSeenMap();
-          seen[applicationId] = { status: app.status };
-          saveSeenMap(seen);
+        if (!commentsByApp[applicationId]) {
+          loadCommentsForApplication(app);
+        }
+        // 🔥 NEW: Load assessment for business permits
+        if (app.type === 'Business Permit' && !assessmentsByApp[applicationId]) {
+          loadAssessmentForApplication(app);
         }
       }
 
-      return next;
-    });
-  };
+      // mark notification as seen
+      if (app) {
+        setNewFlags((prevFlags) => ({
+          ...prevFlags,
+          [applicationId]: false,
+        }));
+        const seen = loadSeenMap();
+        seen[applicationId] = { status: app.status };
+        saveSeenMap(seen);
+      }
+    }
+
+    return next;
+  });
+};
 
   // ---------- NEW: filtering logic ----------
   const isApplicationType = (item) => item.type !== 'Payment Receipt';
@@ -1173,14 +1279,43 @@ function DocumentStatusTracker() {
                               </div>
                               <span className="text-xs text-gray-500">
                                 {(() => {
-                                  const percent =
-                                    ((application.paymentAmount || 0) /
-                                      (application.totalDocumentPrice || 1)) *
-                                    100;
-                                  return percent >= 100
-                                    ? "Fully paid"
-                                    : `${percent.toFixed(1)}% paid`;
-                                })()}
+  const paymentStatus = paymentStatusByApp[application.id];
+  const hasPayment = paymentStatus && paymentStatus.payment_status;
+  
+  if (hasPayment) {
+    return (
+      <div className="mb-4 p-3 bg-gray-50 border rounded-lg">
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="font-medium text-gray-700">Payment Status:</span>
+            <span className={`ml-2 px-2 py-1 rounded text-xs ${
+              paymentStatus.payment_status === 'approved' 
+                ? 'bg-green-100 text-green-800' 
+                : paymentStatus.payment_status === 'rejected'
+                ? 'bg-red-100 text-red-800'
+                : 'bg-yellow-100 text-yellow-800'
+            }`}>
+              {paymentStatus.payment_status.charAt(0).toUpperCase() + paymentStatus.payment_status.slice(1)}
+            </span>
+          </div>
+          {paymentStatus.payment_status === 'approved' && (
+            <span className="text-sm text-green-600">
+              <Check className="h-4 w-4 inline mr-1" />
+              Paid
+            </span>
+          )}
+        </div>
+        {paymentStatus.payment_amount && (
+          <div className="mt-2 text-sm text-gray-600">
+            Amount Paid: ₱{parseFloat(paymentStatus.payment_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  return null;
+})()}
                               </span>
                             </div>
                           </div>
@@ -1485,6 +1620,7 @@ function DocumentStatusTracker() {
                                                 Fill online
                                               </button>
                                             )}
+                                            
                                             {includesCI(item.name, "Plumbing Permit Filled Form") && (
                                               <button
                                                 type="button"
@@ -1524,7 +1660,7 @@ function DocumentStatusTracker() {
                                                 }}
                                                 className="ml-2 px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50"
                                               >
-                                                Fill online
+                                                {/* Fill online */}
                                               </button>
                                             )}
                                           </div>
@@ -1742,6 +1878,205 @@ function DocumentStatusTracker() {
                     ))}
                   </div>
 
+{application.type === 'Business Permit' && expandedCards[application.id] && (
+  <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+    <h3 className="font-medium text-amber-800 mb-3 flex items-center">
+      <DollarSign className="h-4 w-4 mr-2" />
+      Business Permit Assessment & Fees
+    </h3>
+    
+    {(() => {
+      const assessmentState = assessmentsByApp[application.id];
+      
+      if (!assessmentState) {
+        // Trigger load if not already loaded
+        loadAssessmentForApplication(application);
+        return (
+          <div className="text-sm text-gray-500">
+            Loading assessment information...
+          </div>
+        );
+      }
+
+      if (assessmentState.loading) {
+        return (
+          <div className="text-sm text-gray-500 flex items-center">
+            <RefreshCcw className="h-3 w-3 mr-2 animate-spin" />
+            Loading assessment information...
+          </div>
+        );
+      }
+
+      if (!assessmentState.data) {
+        return (
+          <div className="text-sm text-gray-500">
+            No fee assessment has been created yet. Please wait for municipal office assessment.
+          </div>
+        );
+      }
+
+      const assessment = assessmentState.data;
+      const fees = assessment.fees;
+      const items = assessment.items || {};
+
+      // Check if items is an array or object
+      const itemArray = Array.isArray(items) ? items : Object.entries(items);
+
+      return (
+        <div className="space-y-4">
+          {/* Assessment Summary */}
+          <div className="bg-white rounded border p-4">
+            <h4 className="font-medium text-gray-800 mb-3">Fee Assessment Summary</h4>
+            
+            {/* Assessment Items Table */}
+            {itemArray.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="py-2 px-3 text-left font-medium text-gray-700">Description</th>
+                      <th className="py-2 px-3 text-left font-medium text-gray-700">Amount</th>
+                      <th className="py-2 px-3 text-left font-medium text-gray-700">Penalty/Surcharge</th>
+                      <th className="py-2 px-3 text-left font-medium text-gray-700">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {itemArray.map((item, index) => {
+                      const isArray = Array.isArray(items);
+                      const description = isArray ? item.Description || item.description : item[0];
+                      const amount = isArray ? item.Amount || item.amount || 0 : item[1]?.Amount || item[1]?.amount || 0;
+                      const penalty = isArray ? item.Penalty || item.penalty || 0 : item[1]?.Penalty || item[1]?.penalty || 0;
+                      const total = parseFloat(amount) + parseFloat(penalty);
+
+                      return (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="py-2 px-3 text-gray-700">{description}</td>
+                          <td className="py-2 px-3 text-gray-700">₱{parseFloat(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 text-gray-700">₱{parseFloat(penalty || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          <td className="py-2 px-3 font-medium text-gray-800">
+                            ₱{total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 italic">
+                No detailed items in assessment
+              </div>
+            )}
+
+            {/* Totals Section */}
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-700">Total LGU Fees:</span>
+                <span className="font-medium text-lg text-blue-600">
+                  ₱{fees.total_fees_lgu.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-gray-700">Fire Safety Inspection Fee (15%):</span>
+                <span className="font-medium text-lg text-orange-600">
+                  ₱{fees.fsif_15.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center pt-3 border-t border-gray-300 mt-2">
+                <span className="font-bold text-gray-800">Grand Total Amount Due:</span>
+                <span className="font-bold text-2xl text-green-600">
+                  ₱{fees.grand_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Assessment Metadata */}
+            <div className="mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500">
+              <div className="flex justify-between">
+                <span>Assessment created: {new Date(assessment.created_at).toLocaleString()}</span>
+                <span>Status: {assessment.status || 'Pending'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Instructions */}
+          <div className="bg-blue-50 border border-blue-200 rounded p-4">
+            <h4 className="font-medium text-blue-800 mb-2 flex items-center">
+              <CreditCard className="h-4 w-4 mr-2" />
+              Payment Instructions
+            </h4>
+            <p className="text-sm text-blue-700 mb-2">
+              Please proceed to the municipal treasurer's office to pay the assessed fees.
+            </p>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Present this assessment summary at the payment counter</li>
+              <li>• Payment can be made via cash, check, or online payment</li>
+              <li>• Keep the official receipt for your records</li>
+              <li>• Submit the payment receipt to complete your application</li>
+            </ul>
+            
+            {/* Payment Status Indicator */}
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <div className="flex items-center">
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-gray-700">Payment Status:</span>
+                  <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-green-600 h-2 rounded-full" 
+                      style={{ width: '0%' }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-gray-500">Not yet paid</span>
+                </div>
+              <button
+  onClick={() => {
+    const assessmentState = assessmentsByApp[application.id];
+    if (assessmentState?.data) {
+      setSelectedAssessment(assessmentState.data);
+      setSelectedBusinessId(parseAppId(application.id));
+      setShowPaymentModal(true);
+    }
+  }}
+  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+>
+  Make Payment
+</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Assessment Note */}
+          <div className="text-xs text-gray-500 italic">
+            Note: This assessment was generated by the municipal office. Fees are subject to verification.
+            For questions about this assessment, please contact the municipal business permit and licensing office.
+          </div>
+        </div>
+      );
+    })()}
+  </div>
+)}
+{showPaymentModal && selectedAssessment && (
+  <BusinessAssessmentPaymentModal
+    isOpen={showPaymentModal}
+    onClose={() => {
+      setShowPaymentModal(false);
+      setSelectedAssessment(null);
+      setSelectedBusinessId(null);
+    }}
+    assessment={selectedAssessment}
+    businessPermitId={selectedBusinessId}
+    onPaymentSuccess={(paymentResult) => {
+      // Refresh assessments and applications
+      const app = applications.find(a => parseAppId(a.id) === selectedBusinessId);
+      if (app) {
+        loadAssessmentForApplication(app);
+        fetchAllPermitData(); // Refresh the entire list to show new payment
+      }
+    }}
+  />
+)}
                   {/* Requirements info for Payment Receipts (no uploads) */}
                   {application.type === 'Payment Receipt' && (
                     <div className="mt-6 p-4 bg-gray-50 rounded-lg">

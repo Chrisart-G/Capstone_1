@@ -35,6 +35,7 @@ import Documentprice from './Component/admindocuprice/admindocumentprice'
 import AdminNotifications from './Component/AdminDashboard/AdminNotifications';
 import AdminCreateAnnouncement from './Component/AdminDashboard/AdminCreateAnnouncement';
 import NewEmployeeDashboard from './Component/Employee/newemployeedash';
+import PaymentArchivesDashboard from './Component/Employee/PaymentArchivesDashboard';
 function App() {
   return (
     <div className="App">
@@ -213,6 +214,11 @@ function App() {
              <Route path="/Newemployeedash" element={
             <ProtectedRoute>
               <NewEmployeeDashboard />
+            </ProtectedRoute>
+             } />
+             <Route path="//PaymentArchives" element={
+            <ProtectedRoute>
+              <PaymentArchivesDashboard  />
             </ProtectedRoute>
              } />
           

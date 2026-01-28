@@ -158,6 +158,7 @@ const TABLE_TO_TYPE = {
   "tbl_electrical_permits": "electrical",
   "tbl_cedula": "cedula",
   "business_permits": "business", // NEW
+  "zoning_permits": "zoning" // ADD THIS
 };
 
 const OFFICE_BY_TYPE = {
@@ -168,6 +169,7 @@ const OFFICE_BY_TYPE = {
   electrical: "Office of the Municipal Planning Development",
   cedula: "Business Permit and licensing Office",
   business: "Business Permits & Licensing Office", // NEW
+  zoning: "Office of the Municipal Planning Development" // ADD THIS
 };
 
 // ---------------- EMAIL TRANSPORTER ----------------
@@ -3333,3 +3335,174 @@ exports.getLGURequirementsStatus = (req, res) => {
     });
   });
 };
+
+exports.getAllZoningPermitsForEmployee = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  
+  const sql = `
+    SELECT 
+      z.*, 
+      l.email,
+      CONCAT(z.applicant_last_name, ', ', z.applicant_first_name, ' ', COALESCE(z.applicant_middle_initial, '')) as applicant_full_name
+    FROM zoning_permits z
+    LEFT JOIN tb_logins l ON z.user_id = l.user_id
+    ORDER BY z.created_at DESC
+  `;
+  
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("Error retrieving zoning permits:", err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Error retrieving zoning permits' 
+      });
+    }
+    
+    const applications = rows.map(r => ({
+      id: r.zoning_id,
+      type: 'Zoning Permit',
+      name: r.applicant_full_name || `${r.applicant_last_name || ''} ${r.applicant_first_name || ''}`,
+      status: r.status || 'pending',
+      submitted: r.created_at,
+      email: r.email,
+      user_id: r.user_id,
+      application_no: r.application_no,
+      project_type: r.project_type,
+      project_location: r.project_location,
+      ...r
+    }));
+    
+    res.json({ success: true, applications });
+  });
+};
+exports.getZoningPermitById = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  
+  const { id } = req.params;
+  const sql = `
+    SELECT 
+      z.*, 
+      l.email,
+      CONCAT(z.applicant_last_name, ', ', z.applicant_first_name, ' ', COALESCE(z.applicant_middle_initial, '')) as applicant_full_name
+    FROM zoning_permits z
+    LEFT JOIN tb_logins l ON z.user_id = l.user_id
+    WHERE z.zoning_id = ? 
+    LIMIT 1
+  `;
+  
+  db.query(sql, [id], (err, rows) => {
+    if (err) {
+      console.error("Error retrieving zoning permit:", err);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Error retrieving zoning permit' 
+      });
+    }
+    
+    if (!rows.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Zoning permit not found' 
+      });
+    }
+    
+    res.json({ success: true, application: rows[0] });
+  });
+};
+
+// Accept zoning permit (move to in-review)
+// Accept zoning permit (move to in-review)
+exports.acceptZoningPermit = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  
+  const { id } = req.params;
+  console.log("[ZONING] Accepting application ID:", id);
+  
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "Application ID is required.",
+    });
+  }
+  
+  updateStatus(res, 'zoning_permits', id, 'in-review', null, 'zoning_id');
+};
+
+// Move zoning permit to in-progress
+exports.moveZoningToInProgress = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, 'zoning_permits', id, 'in-progress', null, 'zoning_id');
+};
+
+// Move zoning permit to requirements-completed
+exports.moveZoningToRequirementsCompleted = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, 'zoning_permits', id, 'requirements-completed', null, 'zoning_id');
+};
+
+// Move zoning permit to approved
+exports.moveZoningToApproved = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, 'zoning_permits', id, 'approved', null, 'zoning_id');
+};
+
+// Move zoning permit to on-hold
+exports.moveZoningToOnHold = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, 'zoning_permits', id, 'on-hold', null, 'zoning_id');
+};
+
+// Move zoning permit to pickup-document
+exports.moveZoningToPickupDocument = (req, res) => {
+  if (!requireAuth(req, res)) return;
+  const id = req.body?.applicationId || req.body?.id;
+  if (!id) {
+    return res.status(400).json({
+      success: false,
+      message: "applicationId is required.",
+    });
+  }
+  updateStatus(res, 'zoning_permits', id, 'pickup-document', null, 'zoning_id');
+};
+
+// Set pickup schedule for zoning permit
+exports.zoningSetPickup = (req, res) => {
+  setPickupWithFile(req, res, {
+    table: "zoning_permits",
+    pkCol: "zoning_id",
+    idFieldName: "applicationId",
+    statusField: "status",
+    appType: "zoning",
+  });
+
+
+};
+

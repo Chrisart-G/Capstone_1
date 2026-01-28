@@ -12,7 +12,9 @@ const ALLOWED_TYPES = [
   'fencing',
   'electronics',
   'renewal_business',
+  'zoning', // <-- Add zoning type
 ];
+
 
 /**
  * GET /api/document-prices

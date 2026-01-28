@@ -217,13 +217,13 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
             />
           )}
 
-          <Item
+          {/* <Item
             href="/Employeehistory"
             icon={Clock}
             label="History"
             active={activePath("/Employeehistory")}
             accent="amber"
-          />
+          /> */}
 
           <Item
             href="/Achrive"

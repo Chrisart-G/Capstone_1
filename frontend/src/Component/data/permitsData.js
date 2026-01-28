@@ -10,13 +10,13 @@ export const permits = {
     construction: [
       { name: "Building Permit", description: "Necessary before constructing, repairing, or renovating a structure." },
       { name: "Electrical Permit", description: "Required before a newly constructed building can be occupied." },
-      { name: "Zoning Permit", description: "Ensures compliance with local zoning laws for land use." },
+      // { name: "Zoning Permit", description: "Ensures compliance with local zoning laws for land use." },
       { name: "Plumbing Permit", description: "Needed before demolishing a building or structure." },
       { name: "Electronics Permit", description: "Required for digging, road works, or underground installations." },
       { name: "Fencing Permit", description: "Required for digging, road works, or underground installations." }
     ],
     health: [
-      { name: "Health/Sanitary Permit", description: "Ensures compliance with hygiene and health regulations for businesses." },
+      // { name: "Health/Sanitary Permit", description: "Ensures compliance with hygiene and health regulations for businesses." },
       // { name: "Food Handler's Permit", description: "Required for workers in food establishments." },
       // { name: "Medical Certificate Permit", description: "Needed for employment, school, or travel purposes." }
     ],

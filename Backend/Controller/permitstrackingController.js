@@ -687,3 +687,57 @@ exports.addUserCommentForApplication = (req, res) => {
     );
   });
 };
+exports.getZoningPermitsForTracking = async (req, res) => {
+  try {
+    const userId = getUserIdFromSession(req);
+    if (!userId) return res.status(401).json({ message: "Unauthorized. Please log in." });
+
+    const sql = `
+      SELECT 
+        zoning_id as id,
+        application_no,
+        NULL as zp_no,
+        NULL as building_permit_no,
+        applicant_first_name as first_name,
+        applicant_last_name as last_name,
+        project_type as scope_of_work,
+        'pending' as status, -- Default status since your table doesn't have status field
+        created_at,
+        updated_at
+      FROM zoning_permits
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+    `;
+
+    db.query(sql, [userId], (err, results) => {
+      if (err) {
+        console.error("Get zoning permits for tracking failed:", err);
+        return res.status(500).json({ 
+          message: "Failed to retrieve zoning permits", 
+          error: err.message 
+        });
+      }
+      
+      // If your zoning_permits table doesn't have status, default to pending
+      results.forEach(r => { 
+        r.status = normalizeStatus(r.status || 'pending'); 
+        // Format names if needed
+        if (r.first_name || r.last_name) {
+          r.first_name = r.first_name || '';
+          r.last_name = r.last_name || '';
+        }
+      });
+      
+      res.status(200).json({ 
+        success: true, 
+        permits: results 
+      });
+    });
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    res.status(500).json({ 
+      message: "Unexpected server error", 
+      error: err.message 
+    });
+  }
+};

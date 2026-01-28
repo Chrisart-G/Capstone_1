@@ -189,5 +189,15 @@ router.put(
   isAuthenticated,
   C.moveCedulaToPickupDocument
 );
+/* ===================== ZONING PERMITS ===================== */
+router.get('/zoning-applications', isAuthenticated, C.getAllZoningPermitsForEmployee);
+router.get('/zoning-applications/:id', isAuthenticated, C.getZoningPermitById);
+router.put('/zoning-applications/:id/accept', isAuthenticated, C.acceptZoningPermit);
+router.put('/zoning-applications/move-to-inprogress', isAuthenticated, C.moveZoningToInProgress);
+router.put('/zoning-applications/move-to-requirements-completed', isAuthenticated, C.moveZoningToRequirementsCompleted);
+router.put('/zoning-applications/move-to-approved', isAuthenticated, C.moveZoningToApproved);
+router.put('/zoning-applications/move-to-onhold', isAuthenticated, C.moveZoningToOnHold);
+router.put('/zoning-applications/move-to-pickup-document', isAuthenticated, C.moveZoningToPickupDocument);
+router.put('/zoning-applications/set-pickup', isAuthenticated, C.zoningSetPickup);
 
 module.exports = router;

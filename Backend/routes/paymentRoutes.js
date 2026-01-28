@@ -37,5 +37,8 @@ router.put(
   paymentController.updatePaymentStatus
 );
 router.get('/stats', auth, paymentController.getPaymentStats);
-
+router.get('/payments/check', auth, paymentController.checkPaymentStatus);
+// Add these to your routes file
+router.get('/get-assessment', auth, paymentController.getAssessmentData);
+router.get('/business-permit/:user_id', auth, paymentController.getBusinessPermitDetails);
 module.exports = router;
