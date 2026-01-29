@@ -205,6 +205,8 @@ app.use("/api/new-employee", newEmployeeDashRoutes);
 const zoneRoutes = require('./routes/zoneRoutes');
 app.use('/api', zoneRoutes);
 // In server.js, add this import:
+const verificationRoutes = require("./routes/verificationRoutes");
+app.use("/api/verification", verificationRoutes);
 
 /* ===================== START HTTP SERVER WITH LONGER TIMEOUTS ===================== */
 const PORT = process.env.PORT || 8081;

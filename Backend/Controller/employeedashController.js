@@ -6,6 +6,7 @@ const fs = require("fs");
 const { PDFDocument, StandardFonts } = require("pdf-lib");
 const nodemailer = require("nodemailer");
 
+const QRCode = require("qrcode");
 const {
   IPROG_API_TOKEN,
   SMS_ENABLED = "true",
@@ -17,6 +18,92 @@ const {
   SMTP_PASS,
   SMTP_FROM,
 } = process.env;
+/**
+ * Add a QR code to an existing PDF file on disk.
+ *
+ * @param {string} pdfPathOnDisk - absolute path to the PDF file
+ * @param {string} qrData - the text/URL to encode in the QR
+ * @param {Object} options - layout options
+ * @param {number} [options.pageIndex=0] - which page (0-based)
+ * @param {number} [options.x] - x coordinate (optional)
+ * @param {number} [options.y] - y coordinate (optional)
+ * @param {number} [options.width] - desired QR width (optional)
+ * @param {number} [options.height] - desired QR height (optional)
+ * @param {number} [options.scale] - alternative way to size (if width/height not set)
+ */
+async function addQrToExistingPdf(pdfPathOnDisk, qrData, options = {}) {
+  const {
+    pageIndex = 0,
+    x,
+    y,
+    width,
+    height,
+    scale,
+  } = options;
+
+  if (!qrData) throw new Error("QR data is required for QR embedding.");
+
+  if (!fs.existsSync(pdfPathOnDisk)) {
+    throw new Error(`PDF not found at path: ${pdfPathOnDisk}`);
+  }
+
+  // 1) Load existing PDF
+  const existingPdfBytes = fs.readFileSync(pdfPathOnDisk);
+  const pdfDoc = await PDFDocument.load(existingPdfBytes);
+  const pages = pdfDoc.getPages();
+  const page = pages[pageIndex];
+
+  if (!page) {
+    throw new Error(`Page index ${pageIndex} does not exist in PDF.`);
+  }
+
+  // 2) Generate QR PNG buffer
+  const qrBuffer = await QRCode.toBuffer(qrData, {
+    type: "png",
+    errorCorrectionLevel: "M",
+    margin: 1,
+    scale: 4, // base resolution; we resize below
+  });
+
+  // 3) Embed image in PDF
+  const qrImage = await pdfDoc.embedPng(qrBuffer);
+
+  let qrW = qrImage.width;
+  let qrH = qrImage.height;
+
+  if (width && height) {
+    qrW = width;
+    qrH = height;
+  } else if (width) {
+    qrW = width;
+    qrH = width;
+  } else if (scale) {
+    const scaled = qrImage.scale(scale);
+    qrW = scaled.width;
+    qrH = scaled.height;
+  } else {
+    // default: half of original size
+    const scaled = qrImage.scale(0.5);
+    qrW = scaled.width;
+    qrH = scaled.height;
+  }
+
+  const { width: pageW, height: pageH } = page.getSize();
+  const margin = 40;
+
+  const finalX = typeof x === "number" ? x : (pageW - qrW - margin); // bottom-right by default
+  const finalY = typeof y === "number" ? y : margin;
+
+  page.drawImage(qrImage, {
+    x: finalX,
+    y: finalY,
+    width: qrW,
+    height: qrH,
+  });
+
+  const updatedPdfBytes = await pdfDoc.save();
+  fs.writeFileSync(pdfPathOnDisk, updatedPdfBytes);
+}
 
 const PICKUP_UPLOAD_BASE = path.join(
   __dirname,
@@ -2684,7 +2771,10 @@ exports.generateBusinessPermitForm = (req, res) => {
   if (!SUPPORTED.has(appType)) {
     return res.status(400).json({
       success: false,
-      message: `generateBusinessPermitForm only supports business/renewal_business/special_sales (got: ${application_type})`,
+      message:
+        "generateBusinessPermitForm only supports business/renewal_business/special_sales (got: " +
+        application_type +
+        ")",
     });
   }
   if (!Number.isFinite(appId) || appId <= 0) {
@@ -2693,6 +2783,10 @@ exports.generateBusinessPermitForm = (req, res) => {
       message: "application_id must be a positive number.",
     });
   }
+
+  // >>> base URL + verificationUrl placeholder (same idea as with-assessment)
+  const base = `${req.protocol}://${req.get("host")}`;
+  let verificationUrl = null;
 
   // 1) load business_permits row
   const sql = `
@@ -2769,6 +2863,42 @@ exports.generateBusinessPermitForm = (req, res) => {
           });
         });
 
+      // >>> 5.1) Build QR verification URL using app_uid
+      verificationUrl = `${base}/verify/app/${app_uid}`;
+
+      // >>> 5.2) Embed QR into the generated PDF file
+      try {
+        if (pdfDbPath) {
+          // pdfDbPath looks like "/uploads/requirements/....pdf"
+          const absolutePdfPath = path.join(
+            __dirname,
+            "..", // Backend/uploads/requirements
+            pdfDbPath.replace(/^\//, "")
+          );
+
+          console.log(
+            "[QR] (no-assessment) embedding into:",
+            absolutePdfPath,
+            "exists?",
+            fs.existsSync(absolutePdfPath)
+          );
+
+          await addQrToExistingPdf(absolutePdfPath, verificationUrl, {
+            pageIndex: 0,
+            width: 43,
+      height: 43,
+      x: 555,
+      y: 942,
+          });
+        }
+      } catch (qrErr) {
+        console.error(
+          "Failed to embed QR into business permit PDF (no-assessment):",
+          qrErr
+        );
+        // do NOT throw – we still want the old behavior to work
+      }
+
       // 6) attach into tbl_application_requirements (avoid duplicate by file_path)
       const FILE_LABEL = "Business Permit LGU Form";
 
@@ -2822,13 +2952,13 @@ exports.generateBusinessPermitForm = (req, res) => {
         });
       }
 
-      const base = `${req.protocol}://${req.get("host")}`;
-
       return res.json({
         success: true,
         message: "Business permit LGU form generated and attached.",
         pdf_path: pdfDbPath,
         file_url: `${base}${pdfDbPath}`,
+        // >>> also expose verification URL (same as with-assessment)
+        verification_url: verificationUrl,
       });
     } catch (e) {
       console.error("generateBusinessPermitForm error:", e);
@@ -2888,6 +3018,10 @@ exports.generateBusinessPermitFormWithAssessment = (req, res) => {
     });
   }
 
+  // >>> base URL (used for file_url AND for QR verification URL)
+  const base = `${req.protocol}://${req.get("host")}`;
+  let verificationUrl = null; // we’ll set this later (after we know app_uid)
+
   const sql = "SELECT * FROM business_permits WHERE BusinessP_id = ? LIMIT 1";
   db.query(sql, [appId], async (err, rows) => {
     if (err) {
@@ -2945,6 +3079,37 @@ exports.generateBusinessPermitFormWithAssessment = (req, res) => {
         }
       );
 
+      // >>> 5.1) Build QR verification URL using app_uid
+      // This is what will be encoded inside the QR code.
+      // Later we can make a route like: GET /verify/app/:app_uid
+      verificationUrl = `${base}/verify/app/${app_uid}`;
+
+      // >>> 5.2) Embed QR into the generated PDF file
+try {
+  if (pdfDbPath) {
+    // pdfDbPath is something like "/uploads/requirements/xyz.pdf"
+    // Convert it to an absolute path on the server.
+    const absolutePdfPath = path.join(
+      __dirname,
+      "..", // from Controller/ -> Backend/ (this matches _bp_createPdf_WithAssessment)
+      pdfDbPath.replace(/^\//, "") // remove leading slash
+    );
+
+    console.log("[QR] Will embed QR into:", absolutePdfPath, "exists?", fs.existsSync(absolutePdfPath));
+
+    await addQrToExistingPdf(absolutePdfPath, verificationUrl, {
+      pageIndex: 0,
+      width: 43,
+      height: 43,
+      x: 555,
+      y: 942,
+    });
+  }
+} catch (qrErr) {
+  console.error("Failed to embed QR into business permit PDF:", qrErr);
+}
+
+
       const FILE_LABEL = "Business Permit LGU Form";
 
       const dupeSql = `
@@ -2988,12 +3153,13 @@ exports.generateBusinessPermitFormWithAssessment = (req, res) => {
         });
       }
 
-      const base = `${req.protocol}://${req.get("host")}`;
       return res.json({
         success: true,
         message: "LGU form (with assessment) generated and attached.",
         pdf_path: pdfDbPath,
         file_url: `${base}${pdfDbPath}`,
+        // >>> extra field for future use (verification page)
+        verification_url: verificationUrl,
       });
     } catch (e) {
       console.error("generateBusinessPermitFormWithAssessment error:", e);
@@ -3004,6 +3170,7 @@ exports.generateBusinessPermitFormWithAssessment = (req, res) => {
     }
   });
 };
+
 
 
 
