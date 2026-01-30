@@ -571,7 +571,9 @@ exports.GetAllApplications = (req, res) => {
       a.BusinessP_id as id, 
       CONCAT(a.first_name, ' ', a.last_name) as name, 
       a.application_type as type, 
-      a.application_date as submitted, 
+      a.application_date as application_date, 
+      a.created_at as submitted,
+      a.created_at,
       a.status,
       COUNT(b.id) as documentCount
     FROM 
@@ -581,7 +583,7 @@ exports.GetAllApplications = (req, res) => {
     GROUP BY 
       a.BusinessP_id
     ORDER BY 
-      a.application_date DESC
+      a.created_at DESC
   `;
   
   db.query(query, (err, results) => {

@@ -29,7 +29,55 @@ const makeInitialBuckets = () => ({
   readyForPickup: [],
   rejected: [],
 });
-
+const formatDateWithTime = (dateString) => {
+  console.log("📅 formatDateWithTime input:", dateString); // Debug log
+  
+  if (!dateString) return "N/A";
+  
+  try {
+    // Handle Date objects
+    if (dateString instanceof Date) {
+      dateString = dateString.toISOString();
+    }
+    
+    // Check if it's a string
+    if (typeof dateString === 'string') {
+      // Handle MySQL datetime format: "2026-01-30 10:32:06"
+      if (dateString.includes(' ') && dateString.includes(':')) {
+        // Convert to ISO format
+        dateString = dateString.replace(' ', 'T') + 'Z';
+      }
+      // Handle date-only strings: "2026-01-30"
+      else if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Add time component
+        dateString = dateString + 'T00:00:00Z';
+      }
+    }
+    
+    const date = new Date(dateString);
+    
+    if (isNaN(date.getTime())) {
+      console.warn("Invalid date:", dateString);
+      return "Invalid date";
+    }
+    
+    // Format: "1/30/2026, 10:32 AM"
+    const datePart = date.toLocaleDateString('en-US');
+    const timePart = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    const result = `${datePart}, ${timePart}`;
+    console.log("📅 Result:", result); // Debug log
+    
+    return result;
+  } catch (error) {
+    console.error("Error formatting date:", error, dateString);
+    return "Date error";
+  }
+};
 /**
  * Normalize an application into a logical type we can use for role checks.
  * Possible return values: "business", "cedula", "electrical", "plumbing",
@@ -2018,11 +2066,9 @@ const fetchElectricalApplications = async () => {
                               </span>
                               <span className="text-gray-300">•</span>
                               <span className="text-xs">
-                                Submitted on{" "}
-                                {new Date(
-                                  application.submitted || application.created_at
-                                ).toLocaleDateString()}
-                              </span>
+  Submitted on{" "}
+  {formatDateWithTime(application.submitted || application.created_at)}
+</span>
                             </p>
                           </div>
                         </div>
@@ -2573,12 +2619,10 @@ const fetchElectricalApplications = async () => {
                               <strong>Type:</strong>{" "}
                               {getTypeLabelForRow(application)}
                             </p>
-                            <p>
-                              <strong>Submitted:</strong>{" "}
-                              {new Date(
-                                application.submitted || application.created_at
-                              ).toLocaleDateString()}
-                            </p>
+                           <p>
+  <strong>Submitted:</strong>{" "}
+  {formatDateWithTime(application.submitted || application.created_at)}
+</p>
                             <p>
                               <strong>Status:</strong>{" "}
                               {application.status || application.application_status}

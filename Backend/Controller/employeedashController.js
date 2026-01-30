@@ -3673,3 +3673,34 @@ exports.zoningSetPickup = (req, res) => {
 
 };
 
+exports.getPermitActivities = (req, res) => {
+  const permitId = req.params.id;
+
+  const sql = `
+    SELECT
+      id,
+      permit_id,
+      line_of_business,
+      units,
+      capitalization,
+      gross_essential,
+      gross_non_essential
+    FROM business_activities
+    WHERE permit_id = ?
+  `;
+
+  db.query(sql, [permitId], (err, rows) => {
+    if (err) {
+      console.error("getPermitActivities error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error loading business activities.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      activities: rows,
+    });
+  });
+};

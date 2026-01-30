@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import AttachRequirementFromLibraryModal from "./AttachRequirementFromLibraryModal";
 import { FileText } from "lucide-react";
+import { getRequirementsForLine } from "../Form/businesspermit/lineOfBusinessConfig";
+
 import { useNavigate } from "react-router-dom";
 const API_BASE_URL = "http://localhost:8081";
 
@@ -84,7 +86,29 @@ function AttachedRequirementsPanel({ selectedApplication }) {
       setIsLoading(false);
     }
   };
-
+const CONDITION_CHOICES = {
+  zoning: [
+    "Missing barangay clearance for business location",
+    "No certified true copy of land title / tax declaration",
+    "No lease contract / owner's authorization attached",
+    "Missing vicinity map / lot plan signed by GE",
+    "Business activity not clearly allowed in this zone",
+  ],
+  fitness: [
+    "Missing approved building permit and signed plans",
+    "No structural stability certificate from civil engineer",
+    "No electrical inspection report",
+    "No fire safety inspection certificate",
+    "Emergency exits / pathways not compliant",
+  ],
+  default: [
+    "Incomplete application form",
+    "Missing valid government ID",
+    "Missing latest tax clearance / OR",
+    "No barangay business clearance attached",
+    "Other documentary deficiency",
+  ],
+};
   const checkSession = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
@@ -254,44 +278,87 @@ function AttachedRequirementsPanel({ selectedApplication }) {
 
   // ===================== BUSINESS: LGU VERIFICATION ROWS =====================
   // extended to include office/agency (for context) but still use only the key for state
-  const LGU_ROWS = [
-    [
-      "occupancy_permit",
-      "Occupancy Permit (For New)",
-      "Office of the Building Official",
-    ],
-    [
-      "zoning_clearance",
-      "Zoning (New and Renewal)",
-      "Municipal Planning & Dev't. Office",
-    ],
-    ["barangay_clearance", "Barangay Clearance (For Renewal)", "Barangay"],
-    [
-      "sanitary_clearance",
-      "Sanitary Permit / Health Clearance",
-      "Municipal Health Office",
-    ],
-    [
-      "environment_certificate",
-      "Municipal Environmental Certificate",
-      "Municipal Environment Office",
-    ],
-    [
-      "market_clearance",
-      "Market Clearance (For Stall Holders)",
-      "Office of the Market Supervisor",
-    ],
-    [
-      "fire_safety_certificate",
-      "Valid Fire Safety Inspection Certificate",
-      "Bureau of Fire Protection",
-    ],
-    [
-      "river_floating_fish",
-      "Registration/Verification (River Tanab, Oyster Culture, Floating Fish Cage Operator)",
-      "Municipal Agriculture Office",
-    ],
-  ];
+const LGU_ROWS = [
+  [
+    "occupancy_permit",
+    "Occupancy Permit (For New)",
+    "Office of the Building Official",
+  ],
+  [
+    "zoning_clearance",
+    "Zoning (New and Renewal)",
+    "Municipal Planning & Dev't. Office",
+  ],
+  // REMOVE THESE TWO ROWS:
+  // ["barangay_clearance", "Barangay Clearance (For Renewal)", "Barangay"],
+  [
+    "sanitary_clearance",
+    "Sanitary Permit / Health Clearance",
+    "Municipal Health Office",
+  ],
+  [
+    "environment_certificate",
+    "Municipal Environmental Certificate",
+    "Municipal Environment Office",
+  ],
+  [
+    "market_clearance",
+    "Market Clearance (For Stall Holders)",
+    "Office of the Market Supervisor",
+  ],
+  // REMOVE THIS ROW:
+  // [
+  //   "fire_safety_certificate",
+  //   "Valid Fire Safety Inspection Certificate",
+  //   "Bureau of Fire Protection",
+  // ],
+  [
+    "river_floating_fish",
+    "Registration/Verification (River Tanab, Oyster Culture, Floating Fish Cage Operator)",
+    "Municipal Agriculture Office",
+  ],
+];
+// Combine requirements from multiple business activities (A–U, labels, etc.)
+function computeCombinedRequirements(activities = []) {
+  const combined = {
+    occupancyPermit: false,
+    zoningClearance: false,
+    sanitaryPermit: false,
+    environmentalCertificate: false,
+    marketClearance: false,
+    agriRegistration: false,
+    // Removed: barangayClearance and fireSafetyCertificate
+  };
+
+  for (const act of activities) {
+    const key =
+      act.sector_code ||
+      act.business_sector ||
+      act.line_of_business ||
+      "";
+
+    if (!key) continue;
+
+    const req = getRequirementsForLine(key);
+    if (!req) continue;
+
+    combined.occupancyPermit =
+      combined.occupancyPermit || !!req.occupancyPermit;
+    combined.zoningClearance =
+      combined.zoningClearance || !!req.zoningClearance;
+    combined.sanitaryPermit =
+      combined.sanitaryPermit || !!req.sanitaryPermit;
+    combined.environmentalCertificate =
+      combined.environmentalCertificate || !!req.environmentalCertificate;
+    combined.marketClearance =
+      combined.marketClearance || !!req.marketClearance;
+    combined.agriRegistration =
+      combined.agriRegistration || !!req.agriRegistration;
+    // Removed: barangayClearance and fireSafetyCertificate
+  }
+
+  return combined;
+}
 
   // yes / no / not_needed
   const [checks, setChecks] = useState(() =>
@@ -302,7 +369,7 @@ function AttachedRequirementsPanel({ selectedApplication }) {
   const [lguStatus, setLguStatus] = useState(() =>
     Object.fromEntries(LGU_ROWS.map(([k]) => [k, "pending"]))
   );
-
+const [hasLoadedLguState, setHasLoadedLguState] = useState(false);
   const updateCheck = (key, value) =>
     setChecks((prev) =>
       prev[key] === value ? prev : { ...prev, [key]: value }
@@ -401,19 +468,37 @@ const ActionRadios = ({ value, onChange }) => (
   </div>
 );
 
-const DefInputs = ({ sec, setSec }) => (
-  <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-    {[1,2,3,4,5].map(i => (
-      <input 
-        key={i} 
-        className="border rounded px-2 py-1 text-sm text-center" 
-        placeholder={`${i}`}
-        value={sec.deficiencies?.[String(i)] || ""} 
-        onChange={e => setDef(setSec, String(i), e.target.value)} 
-      />
-    ))}
-  </div>
-);
+// ⬇️ REPLACE your existing DefInputs with this
+const DefInputs = ({ secKey, sec, setSec }) => {
+  const choices = CONDITION_CHOICES[secKey] || CONDITION_CHOICES.default;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+      {[1, 2, 3, 4, 5].map((i) => {
+        const idx = String(i);
+        const listId = `${secKey}-def-${idx}`; // unique per field
+
+        return (
+          <div key={idx}>
+            <input
+              list={listId}
+              className="border rounded px-2 py-1 text-sm text-center w-full"
+              placeholder={idx}
+              value={sec.deficiencies?.[idx] || ""}
+              onChange={(e) => setDef(setSec, idx, e.target.value)}
+            />
+            <datalist id={listId}>
+              {choices.map((opt) => (
+                <option key={opt} value={opt} />
+              ))}
+            </datalist>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 
 // Define sections with their department access
 const sections = [
@@ -1094,10 +1179,13 @@ useEffect(() => {
       setComments(commentsResponse.data?.items || []);
 
       // Load saved LGU checks from attachments response if available
-      const lguState = attachmentsResponse.data?.lgu_state;
+            const lguState = attachmentsResponse.data?.lgu_state;
       if (lguState?.checks) {
-        console.log('Found saved LGU checks:', lguState.checks);
+        console.log("Found saved LGU checks:", lguState.checks);
         setChecks((prev) => ({ ...prev, ...lguState.checks }));
+        setHasLoadedLguState(true);
+      } else {
+        setHasLoadedLguState(false);
       }
 
       // ========== CRITICAL: Update LGU status with actual backend data ==========
@@ -1148,6 +1236,70 @@ useEffect(() => {
     mounted = false;
   };
 }, [applicationType, applicationId, refreshTick, baseURL]);
+  // ===================== AUTO-FILL LGU RADIOS FROM LINE OF BUSINESS =====================
+  useEffect(() => {
+    // Only for business apps, with an application selected
+    if (!isBusinessApp || !applicationId) return;
+
+    // If we already loaded explicit LGU state from DB, do not override
+    if (hasLoadedLguState) {
+      console.log("Skipping auto-fill: LGU state already loaded from DB.");
+      return;
+    }
+
+    let cancelled = false;
+
+    async function autoFillFromBusinessActivities() {
+      try {
+        console.log(
+          "Auto-filling LGU checks from business activities for permit",
+          applicationId
+        );
+
+        const { data } = await axios.get(
+          `${baseURL}/api/business-permit/${applicationId}/activities`,
+          { withCredentials: true }
+        );
+
+        const activities = data?.activities || data || [];
+        console.log("Loaded business activities:", activities);
+
+        if (!activities.length) return;
+
+        const combined = computeCombinedRequirements(activities);
+        console.log("Combined requirements:", combined);
+
+        if (cancelled) return;
+
+        setChecks((prev) => {
+          // start from current state and only flip those we know
+          const next = { ...prev };
+
+          if (combined.occupancyPermit) next.occupancy_permit = "yes";
+          if (combined.zoningClearance) next.zoning_clearance = "yes";
+          if (combined.sanitaryPermit) next.sanitary_clearance = "yes";
+          if (combined.environmentalCertificate)
+            next.environment_certificate = "yes";
+          if (combined.marketClearance) next.market_clearance = "yes";
+          if (combined.agriRegistration) next.river_floating_fish = "yes";
+
+          // what we don't touch stays "not_needed" or whatever it already is
+          return next;
+        });
+      } catch (err) {
+        console.error(
+          "Failed to auto-fill LGU requirements from business activities:",
+          err
+        );
+      }
+    }
+
+    autoFillFromBusinessActivities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isBusinessApp, applicationId, baseURL, hasLoadedLguState]);
 
   const hasItems = items?.length > 0;
 // Find the Business Permit LGU Form template
@@ -1298,11 +1450,11 @@ const RadioRow = ({ fieldKey, label, office }) => {
               checked={value === option}
               onChange={() => updateCheck(fieldKey, option)}
               className="cursor-pointer"
+              disabled={true} // ADD THIS LINE TO DISABLE ALL RADIO BUTTONS
             />
           </label>
         </td>
       ))}
-      {/* FIXED: Status column with proper handling for all status types */}
       <td className="px-2 py-1 border text-center">
         <div className="flex flex-col items-center gap-1 min-h-[40px] justify-center">
           <span
@@ -1862,7 +2014,7 @@ const allRequiredDocsApproved = useMemo(() => {
               Click "Fill LGU Verification Form" to review and submit your assigned sections.
             </p>
 
-            {/* Inline Forms (shown when toggled) */}
+            {/* Inline Forms (shown when toggled) ari ko d nga part*/}
             {showInlineForms && (
               <div className="mt-6 bg-white border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -1891,7 +2043,8 @@ const allRequiredDocsApproved = useMemo(() => {
                           <ActionRadios value={sec.state.action} onChange={val => setAction(sec.set, val)} />
                           <div>
                             <div className="text-xs text-gray-600 mb-1">Conditions / Documentary Deficiency (1–5)</div>
-                            <DefInputs sec={sec.state} setSec={sec.set} />
+                            <DefInputs secKey={sec.key} sec={sec.state} setSec={sec.set} />
+
                           </div>
                           <label className="text-xs block">
                             <span className="block text-gray-600">Remarks</span>
@@ -2056,6 +2209,28 @@ const allRequiredDocsApproved = useMemo(() => {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Uheader from '../../Header/User_header';
 import UFooter from '../../Footer/User_Footer';
 import axios from 'axios';
-
+import { LINE_OF_BUSINESS_CATEGORIES } from '../businesspermit/lineOfBusinessConfig';
 export default function BusinessPermitForm() {
   const navigate = useNavigate();
   const fieldRefs = useRef({});
@@ -79,6 +79,7 @@ export default function BusinessPermitForm() {
      address: '', 
   });
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
+
 
   // =========================
   // 1) FETCH USER + BUSINESS INFO FOR AUTOFILL
@@ -234,20 +235,21 @@ export default function BusinessPermitForm() {
   };
 
   const addBusinessActivity = () => {
-    setFormData({
-      ...formData,
-      businessActivities: [
-        ...formData.businessActivities,
-        {
-          line: '',
-          units: '',
-          capitalization: '',
-          grossEssential: '',
-          grossNonEssential: '',
-        },
-      ],
-    });
-  };
+  setFormData({
+    ...formData,
+    businessActivities: [
+      ...formData.businessActivities,
+      {
+        line: "",
+        units: "",
+        capitalization: "",
+        grossEssential: "",
+        grossNonEssential: "",
+      },
+    ],
+  });
+};
+
 
   const removeBusinessActivity = (index) => {
     const updatedActivities = [...formData.businessActivities];
@@ -1523,20 +1525,42 @@ export default function BusinessPermitForm() {
                 <tbody>
                   {formData.businessActivities.map((activity, index) => (
                     <tr key={index}>
-                      <td className="border p-2">
-                        <input
-                          type="text"
-                          value={activity.line}
-                          onChange={(e) =>
-                            handleBusinessActivityChange(
-                              index,
-                              'line',
-                              e.target.value
-                            )
-                          }
-                          className="w-full border rounded px-2 py-1"
-                        />
-                      </td>
+                      <td className="border p-2 align-top">
+  <select
+    value={activity.line}
+    onChange={(e) =>
+      handleBusinessActivityChange(index, "line", e.target.value)
+    }
+    className="w-full border rounded px-2 py-1 bg-white"
+  >
+    <option value="">Select line of business</option>
+    {LINE_OF_BUSINESS_CATEGORIES.map((cat) => (
+      <option key={cat.code} value={cat.label}>
+        {cat.label}
+      </option>
+    ))}
+  </select>
+
+  {activity.line && (() => {
+    const selectedCategory = LINE_OF_BUSINESS_CATEGORIES.find(
+      (cat) => cat.label === activity.line
+    );
+
+    if (!selectedCategory || !selectedCategory.examples) return null;
+
+    return (
+      <ul className="mt-1 text-xs text-gray-600 list-disc list-inside">
+        <li className="font-semibold">Example businesses:</li>
+        {selectedCategory.examples.map((ex, i) => (
+          <li key={i}>{ex}</li>
+        ))}
+      </ul>
+    );
+  })()}
+</td>
+
+
+
                       <td className="border p-2">
                         <input
                           type="text"

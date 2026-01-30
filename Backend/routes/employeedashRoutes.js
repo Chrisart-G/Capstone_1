@@ -199,5 +199,9 @@ router.put('/zoning-applications/move-to-approved', isAuthenticated, C.moveZonin
 router.put('/zoning-applications/move-to-onhold', isAuthenticated, C.moveZoningToOnHold);
 router.put('/zoning-applications/move-to-pickup-document', isAuthenticated, C.moveZoningToPickupDocument);
 router.put('/zoning-applications/set-pickup', isAuthenticated, C.zoningSetPickup);
-
+router.get(
+  "/business-permit/:id/activities",
+  isAuthenticated,
+  C.getPermitActivities
+);
 module.exports = router;

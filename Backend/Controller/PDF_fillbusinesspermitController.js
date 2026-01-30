@@ -542,76 +542,164 @@ exports.user_generatePreview = async (req, res) => {
     return res.status(500).json({ success: false, message: "Failed to build preview." });
   }
 };
-
-/* ───────── POST: submit (render FINAL + UPDATE existing file) ───────── */
 exports.user_submitFilled = async (req, res) => {
   try {
     const { application_id, data, department } = req.body || {};
     const appId = Number(application_id);
+
     if (!Number.isFinite(appId) || appId <= 0) {
-      return res.status(400).json({ success: false, message: "application_id is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "application_id is required" });
     }
 
     // Get existing form data
     const existingData = await getExistingFormData(appId);
-    
+
     // Merge new data with existing data based on department
     const mergedData = await mergePDFData(existingData, data, department);
 
+    // ---- normalize sections (in case they come as JSON strings) ----
+    const normalizeSection = (sec) => {
+      if (!sec) return {};
+      if (typeof sec === "string") {
+        try {
+          return JSON.parse(sec);
+        } catch {
+          return {};
+        }
+      }
+      return sec;
+    };
+
+    // Normalized section objects
+    const zoningObj     = normalizeSection(mergedData.zoning);
+    const fitnessObj    = normalizeSection(mergedData.fitness);
+    const envObj        = normalizeSection(mergedData.environment);
+    const sanitationObj = normalizeSection(mergedData.sanitation);
+    const marketObj     = normalizeSection(mergedData.market);
+    const agriObj       = normalizeSection(mergedData.agriculture);
+
+    // read the radio value (Approved / Approved with Conditions / Denied)
+    const zoningAction      = (zoningObj.action     || "").toString().toLowerCase();
+    const fitnessAction     = (fitnessObj.action    || "").toString().toLowerCase();
+    const envAction         = (envObj.action        || "").toString().toLowerCase();
+    const sanitationAction  = (sanitationObj.action || "").toString().toLowerCase();
+    const marketAction      = (marketObj.action     || "").toString().toLowerCase();
+    const agriAction        = (agriObj.action       || "").toString().toLowerCase();
+
     // Check if all departments are now complete
     const is_complete = await checkAllDepartmentsComplete(appId);
-    
+
     // Determine status based on completion
-    const status = is_complete ? 'submitted' : 'in_progress';
+    const status = is_complete ? "submitted" : "in_progress";
 
-    // Save merged form data
-    const zoning = JSON.stringify(mergedData.zoning || {});
-    const fitness = JSON.stringify(mergedData.fitness || {});
-    const environment = JSON.stringify(mergedData.environment || {});
-    const sanitation = JSON.stringify(mergedData.sanitation || {});
-    const market = JSON.stringify(mergedData.market || {});
-    const agriculture = JSON.stringify(mergedData.agriculture || {});
+    // Save merged form data (as JSON strings in the table)
+    const zoning      = JSON.stringify(zoningObj);
+    const fitness     = JSON.stringify(fitnessObj);
+    const environment = JSON.stringify(envObj);
+    const sanitation  = JSON.stringify(sanitationObj);
+    const market      = JSON.stringify(marketObj);
+    const agriculture = JSON.stringify(agriObj);
 
-   await q(
-  `INSERT INTO business_clearance_form
-     (application_id, status, zoning, fitness, environment, sanitation, market, agriculture, updated_at)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-   ON DUPLICATE KEY UPDATE
-     status=VALUES(status), zoning=VALUES(zoning), fitness=VALUES(fitness), 
-     environment=VALUES(environment), sanitation=VALUES(sanitation), 
-     market=VALUES(market), agriculture=VALUES(agriculture),
-     updated_at=NOW()`,
-  [appId, status, zoning, fitness, environment, sanitation, market, agriculture]
-);
+    await q(
+      `INSERT INTO business_clearance_form
+         (application_id, status, zoning, fitness, environment, sanitation, market, agriculture, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE
+         status=VALUES(status), zoning=VALUES(zoning), fitness=VALUES(fitness),
+         environment=VALUES(environment), sanitation=VALUES(sanitation),
+         market=VALUES(market), agriculture=VALUES(agriculture),
+         updated_at=NOW()`,
+      [appId, status, zoning, fitness, environment, sanitation, market, agriculture]
+    );
 
-// If zoning is approved, update the related requirement
-if (zoning === 'approve') {
-  await q(
-    `UPDATE business_lgu_requirements_status
-     SET status = 'approved', updated_at = NOW(),
-         remarks = 'Zoning clearance approved via clearance form'
-     WHERE application_id = ? AND requirement_key = 'zoning_clearance'`,
-    [appId]
-  );
-}
-console.log('Fitness status:', fitness);
-if (fitness === 'approve') {
-  console
-}
-// Similarly for other fields like occupancy_permit (if fitness maps to it)
-// if (fitness === 'approve') {
-//   await q(
-//     `UPDATE business_lgu_requirements_status
-//      SET status = 'approved', updated_at = NOW(),
-//          remarks = 'Occupancy permit approved via clearance form'
-//      WHERE application_id = ? AND requirement_key = 'occupancy_permit'`,
-//     [appId]
-//   );
-// }
+    /* ───────── UPDATE LGU REQUIREMENT STATUS (ALL OFFICES) ───────── */
+    const dept = (department || "").toString().toUpperCase();
+
+    // helper to map action → status + remarks
+    const updateRequirementStatus = async (requirementKey, action, label) => {
+      const a = (action || "").toLowerCase();
+      if (!a) return;
+
+      let status = null;
+      let remarks = null;
+
+      if (a === "approved") {
+        status = "approved";
+        remarks = `${label} approved via clearance form`;
+      } else if (a === "approved_with_conditions") {
+        status = "approved_with_conditions";
+        remarks = `${label} approved with conditions via clearance form`;
+      } else if (a === "denied") {
+        status = "denied";
+        remarks = `${label} denied via clearance form`;
+      } else {
+        // ignore other / blank values
+        return;
+      }
+
+      await q(
+        `UPDATE business_lgu_requirements_status
+           SET status = ?, remarks = ?, updated_at = NOW()
+         WHERE application_id = ? AND requirement_key = ?`,
+        [status, remarks, appId, requirementKey]
+      );
+    };
+
+    if (dept === "MPDO") {
+      // 1. Zoning Ordinance → zoning_clearance
+      await updateRequirementStatus(
+        "zoning_clearance",
+        zoningAction,
+        "Zoning clearance"
+      );
+
+      // 2. Fitness for Occupancy → occupancy_permit
+      await updateRequirementStatus(
+        "occupancy_permit",
+        fitnessAction,
+        "Occupancy permit"
+      );
+    } else if (dept === "MEO") {
+      // 3. Solid Waste / Environment → environment_certificate
+      await updateRequirementStatus(
+        "environment_certificate",
+        envAction,
+        "Environmental certificate"
+      );
+
+      // 5. Public Market → market_clearance
+      await updateRequirementStatus(
+        "market_clearance",
+        marketAction,
+        "Market clearance"
+      );
+    } else if (dept === "MHO") {
+      // 4. Sanitation Code → sanitary_clearance
+      await updateRequirementStatus(
+        "sanitary_clearance",
+        sanitationAction,
+        "Sanitary clearance"
+      );
+    } else if (dept === "MAO") {
+      // 6. Agriculture Office → river_floating_fish
+      await updateRequirementStatus(
+        "river_floating_fish",
+        agriAction,
+        "Agriculture registration"
+      );
+    }
+
+    // ----- generate / update filled PDF (same as before) -----
 
     const appRow = await getBusinessApp(appId);
-    if (!appRow) return res.status(404).json({ success: false, message: "Business application not found." });
-    
+    if (!appRow) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Business application not found." });
+    }
+
     const header = mapHeaderRow(appRow);
 
     let baseAbs = TEMPLATE_PATH;
@@ -619,23 +707,31 @@ if (fitness === 'approve') {
     if (resolved?.abs) baseAbs = resolved.abs;
 
     const baseBytes = fs.readFileSync(baseAbs);
-    const outBytes = await renderSheet({ basePdfBytes: baseBytes, header, sheet: mergedData || {} });
+    const outBytes = await renderSheet({
+      basePdfBytes: baseBytes,
+      header,
+      sheet: mergedData || {},
+    });
 
     let rel, url;
     const existingUserFilled = await getLatestUserFilledPath(appId);
-    
+
     if (existingUserFilled) {
       // UPDATE existing file - overwrite it
-      const abs = path.join(__dirname, "..", existingUserFilled.replace(/^\/+/, "").replace(/\//g, path.sep));
+      const abs = path.join(
+        __dirname,
+        "..",
+        existingUserFilled.replace(/^\/+/, "").replace(/\//g, path.sep)
+      );
       fs.writeFileSync(abs, outBytes);
       rel = existingUserFilled;
       url = `${PUBLIC_BASE_URL}${rel}`;
-      
+
       // Update the timestamp in database (same record, same file)
       await q(
-        `UPDATE tbl_application_requirements 
-         SET uploaded_at=NOW()
-         WHERE application_type='business' 
+        `UPDATE tbl_application_requirements
+           SET uploaded_at=NOW()
+         WHERE application_type='business'
            AND application_id=?
            AND pdf_path = ?`,
         [appId, existingUserFilled]
@@ -662,17 +758,27 @@ if (fitness === 'approve') {
     }
 
     // Update final_pdf_path
-    await q(`UPDATE business_clearance_form SET final_pdf_path=?, updated_at=NOW() WHERE application_id=?`, [rel, appId]);
+    await q(
+      `UPDATE business_clearance_form
+         SET final_pdf_path=?, updated_at=NOW()
+       WHERE application_id=?`,
+      [rel, appId]
+    );
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       user_filled_url: url,
       updated_existing: !!existingUserFilled,
       is_complete: is_complete,
-      message: existingUserFilled ? "Form updated successfully." : "Form submitted successfully."
+      message: existingUserFilled
+        ? "Form updated successfully."
+        : "Form submitted successfully.",
     });
   } catch (e) {
     console.error("business user_submitFilled error:", e);
-    return res.status(500).json({ success: false, message: "Failed to submit filled form." });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to submit filled form." });
   }
 };
+

@@ -8,7 +8,8 @@ import {
   LogOut,
   KeyRound,
   Phone,
-  Loader2, // spinner icon
+  Loader2,
+  QrCode, 
 } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -64,7 +65,9 @@ const Login = () => {
     // 3) New dashboard for everyone else (MEO, MAO, etc.)
     return "/Newemployeedash";
   };
-
+const goToPermitVerification = () => {
+    navigate("/permitverification");
+  };
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -467,12 +470,24 @@ const Login = () => {
               Create an account
             </a>
           </p>
+          
 
           {/* Small footer */}
           <p className="mt-3 text-[10px] text-center text-slate-400">
             By signing in, you agree to comply with municipal policies and
             data privacy guidelines.
           </p>
+          {/* Public document / permit verification */}
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              onClick={goToPermitVerification}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-700 transition"
+            >
+              <QrCode className="h-4 w-4" />
+              Verify permit / document (QR)
+            </button>
+          </div>
 
           {/* Forgot Password Modal */}
           {forgotOpen && (

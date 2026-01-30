@@ -143,7 +143,57 @@ function BusinessAttachedRequirementsPanelForNewDash({ selectedApplication }) {
   
   // Check if user has any department access
   const hasDepartmentAccess = isMPDO || isMEO || isMHO || isMAO;
-
+const CONDITION_CHOICES = {
+    zoning: [
+      "Missing barangay clearance for business location",
+      "No certified true copy of land title / tax declaration",
+      "No lease contract / owner's authorization attached",
+      "Missing vicinity map / lot plan signed by GE",
+      "Business activity not clearly allowed in this zone",
+    ],
+    fitness: [
+      "Missing approved building permit and signed plans",
+      "No structural stability certificate from civil engineer",
+      "No electrical inspection report",
+      "No fire safety inspection certificate",
+      "Emergency exits / pathways not compliant",
+    ],
+    environment: [
+      "No solid waste management plan submitted",
+      "No contract with accredited garbage hauler",
+      "No segregated trash bins (bio/recyclable/residual)",
+      "No DENR/EMB clearance for special waste (if applicable)",
+      "Improper waste storage area observed",
+    ],
+    sanitation: [
+      "No sanitary permit for establishment",
+      "No health certificates for food handlers",
+      "No water potability test submitted",
+      "Comfort room not compliant with sanitation standards",
+      "No record of pest control services",
+    ],
+    market: [
+      "No stall award/contract attached",
+      "Unpaid market stall rental (no OR presented)",
+      "No registration/ID as authorized stallholder",
+      "No business permit copy for stall",
+      "No approved electrical load permit for stall",
+    ],
+    agriculture: [
+      "No veterinary health certificate for animals/meat",
+      "No quarantine clearance for agri products",
+      "No supplier accreditation/registration",
+      "No records of product origin/traceability",
+      "No proper storage area for agri products",
+    ],
+    default: [
+      "Incomplete application form",
+      "Missing valid government ID",
+      "Missing latest tax clearance / OR",
+      "No barangay business clearance attached",
+      "Other documentary deficiency",
+    ],
+  };
   // 6 sections for inline forms
   const emptySec = { action: "", deficiencies: {}, remarks: "" };
   const [zoning, setZoning] = useState(emptySec);
@@ -431,19 +481,36 @@ async function saveDraft() {
     </div>
   );
 
-  const DefInputs = ({ sec, setSec }) => (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-      {[1,2,3,4,5].map(i => (
-        <input 
-          key={i} 
-          className="border rounded px-2 py-1 text-sm text-center" 
-          placeholder={`${i}`}
-          value={sec.deficiencies?.[String(i)] || ""} 
-          onChange={e => setDef(setSec, String(i), e.target.value)} 
-        />
-      ))}
-    </div>
-  );
+    // 🔹 1–5 fields with dropdown + free typing
+  const DefInputs = ({ secKey, sec, setSec }) => {
+    const choices = CONDITION_CHOICES[secKey] || CONDITION_CHOICES.default;
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+        {[1, 2, 3, 4, 5].map((i) => {
+          const idx = String(i);
+          const listId = `${secKey}-def-${idx}`;
+          return (
+            <div key={idx}>
+              <input
+                list={listId}
+                className="border rounded px-2 py-1 text-sm text-center w-full"
+                placeholder={idx}
+                value={sec.deficiencies?.[idx] || ""}
+                onChange={(e) => setDef(setSec, idx, e.target.value)}
+              />
+              <datalist id={listId}>
+                {choices.map((opt) => (
+                  <option key={opt} value={opt} />
+                ))}
+              </datalist>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
 
   // Define sections with their department access
   const sections = [
@@ -609,7 +676,8 @@ async function saveDraft() {
                               <ActionRadios value={sec.state.action} onChange={val => setAction(sec.set, val)} />
                               <div>
                                 <div className="text-xs text-gray-600 mb-1">Conditions / Documentary Deficiency (1–5)</div>
-                                <DefInputs sec={sec.state} setSec={sec.set} />
+                                <DefInputs secKey={sec.key} sec={sec.state} setSec={sec.set} />
+
                               </div>
                               <label className="text-xs block">
                                 <span className="block text-gray-600">Remarks</span>

@@ -9,16 +9,18 @@ import {
   Loader2,
 } from "lucide-react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const API_BASE_URL = "http://localhost:8081";
 
 const PermitVerification = () => {
+  const navigate = useNavigate();
+
   const [uid, setUid] = useState("");
   const [loading, setLoading] = useState(false);
   const [decodeLoading, setDecodeLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
-  const [docHint, setDocHint] = useState(null); 
 
   const resetState = () => {
     setError("");
@@ -87,7 +89,6 @@ const PermitVerification = () => {
       if (!data.success) {
         setError(data.message || "Unable to read QR from the image.");
       } else {
-        // QR decoded, set UID and immediately verify
         setUid(data.app_uid || "");
         await verifyByUid(data.app_uid);
       }
@@ -99,7 +100,6 @@ const PermitVerification = () => {
       );
     } finally {
       setDecodeLoading(false);
-      // allows re-uploading same file
       e.target.value = "";
     }
   };
@@ -110,7 +110,25 @@ const PermitVerification = () => {
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
       {/* Full-screen card */}
-      <div className="w-full h-screen grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-none md:rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full h-screen grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-none md:rounded-2xl shadow-2xl overflow-hidden relative">
+        {/* Top-right: Back to Login button */}
+        <button
+          type="button"
+          onClick={() => navigate("/login")}
+          className="hidden md:inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-blue-600 hover:bg-white/70 px-3 py-1.5 rounded-full shadow-sm border border-slate-200 absolute top-4 right-4 z-30 bg-white"
+        >
+          ← Back to login
+        </button>
+
+        {/* Mobile back button (top) */}
+        <button
+          type="button"
+          onClick={() => navigate("/login")}
+          className="md:hidden absolute top-3 right-3 z-30 inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-blue-600 hover:bg-white/80 px-3 py-1.5 rounded-full shadow-sm border border-slate-200 bg-white"
+        >
+          ← Login
+        </button>
+
         {/* Left Side - same style as login */}
         <div className="relative hidden md:block">
           <div className="absolute inset-0 bg-white" />
@@ -181,7 +199,8 @@ const PermitVerification = () => {
                 <CheckCircle2 className="h-4 w-4 mt-0.5" />
                 <div>
                   <p className="font-semibold text-xs">
-                    Document verified – {result.doc_kind === "mayors_permit"
+                    Document verified –{" "}
+                    {result.doc_kind === "mayors_permit"
                       ? "Mayor’s Permit"
                       : result.doc_kind === "business_lgu_form"
                       ? "Business Permit – LGU Form"
@@ -238,8 +257,8 @@ const PermitVerification = () => {
                 Upload QR image
               </label>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Take a screenshot or photo of the permit’s QR code and upload
-                it here. The system will read the QR and verify the document
+                Take a screenshot or photo of the permit’s QR code and upload it
+                here. The system will read the QR and verify the document
                 automatically.
               </p>
               <div className="mt-2">
@@ -322,3 +341,4 @@ const PermitVerification = () => {
 };
 
 export default PermitVerification;
+
