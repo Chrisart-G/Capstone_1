@@ -1,31 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import Sidebar from '../Header/Sidebar';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import Sidebar from "../Header/Sidebar";
+
+const APPROVE_NOTE_OPTIONS = [
+  "Approved",
+  "Approved — Payment verified (GCash reference matched).",
+  "Approved — PayMaya payment confirmed and valid.",
+  "Approved — Amount received and details are complete.",
+  "Approved — Proof of payment is clear and readable.",
+  "Approved — Reference number and payer name matched.",
+];
+
+const REJECT_NOTE_OPTIONS = [
+  "Rejected — Invalid/edited receipt detected.",
+  "Rejected — Payment not found in transaction history.",
+  "Rejected — Duplicate proof already used in another application.",
+];
 
 const PaymentVerification = () => {
   const API_BASE_URL = "http://localhost:8081";
   const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState('pending');
+  const [selectedTab, setSelectedTab] = useState("pending");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  
+
   // Payment verification specific state
   const [paymentReceipts, setPaymentReceipts] = useState([]);
   const [statistics, setStatistics] = useState({
     pending: { count: 0, total_amount: 0 },
     approved: { count: 0, total_amount: 0 },
-    rejected: { count: 0, total_amount: 0 }
+    rejected: { count: 0, total_amount: 0 },
   });
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [adminNotes, setAdminNotes] = useState('');
-  const [actionType, setActionType] = useState(''); // 'approve' or 'reject'
+
+  const [adminNotes, setAdminNotes] = useState("");
+  const [selectedNotePreset, setSelectedNotePreset] = useState("");
+  const [isCustomNote, setIsCustomNote] = useState(false);
+
+  const [actionType, setActionType] = useState(""); // 'approve' or 'reject'
   const [currentPage, setCurrentPage] = useState(1);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [assessmentData, setAssessmentData] = useState(null); // NEW: For assessment data
   const [businessPermitData, setBusinessPermitData] = useState(null); // NEW: For business permit details
 
@@ -33,7 +52,7 @@ const PaymentVerification = () => {
     try {
       setIsLoading(true);
       await axios.post(`${API_BASE_URL}/api/logout`, {}, { withCredentials: true });
-      navigate('/');
+      navigate("/");
     } catch (error) {
       console.error("Logout error:", error);
       alert("Failed to logout.");
@@ -49,9 +68,9 @@ const PaymentVerification = () => {
   const fetchUserData = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/auth/userinfo`, {
-        withCredentials: true
+        withCredentials: true,
       });
-      
+
       if (response.data.success) {
         setUserData(response.data.userData);
       }
@@ -65,28 +84,27 @@ const PaymentVerification = () => {
   const checkSession = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/check-session`, {
-        withCredentials: true
+        withCredentials: true,
       });
 
       if (response.data.loggedIn) {
         setIsLoggedIn(true);
         await fetchUserData();
       } else {
-        navigate('/');
+        navigate("/");
       }
     } catch (error) {
       console.error("Session check error:", error);
-      navigate('/');
+      navigate("/");
     }
   };
 
   // NEW: Fetch assessment data
   const fetchAssessmentData = async (receiptId, userId) => {
     try {
-      // You'll need to adjust this endpoint based on your API
-          const response = await axios.get(`${API_BASE_URL}/api/payments/get-assessment`, {
+      const response = await axios.get(`${API_BASE_URL}/api/payments/get-assessment`, {
         params: { receipt_id: receiptId, user_id: userId },
-        withCredentials: true
+        withCredentials: true,
       });
 
       if (response.data.success) {
@@ -100,9 +118,8 @@ const PaymentVerification = () => {
   // NEW: Fetch business permit application details
   const fetchBusinessPermitData = async (userId) => {
     try {
-      // You'll need to adjust this endpoint based on your API
-        const response = await axios.get(`${API_BASE_URL}/api/payments/business-permit/${userId}`, {
-        withCredentials: true
+      const response = await axios.get(`${API_BASE_URL}/api/payments/business-permit/${userId}`, {
+        withCredentials: true,
       });
 
       if (response.data.success) {
@@ -117,12 +134,12 @@ const PaymentVerification = () => {
     try {
       setIsLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/payment-receipts`, {
-        params: { 
-          status: status === 'all' ? 'all' : status,
+        params: {
+          status: status === "all" ? "all" : status,
           page: page,
-          limit: 10 
+          limit: 10,
         },
-        withCredentials: true
+        withCredentials: true,
       });
 
       if (response.data.success) {
@@ -140,7 +157,7 @@ const PaymentVerification = () => {
   const fetchStatistics = async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/payment-statistics`, {
-        withCredentials: true
+        withCredentials: true,
       });
 
       if (response.data.success) {
@@ -151,91 +168,100 @@ const PaymentVerification = () => {
     }
   };
 
-const handleApproveReject = async () => {
-  if (!selectedReceipt) return;
+  const handleApproveReject = async () => {
+    if (!selectedReceipt) return;
 
-  try {
-    setIsLoading(true);
-    const endpoint = actionType === 'approve' ? 'approve' : 'reject';
-    const response = await axios.put(
-      `${API_BASE_URL}/api/payment-receipts/${selectedReceipt.receipt_id}/${endpoint}`,
-      { admin_notes: adminNotes },
-      { withCredentials: true }
-    );
+    try {
+      setIsLoading(true);
+      const endpoint = actionType === "approve" ? "approve" : "reject";
+      const response = await axios.put(
+        `${API_BASE_URL}/api/payment-receipts/${selectedReceipt.receipt_id}/${endpoint}`,
+        { admin_notes: adminNotes },
+        { withCredentials: true }
+      );
 
-    if (response.data.success) {
-      alert(`Payment ${actionType}d successfully!`);
-      setShowModal(false);
-      setShowConfirmModal(false); // Close confirmation modal
-      setSelectedReceipt(null);
-      setAssessmentData(null);
-      setBusinessPermitData(null);
-      setAdminNotes('');
-      setActionType('');
-      await fetchPaymentReceipts();
-      await fetchStatistics();
+      if (response.data.success) {
+        alert(`Payment ${actionType}d successfully!`);
+        setShowModal(false);
+        setShowConfirmModal(false);
+        setSelectedReceipt(null);
+        setAssessmentData(null);
+        setBusinessPermitData(null);
+        setAdminNotes("");
+        setSelectedNotePreset("");
+        setIsCustomNote(false);
+        setActionType("");
+        await fetchPaymentReceipts();
+        await fetchStatistics();
+      }
+    } catch (error) {
+      console.error(`Error ${actionType}ing payment:`, error);
+      alert(`Failed to ${actionType} payment.`);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error(`Error ${actionType}ing payment:`, error);
-    alert(`Failed to ${actionType} payment.`);
-  } finally {
-    setIsLoading(false);
-  }
-};
- const openModal = (receipt, action) => {
-  setSelectedReceipt(receipt);
-  setActionType(action);
-  setAdminNotes('');
-  setShowConfirmModal(true); // Show confirmation modal first
-  
-  // Fetch assessment and business permit data
-  if (receipt.user_id) {
-    fetchAssessmentData(receipt.receipt_id, receipt.user_id);
-    fetchBusinessPermitData(receipt.user_id);
-  }
-};
+  };
+
+  // ✅ FIXED openModal (no duplicates)
+  const openModal = (receipt, action) => {
+    setSelectedReceipt(receipt);
+    setActionType(action);
+    setAdminNotes("");
+    setSelectedNotePreset("");
+    setIsCustomNote(false);
+    setShowConfirmModal(true);
+
+    if (receipt.user_id) {
+      fetchAssessmentData(receipt.receipt_id, receipt.user_id);
+      fetchBusinessPermitData(receipt.user_id);
+    }
+  };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   const formatCurrency = (amount) => {
-    return `₱${parseFloat(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    return `₱${parseFloat(amount || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+    })}`;
   };
 
   const getStatusBadge = (status) => {
     const badges = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800'
+      pending: "bg-yellow-100 text-yellow-800",
+      approved: "bg-green-100 text-green-800",
+      rejected: "bg-red-100 text-red-800",
     };
-    return badges[status] || 'bg-gray-100 text-gray-800';
+    return badges[status] || "bg-gray-100 text-gray-800";
   };
 
   const getPaymentMethodBadge = (method) => {
     const badges = {
-      gcash: 'bg-blue-100 text-blue-800',
-      maya: 'bg-purple-100 text-purple-800',
-      other: 'bg-gray-100 text-gray-800'
+      gcash: "bg-blue-100 text-blue-800",
+      maya: "bg-purple-100 text-purple-800",
+      other: "bg-gray-100 text-gray-800",
     };
-    return badges[method] || 'bg-gray-100 text-gray-800';
+    return badges[method] || "bg-gray-100 text-gray-800";
   };
 
-  const filteredReceipts = paymentReceipts.filter(receipt =>
-    receipt.user_first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    receipt.user_last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    receipt.permit_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    receipt.application_type?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredReceipts = paymentReceipts.filter(
+    (receipt) =>
+      receipt.user_first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      receipt.user_last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      receipt.permit_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      receipt.application_type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
     checkSession();
+    // eslint-disable-next-line
   }, []);
 
   useEffect(() => {
@@ -243,6 +269,7 @@ const handleApproveReject = async () => {
       fetchPaymentReceipts();
       fetchStatistics();
     }
+    // eslint-disable-next-line
   }, [selectedTab, isLoggedIn]);
 
   if (isLoading) {
@@ -260,13 +287,13 @@ const handleApproveReject = async () => {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <Sidebar 
-        userData={userData} 
-        onLogout={handleLogout} 
+      <Sidebar
+        userData={userData}
+        onLogout={handleLogout}
         isLoading={isLoading}
         onNavigate={handleNavigate}
       />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header (sticky) */}
         <div className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
@@ -308,19 +335,19 @@ const handleApproveReject = async () => {
             </div>
           </div>
 
-          {/* Tabs + Search (sticky under header) */}
+          {/* Tabs + Search */}
           <div className="px-6 pb-5">
             <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
               <div className="border-b border-gray-100">
                 <nav className="flex flex-wrap gap-2 px-4 py-3">
-                  {['pending', 'approved', 'rejected', 'all'].map((tab) => (
+                  {["pending", "approved", "rejected", "all"].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setSelectedTab(tab)}
                       className={`rounded-full px-4 py-2 text-xs font-semibold ring-1 transition ${
                         selectedTab === tab
-                          ? 'bg-blue-50 text-blue-700 ring-blue-100'
-                          : 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-50'
+                          ? "bg-blue-50 text-blue-700 ring-blue-100"
+                          : "bg-white text-gray-600 ring-gray-200 hover:bg-gray-50"
                       }`}
                     >
                       {tab}
@@ -346,7 +373,7 @@ const handleApproveReject = async () => {
 
                   {searchTerm && (
                     <button
-                      onClick={() => setSearchTerm('')}
+                      onClick={() => setSearchTerm("")}
                       className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
                       aria-label="Clear search"
                       type="button"
@@ -364,7 +391,6 @@ const handleApproveReject = async () => {
 
         {/* Content */}
         <div className="flex-1 overflow-auto px-6 pb-10 pt-6">
-          {/* Payment Receipts List */}
           <div className="grid gap-4">
             {filteredReceipts.length === 0 ? (
               <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-10 text-center">
@@ -383,18 +409,15 @@ const handleApproveReject = async () => {
                 const total = parseFloat(receipt.total_document_price || 0);
                 const paid = parseFloat(receipt.payment_amount || 0);
                 const remaining = Math.max(total - paid, 0);
-                const percentage =
-                  total > 0 ? Math.min((paid / total) * 100, 100) : 0;
+                const percentage = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
 
                 return (
                   <div
                     key={receipt.receipt_id}
                     className="rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition"
                   >
-                    {/* Top row */}
                     <div className="p-5">
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        {/* Left: Info */}
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-lg font-semibold text-gray-900">
@@ -405,13 +428,13 @@ const handleApproveReject = async () => {
                               className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
                                 getStatusBadge(receipt.payment_status)
                               } ${
-                                receipt.payment_status === 'pending'
-                                  ? 'ring-yellow-200'
-                                  : receipt.payment_status === 'approved'
-                                  ? 'ring-green-200'
-                                  : receipt.payment_status === 'rejected'
-                                  ? 'ring-red-200'
-                                  : 'ring-gray-200'
+                                receipt.payment_status === "pending"
+                                  ? "ring-yellow-200"
+                                  : receipt.payment_status === "approved"
+                                  ? "ring-green-200"
+                                  : receipt.payment_status === "rejected"
+                                  ? "ring-red-200"
+                                  : "ring-gray-200"
                               }`}
                             >
                               {receipt.payment_status}
@@ -421,18 +444,17 @@ const handleApproveReject = async () => {
                               className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
                                 getPaymentMethodBadge(receipt.payment_method)
                               } ${
-                                receipt.payment_method === 'gcash'
-                                  ? 'ring-blue-200'
-                                  : receipt.payment_method === 'maya'
-                                  ? 'ring-purple-200'
-                                  : 'ring-gray-200'
+                                receipt.payment_method === "gcash"
+                                  ? "ring-blue-200"
+                                  : receipt.payment_method === "maya"
+                                  ? "ring-purple-200"
+                                  : "ring-gray-200"
                               }`}
                             >
                               {receipt.payment_method}
                             </span>
                           </div>
 
-                          {/* Details grid */}
                           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                             <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
                               <p className="text-xs text-gray-500">Permit Type</p>
@@ -447,9 +469,7 @@ const handleApproveReject = async () => {
                                 {formatCurrency(paid)}
                               </p>
                               <p className="mt-1 text-xs text-gray-500">
-                                {percentage >= 100
-                                  ? 'Full payment (100%)'
-                                  : `${percentage.toFixed(1)}% of total fee`}
+                                {percentage >= 100 ? "Full payment (100%)" : `${percentage.toFixed(1)}% of total fee`}
                               </p>
                             </div>
 
@@ -492,7 +512,6 @@ const handleApproveReject = async () => {
                           </div>
                         </div>
 
-                        {/* Right: Receipt image + actions */}
                         <div className="lg:ml-6 w-full lg:w-[280px] shrink-0">
                           <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-4">
                             {receipt.receipt_image ? (
@@ -501,10 +520,7 @@ const handleApproveReject = async () => {
                                   type="button"
                                   className="group block w-full overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
                                   onClick={() =>
-                                    window.open(
-                                      `${API_BASE_URL}${receipt.receipt_image}`,
-                                      '_blank'
-                                    )
+                                    window.open(`${API_BASE_URL}${receipt.receipt_image}`, "_blank")
                                   }
                                 >
                                   <img
@@ -524,45 +540,44 @@ const handleApproveReject = async () => {
                             )}
 
                             <div className="mt-4">
-                              {receipt.payment_status === 'pending' && (
-  <div className="flex flex-col gap-2">
-    <button
-      onClick={() => openModal(receipt, 'approve')}
-      className="w-full rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100 transition"
-    >
-      Approve
-    </button>
-    <button
-      onClick={() => openModal(receipt, 'reject')}
-      className="w-full rounded-full bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-100 hover:bg-rose-100 transition"
-    >
-      Reject
-    </button>
-  </div>
-)}
-                              {receipt.payment_status === 'approved' && (
+                              {receipt.payment_status === "pending" && (
+                                <div className="flex flex-col gap-2">
+                                  <button
+                                    onClick={() => openModal(receipt, "approve")}
+                                    className="w-full rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100 transition"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => openModal(receipt, "reject")}
+                                    className="w-full rounded-full bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-100 hover:bg-rose-100 transition"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              )}
+
+                              {receipt.payment_status === "approved" && (
                                 <div className="text-center">
                                   <div className="inline-flex items-center rounded-full bg-green-50 px-4 py-2 text-xs font-semibold text-green-700 ring-1 ring-green-100">
                                     ✓ Approved
                                   </div>
                                   {receipt.approved_by_first_name && (
                                     <p className="mt-2 text-xs text-gray-500">
-                                      By: {receipt.approved_by_first_name}{' '}
-                                      {receipt.approved_by_last_name}
+                                      By: {receipt.approved_by_first_name} {receipt.approved_by_last_name}
                                     </p>
                                   )}
                                 </div>
                               )}
 
-                              {receipt.payment_status === 'rejected' && (
+                              {receipt.payment_status === "rejected" && (
                                 <div className="text-center">
                                   <div className="inline-flex items-center rounded-full bg-red-50 px-4 py-2 text-xs font-semibold text-red-700 ring-1 ring-red-100">
                                     ✗ Rejected
                                   </div>
                                   {receipt.approved_by_first_name && (
                                     <p className="mt-2 text-xs text-gray-500">
-                                      By: {receipt.approved_by_first_name}{' '}
-                                      {receipt.approved_by_last_name}
+                                      By: {receipt.approved_by_first_name} {receipt.approved_by_last_name}
                                     </p>
                                   )}
                                 </div>
@@ -573,119 +588,117 @@ const handleApproveReject = async () => {
                       </div>
                     </div>
 
-                    {/* Subtle bottom accent */}
                     <div className="h-1 w-full bg-gradient-to-r from-blue-100 via-indigo-100 to-purple-100 rounded-b-2xl" />
                   </div>
                 );
               })
             )}
           </div>
-{showConfirmModal && selectedReceipt && (
-  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden">
-      {/* Modal Header */}
-      <div
-        className={`px-6 py-4 ${
-          actionType === 'approve'
-            ? 'bg-gradient-to-r from-emerald-600 to-emerald-700'
-            : 'bg-gradient-to-r from-rose-600 to-rose-700'
-        } text-white`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-semibold">
-              Confirm {actionType === 'approve' ? 'Approval' : 'Rejection'}
-            </h3>
-            <p className="text-xs text-white/80">
-              Are you sure you want to {actionType} this payment?
-            </p>
-          </div>
 
-          <button
-            onClick={() => setShowConfirmModal(false)}
-            className="rounded-full bg-white/15 p-2 hover:bg-white/25 transition"
-            type="button"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
+          {/* Confirm Modal */}
+          {showConfirmModal && selectedReceipt && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden">
+                <div
+                  className={`px-6 py-4 ${
+                    actionType === "approve"
+                      ? "bg-gradient-to-r from-emerald-600 to-emerald-700"
+                      : "bg-gradient-to-r from-rose-600 to-rose-700"
+                  } text-white`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold">
+                        Confirm {actionType === "approve" ? "Approval" : "Rejection"}
+                      </h3>
+                      <p className="text-xs text-white/80">
+                        Are you sure you want to {actionType} this payment?
+                      </p>
+                    </div>
 
-      {/* Modal Body */}
-      <div className="p-6 space-y-4">
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-            {actionType === 'approve' ? (
-              <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            ) : (
-              <svg className="h-6 w-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            )}
-          </div>
-          
-          <p className="font-medium text-gray-900">
-            {actionType === 'approve' ? 'Approve payment for' : 'Reject payment for'}
-          </p>
-          <p className="text-sm text-gray-600 mt-1">
-            <span className="font-semibold">{selectedReceipt.user_first_name} {selectedReceipt.user_last_name}</span>
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Permit: {selectedReceipt.permit_name}
-          </p>
-          <p className="text-sm font-semibold text-green-700 mt-2">
-            Amount: {formatCurrency(selectedReceipt.payment_amount)}
-          </p>
-        </div>
+                    <button
+                      onClick={() => setShowConfirmModal(false)}
+                      className="rounded-full bg-white/15 p-2 hover:bg-white/25 transition"
+                      type="button"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
 
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-          <div className="flex items-start">
-            <svg className="h-5 w-5 text-amber-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            <div>
-              <p className="text-xs font-medium text-amber-800">
-                {actionType === 'approve' 
-                  ? 'Once approved, the applicant will gain access to the application form.'
-                  : 'Rejected payments cannot be undone. Please provide a reason in the next step.'}
-              </p>
+                <div className="p-6 space-y-4">
+                  <div className="text-center">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+                      {actionType === "approve" ? (
+                        <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-6 w-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      )}
+                    </div>
+
+                    <p className="font-medium text-gray-900">
+                      {actionType === "approve" ? "Approve payment for" : "Reject payment for"}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      <span className="font-semibold">
+                        {selectedReceipt.user_first_name} {selectedReceipt.user_last_name}
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Permit: {selectedReceipt.permit_name}</p>
+                    <p className="text-sm font-semibold text-green-700 mt-2">
+                      Amount: {formatCurrency(selectedReceipt.payment_amount)}
+                    </p>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                    <div className="flex items-start">
+                      <svg className="h-5 w-5 text-amber-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <p className="text-xs font-medium text-amber-800">
+                          {actionType === "approve"
+                            ? "Once approved, the applicant will gain access to the application form."
+                            : "Rejected payments cannot be undone. Please provide a reason in the next step."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      onClick={() => setShowConfirmModal(false)}
+                      className="rounded-full px-4 py-2 text-xs font-semibold ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 transition"
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowConfirmModal(false);
+                        setShowModal(true);
+                      }}
+                      className={`rounded-full px-4 py-2 text-xs font-semibold text-white ring-1 transition ${
+                        actionType === "approve"
+                          ? "bg-emerald-600 hover:bg-emerald-700 ring-emerald-500/30"
+                          : "bg-rose-600 hover:bg-rose-700 ring-rose-500/30"
+                      }`}
+                      type="button"
+                    >
+                      Yes, Continue
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <button
-            onClick={() => setShowConfirmModal(false)}
-            className="rounded-full px-4 py-2 text-xs font-semibold ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 transition"
-            type="button"
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={() => {
-              setShowConfirmModal(false);
-              setShowModal(true); // Show the main modal with notes
-            }}
-            className={`rounded-full px-4 py-2 text-xs font-semibold text-white ring-1 transition ${
-              actionType === 'approve'
-                ? 'bg-emerald-600 hover:bg-emerald-700 ring-emerald-500/30'
-                : 'bg-rose-600 hover:bg-rose-700 ring-rose-500/30'
-            }`}
-            type="button"
-          >
-            Yes, Continue
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -707,8 +720,8 @@ const handleApproveReject = async () => {
                         onClick={() => fetchPaymentReceipts(selectedTab, index + 1)}
                         className={`rounded-full px-4 py-2 text-xs font-semibold ring-1 transition ${
                           currentPage === index + 1
-                            ? 'bg-blue-50 ring-blue-100 text-blue-700'
-                            : 'bg-white ring-gray-200 text-gray-600 hover:bg-gray-50'
+                            ? "bg-blue-50 ring-blue-100 text-blue-700"
+                            : "bg-white ring-gray-200 text-gray-600 hover:bg-gray-50"
                         }`}
                       >
                         {index + 1}
@@ -728,29 +741,25 @@ const handleApproveReject = async () => {
             </div>
           )}
         </div>
-        
       </div>
 
-      {/* Modal for Approve/Reject - UPDATED WITH ASSESSMENT AND BUSINESS PERMIT INFO */}
+      {/* Main Modal */}
       {showModal && selectedReceipt && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="w-full max-w-4xl rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div
               className={`px-6 py-4 sticky top-0 z-10 ${
-                actionType === 'approve'
-                  ? 'bg-gradient-to-r from-emerald-600 to-emerald-700'
-                  : 'bg-gradient-to-r from-rose-600 to-rose-700'
+                actionType === "approve"
+                  ? "bg-gradient-to-r from-emerald-600 to-emerald-700"
+                  : "bg-gradient-to-r from-rose-600 to-rose-700"
               } text-white`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold">
-                    {actionType === 'approve' ? 'Approve Payment' : 'Reject Payment'}
+                    {actionType === "approve" ? "Approve Payment" : "Reject Payment"}
                   </h3>
-                  <p className="text-xs text-white/80">
-                    Confirm the receipt details before submitting.
-                  </p>
+                  <p className="text-xs text-white/80">Confirm the receipt details before submitting.</p>
                 </div>
 
                 <button
@@ -765,9 +774,8 @@ const handleApproveReject = async () => {
               </div>
             </div>
 
-            {/* Modal Body - UPDATED LAYOUT */}
             <div className="p-6 space-y-6">
-              {/* Business Permit Information Section */}
+              {/* Business Permit Info */}
               {businessPermitData && (
                 <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
                   <div className="bg-blue-50 px-6 py-3 border-b border-blue-100">
@@ -777,42 +785,39 @@ const handleApproveReject = async () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <p className="text-xs text-gray-500">Business Name</p>
-                        <p className="font-medium text-gray-900">{businessPermitData.business_name || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.business_name || "N/A"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Trade Name</p>
-                        <p className="font-medium text-gray-900">{businessPermitData.trade_name || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.trade_name || "N/A"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Application Type</p>
-                        <p className="font-medium text-gray-900">{businessPermitData.application_type || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.application_type || "N/A"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Business Address</p>
-                        <p className="font-medium text-gray-900">{businessPermitData.business_address || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.business_address || "N/A"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">TIN Number</p>
-                        <p className="font-medium text-gray-900">{businessPermitData.tin_number || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.tin_number || "N/A"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Registration Number</p>
-                        <p className="font-medium text-gray-900">{businessPermitData.registration_number || 'N/A'}</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.registration_number || "N/A"}</p>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Assessment Fee Section */}
+              {/* Assessment Fee */}
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <div className="bg-amber-50 px-6 py-3 border-b border-amber-100">
-                  
-                </div>
+                <div className="bg-amber-50 px-6 py-3 border-b border-amber-100"></div>
                 <div className="p-6">
                   {assessmentData ? (
                     <div className="space-y-4">
-                      {/* Assessment Fee Table */}
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
@@ -824,17 +829,21 @@ const handleApproveReject = async () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200">
-                            {/* Render assessment items here */}
-                            {assessmentData.feeItems && assessmentData.feeItems.map((item, index) => (
-                              <tr key={index}>
-                                <td className="px-4 py-2 text-gray-800">{item.description}</td>
-                                <td className="px-4 py-2 text-right text-gray-800">{formatCurrency(item.amount)}</td>
-                                <td className="px-4 py-2 text-right text-gray-800">{formatCurrency(item.penalty)}</td>
-                                <td className="px-4 py-2 text-right font-medium text-gray-900">
-                                  {formatCurrency(item.total)}
-                                </td>
-                              </tr>
-                            ))}
+                            {assessmentData.feeItems &&
+                              assessmentData.feeItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="px-4 py-2 text-gray-800">{item.description}</td>
+                                  <td className="px-4 py-2 text-right text-gray-800">
+                                    {formatCurrency(item.amount)}
+                                  </td>
+                                  <td className="px-4 py-2 text-right text-gray-800">
+                                    {formatCurrency(item.penalty)}
+                                  </td>
+                                  <td className="px-4 py-2 text-right font-medium text-gray-900">
+                                    {formatCurrency(item.total)}
+                                  </td>
+                                </tr>
+                              ))}
                           </tbody>
                           <tfoot className="bg-gray-50">
                             <tr>
@@ -864,17 +873,19 @@ const handleApproveReject = async () => {
                           </tfoot>
                         </table>
                       </div>
-                      
+
                       <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                         <div className="text-xs text-gray-500">
-                          Assessment created: {assessmentData.created_at || 'N/A'}
+                          Assessment created: {assessmentData.created_at || "N/A"}
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          assessmentData.status === 'approved' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          Status: {assessmentData.status || 'pending'}
+                        <div
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            assessmentData.status === "approved"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          Status: {assessmentData.status || "pending"}
                         </div>
                       </div>
                     </div>
@@ -891,7 +902,7 @@ const handleApproveReject = async () => {
                 </div>
               </div>
 
-              {/* Payment Details Section */}
+              {/* Payment Details */}
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
                 <div className="bg-gray-50 px-6 py-3 border-b border-gray-100">
                   <h4 className="font-semibold text-gray-800">Payment Details</h4>
@@ -906,9 +917,7 @@ const handleApproveReject = async () => {
                     </div>
                     <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
                       <p className="text-xs text-gray-500">Permit</p>
-                      <p className="mt-1 font-semibold text-gray-900">
-                        {selectedReceipt.permit_name}
-                      </p>
+                      <p className="mt-1 font-semibold text-gray-900">{selectedReceipt.permit_name}</p>
                     </div>
                     <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
                       <p className="text-xs text-gray-500">Amount Paid</p>
@@ -918,13 +927,10 @@ const handleApproveReject = async () => {
                     </div>
                     <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
                       <p className="text-xs text-gray-500">Payment Method</p>
-                      <p className="mt-1 font-semibold text-gray-900">
-                        {selectedReceipt.payment_method}
-                      </p>
+                      <p className="mt-1 font-semibold text-gray-900">{selectedReceipt.payment_method}</p>
                     </div>
                   </div>
 
-                  {/* Receipt Image */}
                   {selectedReceipt.receipt_image && (
                     <div className="mt-6">
                       <p className="text-xs font-semibold text-gray-700 mb-2">Payment Receipt</p>
@@ -932,12 +938,7 @@ const handleApproveReject = async () => {
                         <button
                           type="button"
                           className="block w-full"
-                          onClick={() =>
-                            window.open(
-                              `${API_BASE_URL}${selectedReceipt.receipt_image}`,
-                              '_blank'
-                            )
-                          }
+                          onClick={() => window.open(`${API_BASE_URL}${selectedReceipt.receipt_image}`, "_blank")}
                         >
                           <img
                             src={`${API_BASE_URL}${selectedReceipt.receipt_image}`}
@@ -954,35 +955,77 @@ const handleApproveReject = async () => {
                 </div>
               </div>
 
-              {/* Notes Section */}
+              {/* Admin Action (Notes) */}
               <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
                 <div className="bg-gray-50 px-6 py-3 border-b border-gray-100">
                   <h4 className="font-semibold text-gray-800">Admin Action</h4>
                 </div>
-                <div className="p-6">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-2">
-                      {actionType === 'approve' ? 'Approval Notes (Optional)' : 'Reason for Rejection (Required)'}
-                    </label>
-                    <textarea
-                      value={adminNotes}
-                      onChange={(e) => setAdminNotes(e.target.value)}
-                      rows={3}
-                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-200"
-                      placeholder={
-                        actionType === 'approve' 
-                          ? 'Optional notes about the approval...' 
-                          : 'Please provide a reason for rejecting this payment...'
-                      }
-                    />
-                    {actionType === 'reject' && (
-                      <p className="mt-2 text-xs text-gray-500">
-                        Note: Rejection requires a short reason.
-                      </p>
-                    )}
-                  </div>
 
-                  {/* Modal Actions */}
+                <div className="p-6">
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">
+                    {actionType === "approve"
+                      ? "Approval Notes (Optional)"
+                      : "Reason for Rejection (Required)"}
+                  </label>
+
+                  {/* ✅ Dropdown: shows ONLY approve OR reject options based on actionType */}
+                  <select
+                    value={selectedNotePreset}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setSelectedNotePreset(v);
+
+                      if (v === "__custom__") {
+                        setIsCustomNote(true);
+                        setAdminNotes("");
+                        return;
+                      }
+
+                      setIsCustomNote(false);
+                      setAdminNotes(v);
+                    }}
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-200"
+                  >
+                    <option value="">
+                      {actionType === "approve"
+                        ? "Select an approval note (optional)..."
+                        : "Select a rejection reason (required)..."}
+                    </option>
+
+                    <option value="__custom__">Custom (Type my own)</option>
+
+                    {(actionType === "approve" ? APPROVE_NOTE_OPTIONS : REJECT_NOTE_OPTIONS).map(
+                      (note, idx) => (
+                        <option key={idx} value={note}>
+                          {note}
+                        </option>
+                      )
+                    )}
+                  </select>
+
+                  <textarea
+                    value={adminNotes}
+                    onChange={(e) => {
+                      if (isCustomNote) setAdminNotes(e.target.value);
+                    }}
+                    readOnly={!isCustomNote}
+                    rows={3}
+                    className="mt-3 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-200"
+                    placeholder={
+                      isCustomNote
+                        ? "Type your note here..."
+                        : actionType === "approve"
+                        ? "No approval notes selected."
+                        : "Please select a rejection reason above."
+                    }
+                  />
+
+                  {actionType === "reject" && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Note: Rejection requires a reason (choose preset or select Custom and type).
+                    </p>
+                  )}
+
                   <div className="flex items-center justify-end gap-2 pt-6">
                     <button
                       onClick={() => setShowModal(false)}
@@ -994,24 +1037,24 @@ const handleApproveReject = async () => {
 
                     <button
                       onClick={handleApproveReject}
-                      disabled={actionType === 'reject' && !adminNotes.trim()}
+                      disabled={actionType === "reject" && !adminNotes.trim()}
                       className={`rounded-full px-4 py-2 text-xs font-semibold text-white ring-1 transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                        actionType === 'approve'
-                          ? 'bg-emerald-600 hover:bg-emerald-700 ring-emerald-500/30'
-                          : 'bg-rose-600 hover:bg-rose-700 ring-rose-500/30'
+                        actionType === "approve"
+                          ? "bg-emerald-600 hover:bg-emerald-700 ring-emerald-500/30"
+                          : "bg-rose-600 hover:bg-rose-700 ring-rose-500/30"
                       }`}
                       type="button"
                     >
-                      {actionType === 'approve' ? 'Approve Payment' : 'Reject Payment'}
+                      {actionType === "approve" ? "Approve Payment" : "Reject Payment"}
                     </button>
                   </div>
                 </div>
               </div>
+              {/* end Admin Action */}
             </div>
           </div>
         </div>
       )}
-      
     </div>
   );
 };

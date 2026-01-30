@@ -225,15 +225,15 @@ async function fillFencingTemplate(mapped) {
   draw(mapped.building_permit_no, 410, 892);
 
   // Applicant name / TIN  (MI • Last • First • TIN)
-  draw(mapped.mi,         35, 830);
-  draw(mapped.last_name, 160, 830);
-  draw(mapped.first_name,260, 830);
-  draw(mapped.tin,       390, 830);
+  draw(mapped.mi,         320, 841);
+  draw(mapped.last_name, 147, 841);
+  draw(mapped.first_name,247, 841);
+  draw(mapped.tin,       390, 841);
 
   // Ownership / Use
-  draw(mapped.construction_owned, 14, 800);
-  draw(mapped.form_of_ownership, 211, 800);
-  draw(mapped.use_or_character,  407, 800);
+  draw(mapped.construction_owned, 14, 808);
+  draw(mapped.form_of_ownership, 211, 808);
+  draw(mapped.use_or_character,  407, 808);
 
   // Mailing Address
   draw(mapped.address_no,      105, 730);
