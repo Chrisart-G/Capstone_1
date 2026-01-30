@@ -23,8 +23,11 @@ const PaymentVerification = () => {
   const [adminNotes, setAdminNotes] = useState('');
   const [actionType, setActionType] = useState(''); // 'approve' or 'reject'
   const [currentPage, setCurrentPage] = useState(1);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [assessmentData, setAssessmentData] = useState(null); // NEW: For assessment data
+  const [businessPermitData, setBusinessPermitData] = useState(null); // NEW: For business permit details
 
   const handleLogout = async () => {
     try {
@@ -77,6 +80,39 @@ const PaymentVerification = () => {
     }
   };
 
+  // NEW: Fetch assessment data
+  const fetchAssessmentData = async (receiptId, userId) => {
+    try {
+      // You'll need to adjust this endpoint based on your API
+          const response = await axios.get(`${API_BASE_URL}/api/payments/get-assessment`, {
+        params: { receipt_id: receiptId, user_id: userId },
+        withCredentials: true
+      });
+
+      if (response.data.success) {
+        setAssessmentData(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching assessment data:", error);
+    }
+  };
+
+  // NEW: Fetch business permit application details
+  const fetchBusinessPermitData = async (userId) => {
+    try {
+      // You'll need to adjust this endpoint based on your API
+        const response = await axios.get(`${API_BASE_URL}/api/payments/business-permit/${userId}`, {
+        withCredentials: true
+      });
+
+      if (response.data.success) {
+        setBusinessPermitData(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching business permit data:", error);
+    }
+  };
+
   const fetchPaymentReceipts = async (status = selectedTab, page = 1) => {
     try {
       setIsLoading(true);
@@ -115,41 +151,49 @@ const PaymentVerification = () => {
     }
   };
 
-  const handleApproveReject = async () => {
-    if (!selectedReceipt) return;
+const handleApproveReject = async () => {
+  if (!selectedReceipt) return;
 
-    try {
-      setIsLoading(true);
-      const endpoint = actionType === 'approve' ? 'approve' : 'reject';
-      const response = await axios.put(
-        `${API_BASE_URL}/api/payment-receipts/${selectedReceipt.receipt_id}/${endpoint}`,
-        { admin_notes: adminNotes },
-        { withCredentials: true }
-      );
+  try {
+    setIsLoading(true);
+    const endpoint = actionType === 'approve' ? 'approve' : 'reject';
+    const response = await axios.put(
+      `${API_BASE_URL}/api/payment-receipts/${selectedReceipt.receipt_id}/${endpoint}`,
+      { admin_notes: adminNotes },
+      { withCredentials: true }
+    );
 
-      if (response.data.success) {
-        alert(`Payment ${actionType}d successfully!`);
-        setShowModal(false);
-        setSelectedReceipt(null);
-        setAdminNotes('');
-        setActionType('');
-        await fetchPaymentReceipts();
-        await fetchStatistics();
-      }
-    } catch (error) {
-      console.error(`Error ${actionType}ing payment:`, error);
-      alert(`Failed to ${actionType} payment.`);
-    } finally {
-      setIsLoading(false);
+    if (response.data.success) {
+      alert(`Payment ${actionType}d successfully!`);
+      setShowModal(false);
+      setShowConfirmModal(false); // Close confirmation modal
+      setSelectedReceipt(null);
+      setAssessmentData(null);
+      setBusinessPermitData(null);
+      setAdminNotes('');
+      setActionType('');
+      await fetchPaymentReceipts();
+      await fetchStatistics();
     }
-  };
-
-  const openModal = (receipt, action) => {
-    setSelectedReceipt(receipt);
-    setActionType(action);
-    setAdminNotes('');
-    setShowModal(true);
-  };
+  } catch (error) {
+    console.error(`Error ${actionType}ing payment:`, error);
+    alert(`Failed to ${actionType} payment.`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+ const openModal = (receipt, action) => {
+  setSelectedReceipt(receipt);
+  setActionType(action);
+  setAdminNotes('');
+  setShowConfirmModal(true); // Show confirmation modal first
+  
+  // Fetch assessment and business permit data
+  if (receipt.user_id) {
+    fetchAssessmentData(receipt.receipt_id, receipt.user_id);
+    fetchBusinessPermitData(receipt.user_id);
+  }
+};
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -223,7 +267,6 @@ const PaymentVerification = () => {
         onNavigate={handleNavigate}
       />
       
-      {/* ALIGNMENT FIX: removed extra ml-64 so content sits right next to sidebar */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header (sticky) */}
         <div className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
@@ -482,22 +525,21 @@ const PaymentVerification = () => {
 
                             <div className="mt-4">
                               {receipt.payment_status === 'pending' && (
-                                <div className="flex flex-col gap-2">
-                                  <button
-                                    onClick={() => openModal(receipt, 'approve')}
-                                    className="w-full rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    onClick={() => openModal(receipt, 'reject')}
-                                    className="w-full rounded-full bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-100 hover:bg-rose-100"
-                                  >
-                                    Reject
-                                  </button>
-                                </div>
-                              )}
-
+  <div className="flex flex-col gap-2">
+    <button
+      onClick={() => openModal(receipt, 'approve')}
+      className="w-full rounded-full bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100 transition"
+    >
+      Approve
+    </button>
+    <button
+      onClick={() => openModal(receipt, 'reject')}
+      className="w-full rounded-full bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 ring-1 ring-rose-100 hover:bg-rose-100 transition"
+    >
+      Reject
+    </button>
+  </div>
+)}
                               {receipt.payment_status === 'approved' && (
                                 <div className="text-center">
                                   <div className="inline-flex items-center rounded-full bg-green-50 px-4 py-2 text-xs font-semibold text-green-700 ring-1 ring-green-100">
@@ -538,6 +580,112 @@ const PaymentVerification = () => {
               })
             )}
           </div>
+{showConfirmModal && selectedReceipt && (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden">
+      {/* Modal Header */}
+      <div
+        className={`px-6 py-4 ${
+          actionType === 'approve'
+            ? 'bg-gradient-to-r from-emerald-600 to-emerald-700'
+            : 'bg-gradient-to-r from-rose-600 to-rose-700'
+        } text-white`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold">
+              Confirm {actionType === 'approve' ? 'Approval' : 'Rejection'}
+            </h3>
+            <p className="text-xs text-white/80">
+              Are you sure you want to {actionType} this payment?
+            </p>
+          </div>
+
+          <button
+            onClick={() => setShowConfirmModal(false)}
+            className="rounded-full bg-white/15 p-2 hover:bg-white/25 transition"
+            type="button"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Modal Body */}
+      <div className="p-6 space-y-4">
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+            {actionType === 'approve' ? (
+              <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ) : (
+              <svg className="h-6 w-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            )}
+          </div>
+          
+          <p className="font-medium text-gray-900">
+            {actionType === 'approve' ? 'Approve payment for' : 'Reject payment for'}
+          </p>
+          <p className="text-sm text-gray-600 mt-1">
+            <span className="font-semibold">{selectedReceipt.user_first_name} {selectedReceipt.user_last_name}</span>
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Permit: {selectedReceipt.permit_name}
+          </p>
+          <p className="text-sm font-semibold text-green-700 mt-2">
+            Amount: {formatCurrency(selectedReceipt.payment_amount)}
+          </p>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+          <div className="flex items-start">
+            <svg className="h-5 w-5 text-amber-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.998-.833-2.732 0L4.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div>
+              <p className="text-xs font-medium text-amber-800">
+                {actionType === 'approve' 
+                  ? 'Once approved, the applicant will gain access to the application form.'
+                  : 'Rejected payments cannot be undone. Please provide a reason in the next step.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <button
+            onClick={() => setShowConfirmModal(false)}
+            className="rounded-full px-4 py-2 text-xs font-semibold ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50 transition"
+            type="button"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={() => {
+              setShowConfirmModal(false);
+              setShowModal(true); // Show the main modal with notes
+            }}
+            className={`rounded-full px-4 py-2 text-xs font-semibold text-white ring-1 transition ${
+              actionType === 'approve'
+                ? 'bg-emerald-600 hover:bg-emerald-700 ring-emerald-500/30'
+                : 'bg-rose-600 hover:bg-rose-700 ring-rose-500/30'
+            }`}
+            type="button"
+          >
+            Yes, Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -580,15 +728,16 @@ const PaymentVerification = () => {
             </div>
           )}
         </div>
+        
       </div>
 
-      {/* Modal for Approve/Reject */}
+      {/* Modal for Approve/Reject - UPDATED WITH ASSESSMENT AND BUSINESS PERMIT INFO */}
       {showModal && selectedReceipt && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden">
+          <div className="w-full max-w-4xl rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div
-              className={`px-6 py-4 ${
+              className={`px-6 py-4 sticky top-0 z-10 ${
                 actionType === 'approve'
                   ? 'bg-gradient-to-r from-emerald-600 to-emerald-700'
                   : 'bg-gradient-to-r from-rose-600 to-rose-700'
@@ -616,88 +765,253 @@ const PaymentVerification = () => {
               </div>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 gap-3">
-                <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
-                  <p className="text-xs text-gray-500">Applicant</p>
-                  <p className="mt-1 font-semibold text-gray-900">
-                    {selectedReceipt.user_first_name} {selectedReceipt.user_last_name}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
-                  <p className="text-xs text-gray-500">Permit</p>
-                  <p className="mt-1 font-semibold text-gray-900">
-                    {selectedReceipt.permit_name}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
-                  <p className="text-xs text-gray-500">Amount</p>
-                  <p className="mt-1 font-semibold text-green-700">
-                    {formatCurrency(selectedReceipt.payment_amount)}
-                  </p>
-                </div>
-
-                {selectedReceipt.receipt_image && (
-                  <div className="rounded-2xl border border-gray-200 overflow-hidden">
-                    <img
-                      src={`${API_BASE_URL}${selectedReceipt.receipt_image}`}
-                      alt="Payment Receipt"
-                      className="w-full h-56 object-cover"
-                    />
+            {/* Modal Body - UPDATED LAYOUT */}
+            <div className="p-6 space-y-6">
+              {/* Business Permit Information Section */}
+              {businessPermitData && (
+                <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <div className="bg-blue-50 px-6 py-3 border-b border-blue-100">
+                    <h4 className="font-semibold text-blue-800">Business Permit Application Details</h4>
                   </div>
-                )}
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Business Name</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.business_name || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Trade Name</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.trade_name || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Application Type</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.application_type || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Business Address</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.business_address || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">TIN Number</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.tin_number || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Registration Number</p>
+                        <p className="font-medium text-gray-900">{businessPermitData.registration_number || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Assessment Fee Section */}
+              <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div className="bg-amber-50 px-6 py-3 border-b border-amber-100">
+                  
+                </div>
+                <div className="p-6">
+                  {assessmentData ? (
+                    <div className="space-y-4">
+                      {/* Assessment Fee Table */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50">
+                              <th className="px-4 py-2 text-left text-gray-700">Description</th>
+                              <th className="px-4 py-2 text-right text-gray-700">Amount</th>
+                              <th className="px-4 py-2 text-right text-gray-700">Penalty/Surcharge</th>
+                              <th className="px-4 py-2 text-right text-gray-700">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {/* Render assessment items here */}
+                            {assessmentData.feeItems && assessmentData.feeItems.map((item, index) => (
+                              <tr key={index}>
+                                <td className="px-4 py-2 text-gray-800">{item.description}</td>
+                                <td className="px-4 py-2 text-right text-gray-800">{formatCurrency(item.amount)}</td>
+                                <td className="px-4 py-2 text-right text-gray-800">{formatCurrency(item.penalty)}</td>
+                                <td className="px-4 py-2 text-right font-medium text-gray-900">
+                                  {formatCurrency(item.total)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-gray-50">
+                            <tr>
+                              <td colSpan="3" className="px-4 py-3 text-right font-semibold text-gray-700">
+                                Total LGU Fees:
+                              </td>
+                              <td className="px-4 py-3 text-right font-bold text-blue-700">
+                                {formatCurrency(assessmentData.total_lgu_fees || 0)}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td colSpan="3" className="px-4 py-3 text-right font-semibold text-gray-700">
+                                Fire Safety Inspection Fee (15%):
+                              </td>
+                              <td className="px-4 py-3 text-right font-bold text-blue-700">
+                                {formatCurrency(assessmentData.fire_safety_fee || 0)}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td colSpan="3" className="px-4 py-3 text-right font-semibold text-gray-900">
+                                Grand Total Amount Due:
+                              </td>
+                              <td className="px-4 py-3 text-right font-bold text-green-700 text-lg">
+                                {formatCurrency(assessmentData.grand_total || 0)}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                      
+                      <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                        <div className="text-xs text-gray-500">
+                          Assessment created: {assessmentData.created_at || 'N/A'}
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          assessmentData.status === 'approved' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          Status: {assessmentData.status || 'pending'}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="mx-auto w-12 h-12 rounded-2xl bg-gray-50 ring-1 ring-gray-200 flex items-center justify-center mb-4">
+                        <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm text-gray-500">No assessment data available</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">
-                  {actionType === 'approve' ? 'Approval Notes (Optional)' : 'Reason for Rejection (Required)'}
-                </label>
-                <textarea
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  rows={4}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-200"
-                  placeholder={
-                    actionType === 'approve' 
-                      ? 'Optional notes about the approval...' 
-                      : 'Please provide a reason for rejecting this payment...'
-                  }
-                />
-                {actionType === 'reject' && (
-                  <p className="mt-2 text-xs text-gray-500">
-                    Note: Rejection requires a short reason.
-                  </p>
-                )}
+              {/* Payment Details Section */}
+              <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="bg-gray-50 px-6 py-3 border-b border-gray-100">
+                  <h4 className="font-semibold text-gray-800">Payment Details</h4>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
+                      <p className="text-xs text-gray-500">Applicant</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {selectedReceipt.user_first_name} {selectedReceipt.user_last_name}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
+                      <p className="text-xs text-gray-500">Permit</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {selectedReceipt.permit_name}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
+                      <p className="text-xs text-gray-500">Amount Paid</p>
+                      <p className="mt-1 font-semibold text-green-700">
+                        {formatCurrency(selectedReceipt.payment_amount)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 ring-1 ring-gray-200 p-4">
+                      <p className="text-xs text-gray-500">Payment Method</p>
+                      <p className="mt-1 font-semibold text-gray-900">
+                        {selectedReceipt.payment_method}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Receipt Image */}
+                  {selectedReceipt.receipt_image && (
+                    <div className="mt-6">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Payment Receipt</p>
+                      <div className="rounded-2xl border border-gray-200 overflow-hidden">
+                        <button
+                          type="button"
+                          className="block w-full"
+                          onClick={() =>
+                            window.open(
+                              `${API_BASE_URL}${selectedReceipt.receipt_image}`,
+                              '_blank'
+                            )
+                          }
+                        >
+                          <img
+                            src={`${API_BASE_URL}${selectedReceipt.receipt_image}`}
+                            alt="Payment Receipt"
+                            className="w-full h-56 object-contain bg-gray-50"
+                          />
+                        </button>
+                        <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-center">
+                          <p className="text-xs text-gray-500">Click image to open in new tab</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Modal Actions */}
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="rounded-full px-4 py-2 text-xs font-semibold ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50"
-                  type="button"
-                >
-                  Cancel
-                </button>
+              {/* Notes Section */}
+              <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="bg-gray-50 px-6 py-3 border-b border-gray-100">
+                  <h4 className="font-semibold text-gray-800">Admin Action</h4>
+                </div>
+                <div className="p-6">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">
+                      {actionType === 'approve' ? 'Approval Notes (Optional)' : 'Reason for Rejection (Required)'}
+                    </label>
+                    <textarea
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                      rows={3}
+                      className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-200"
+                      placeholder={
+                        actionType === 'approve' 
+                          ? 'Optional notes about the approval...' 
+                          : 'Please provide a reason for rejecting this payment...'
+                      }
+                    />
+                    {actionType === 'reject' && (
+                      <p className="mt-2 text-xs text-gray-500">
+                        Note: Rejection requires a short reason.
+                      </p>
+                    )}
+                  </div>
 
-                <button
-                  onClick={handleApproveReject}
-                  disabled={actionType === 'reject' && !adminNotes.trim()}
-                  className={`rounded-full px-4 py-2 text-xs font-semibold text-white ring-1 transition disabled:opacity-50 disabled:cursor-not-allowed ${
-                    actionType === 'approve'
-                      ? 'bg-emerald-600 hover:bg-emerald-700 ring-emerald-500/30'
-                      : 'bg-rose-600 hover:bg-rose-700 ring-rose-500/30'
-                  }`}
-                  type="button"
-                >
-                  {actionType === 'approve' ? 'Approve Payment' : 'Reject Payment'}
-                </button>
+                  {/* Modal Actions */}
+                  <div className="flex items-center justify-end gap-2 pt-6">
+                    <button
+                      onClick={() => setShowModal(false)}
+                      className="rounded-full px-4 py-2 text-xs font-semibold ring-1 ring-gray-200 text-gray-700 hover:bg-gray-50"
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      onClick={handleApproveReject}
+                      disabled={actionType === 'reject' && !adminNotes.trim()}
+                      className={`rounded-full px-4 py-2 text-xs font-semibold text-white ring-1 transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                        actionType === 'approve'
+                          ? 'bg-emerald-600 hover:bg-emerald-700 ring-emerald-500/30'
+                          : 'bg-rose-600 hover:bg-rose-700 ring-rose-500/30'
+                      }`}
+                      type="button"
+                    >
+                      {actionType === 'approve' ? 'Approve Payment' : 'Reject Payment'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
+      
     </div>
   );
 };

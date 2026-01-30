@@ -4,8 +4,6 @@ import { Save, RefreshCcw, AlertCircle } from "lucide-react";
 import AdminSidebar from "../Header/Adminsidebar";
 
 const API = "http://localhost:8081/api/document-prices";
-
-// For label display
 const PERMIT_LABELS = {
   business: "Business Permit",
   electrical: "Electrical Permit",
@@ -16,7 +14,9 @@ const PERMIT_LABELS = {
   fencing: "Fencing Permit",
   electronics: "Electronics Permit",
   renewal_business: "Business Renewal Permit",
+  zoning: "Zoning Permit", // <-- Add this line for Zoning Permit
 };
+
 
 export default function AdminDocumentPrice() {
   const [rows, setRows] = useState([]);

@@ -1047,3 +1047,296 @@ exports.getFormAccessStatus = async (req, res) => {
     });
   }
 };
+exports.checkPaymentStatus = async (req, res) => {
+  try {
+    const userId = getUserIdFromSession(req);
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const { application_type, application_id } = req.query;
+    
+    if (!application_type || !application_id) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Application type and ID are required" 
+      });
+    }
+
+    const sql = `
+      SELECT 
+        receipt_id,
+        payment_status,
+        payment_amount,
+        payment_percentage,
+        total_document_price,
+        approved_at,
+        admin_notes
+      FROM tbl_payment_receipts
+      WHERE user_id = ? 
+        AND application_type = ?
+        AND related_application_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    db.query(sql, [userId, application_type, application_id], (err, results) => {
+      if (err) {
+        console.error("Check payment status error:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+
+      if (results.length === 0) {
+        return res.json({ 
+          success: true, 
+          hasPayment: false,
+          message: "No payment found for this application" 
+        });
+      }
+
+      res.json({
+        success: true,
+        hasPayment: true,
+        payment: results[0]
+      });
+    });
+
+  } catch (error) {
+    console.error("Unexpected error in checkPaymentStatus:", error);
+    res.status(500).json({ success: false, message: "Unexpected server error" });
+  }
+};
+exports.getAssessmentData = async (req, res) => {
+  try {
+    const { receipt_id, user_id } = req.query;
+    
+    if (!receipt_id || !user_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Receipt ID and User ID are required'
+      });
+    }
+
+    // First, get the BusinessP_id for this user's latest business permit
+    const businessPermitQuery = `
+      SELECT BusinessP_id 
+      FROM business_permits 
+      WHERE user_id = ? 
+      ORDER BY application_date DESC 
+      LIMIT 1
+    `;
+
+    db.query(businessPermitQuery, [user_id], (err, permitResults) => {
+      if (err) {
+        console.error('Get business permit ID error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Internal server error',
+          error: err.message
+        });
+      }
+
+      if (permitResults.length === 0) {
+        return res.json({
+          success: true,
+          data: null,
+          message: 'No business permit found for this user'
+        });
+      }
+
+      const BusinessP_id = permitResults[0].BusinessP_id;
+
+      // Now get the assessment data using the correct table name
+      const assessmentQuery = `
+        SELECT 
+          bpa.*,
+          bp.business_name,
+          bp.trade_name,
+          bp.business_address,
+          bp.tin_no as tin_number,
+          bp.registration_no as registration_number,
+          bp.application_type,
+          bp.status,
+          bp.application_date
+        FROM business_permit_assessment bpa
+        LEFT JOIN business_permits bp ON bpa.BusinessP_id = bp.BusinessP_id
+        WHERE bpa.BusinessP_id = ?
+        ORDER BY bpa.created_at DESC
+        LIMIT 1
+      `;
+
+      db.query(assessmentQuery, [BusinessP_id], (err2, assessmentResults) => {
+        if (err2) {
+          console.error('Get assessment data error:', err2);
+          return res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: err2.message
+          });
+        }
+
+        if (assessmentResults.length === 0) {
+          return res.json({
+            success: true,
+            data: null,
+            message: 'No assessment found for this business permit'
+          });
+        }
+
+        const assessment = assessmentResults[0];
+        
+        // Parse the items_json to get fee items
+        let feeItems = [];
+        try {
+          if (assessment.items_json) {
+            const itemsObj = JSON.parse(assessment.items_json);
+            
+            // Convert the object to an array of fee items
+            feeItems = Object.entries(itemsObj).map(([description, data]) => ({
+              description: description
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, l => l.toUpperCase()), // Convert to Title Case
+              amount: data.amount || 0,
+              penalty: data.penalty || 0,
+              total: data.total || 0
+            }));
+          }
+        } catch (parseError) {
+          console.error('Error parsing items_json:', parseError);
+          feeItems = [];
+        }
+
+        // Calculate totals if not already in database
+        const totalLguFees = assessment.total_fees_lgu || 0;
+        const fireSafetyFee = assessment.fsif_15 || 0;
+        const grandTotal = parseFloat(totalLguFees) + parseFloat(fireSafetyFee);
+
+        res.json({
+          success: true,
+          data: {
+            assessment_id: assessment.id,
+            BusinessP_id: assessment.BusinessP_id,
+            total_lgu_fees: totalLguFees,
+            fire_safety_fee: fireSafetyFee,
+            grand_total: grandTotal,
+            created_at: assessment.created_at,
+            updated_at: assessment.updated_at,
+            status: assessment.status || 'approved',
+            feeItems: feeItems,
+            business_info: {
+              business_name: assessment.business_name,
+              trade_name: assessment.trade_name,
+              business_address: assessment.business_address,
+              tin_number: assessment.tin_number,
+              registration_number: assessment.registration_number,
+              application_type: assessment.application_type
+            }
+          }
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Get assessment data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+
+/* -------------------------------------------------------------------------- */
+/*  Get Business Permit Application Details                                   */
+/* -------------------------------------------------------------------------- */
+
+exports.getBusinessPermitDetails = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    // Use the correct table name: business_permits (not tbl_business_permits)
+    const query = `
+      SELECT 
+        bp.*,
+        CONCAT(bp.first_name, ' ', COALESCE(bp.middle_name, ''), ' ', bp.last_name) as owner_name,
+        bp.owner_address,
+        bp.owner_telephone as owner_phone,
+        bp.owner_email,
+        bp.emergency_contact,
+        bp.emergency_phone,
+        bp.emergency_email,
+        l.email as login_email
+      FROM business_permits bp
+      LEFT JOIN tb_logins l ON bp.user_id = l.user_id
+      WHERE bp.user_id = ?
+        AND (bp.status = 'APPROVED' OR bp.status = 'approved')
+      ORDER BY bp.application_date DESC
+      LIMIT 1
+    `;
+
+    db.query(query, [user_id], (err, results) => {
+      if (err) {
+        console.error('Get business permit details error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Internal server error',
+          error: err.message
+        });
+      }
+
+      if (results.length === 0) {
+        return res.json({
+          success: true,
+          data: null,
+          message: 'No approved business permit found for this user'
+        });
+      }
+
+      const permit = results[0];
+
+      res.json({
+        success: true,
+        data: {
+          business_name: permit.business_name,
+          trade_name: permit.trade_name,
+          business_address: permit.business_address,
+          tin_number: permit.tin_no,
+          registration_number: permit.registration_no,
+          registration_date: permit.registration_date,
+          application_date: permit.application_date,
+          application_type: permit.application_type,
+          payment_mode: permit.payment_mode,
+          status: permit.status,
+          business_type: permit.business_type,
+          business_area: permit.business_area,
+          owner_info: {
+            full_name: permit.owner_name,
+            address: permit.owner_address,
+            phone: permit.owner_phone,
+            email: permit.owner_email,
+            emergency_contact: permit.emergency_contact,
+            emergency_phone: permit.emergency_phone,
+            emergency_email: permit.emergency_email
+          },
+          employee_info: {
+            male_employees: permit.male_employees,
+            female_employees: permit.female_employees,
+            local_employees: permit.local_employees
+          },
+          lessor_info: {
+            name: permit.lessor_name,
+            address: permit.lessor_address,
+            phone: permit.lessor_phone,
+            email: permit.lessor_email,
+            monthly_rental: permit.monthly_rental
+          }
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Get business permit details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};

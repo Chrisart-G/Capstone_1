@@ -8,6 +8,6 @@ const C = require("../Controller/PDF_fillbusinesspermitController");
 router.get ("/user/business/form",          isAuthenticated, C.user_getForm);
 router.post("/user/business/form/save",     isAuthenticated, C.user_saveDraft);
 router.post("/user/business/form/preview",  isAuthenticated, C.user_generatePreview);
-router.post("/user/business/form/submit",   isAuthenticated, C.user_submitFilled);
+router.post("/user/business/form/submit",    C.user_submitFilled);
 
 module.exports = router;

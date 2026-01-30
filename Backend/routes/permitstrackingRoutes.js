@@ -35,5 +35,19 @@ router.post('/user/electrical/form/sign',   isAuthenticated, ElectricalUserFill.
 
 // Render draft onto PDF, flatten, and attach as the user's upload
 router.post('/user/electrical/form/submit', isAuthenticated, ElectricalUserFill.submitFilledPdf);
+router.get(
+  '/zoning-permits-tracking',
+  isAuthenticated,
+  PermitsTrackingController.getZoningPermitsForTracking
+);const BusinessAssessmentController = require('../Controller/businessAssessmentController');
 
+router.get('/business-assessment/:businessId', isAuthenticated, BusinessAssessmentController.getBusinessAssessment);
+router.get('/user/assessment', isAuthenticated, BusinessAssessmentController.getAssessmentForTracker);
+router.post('/user/assessment/payment', isAuthenticated, BusinessAssessmentController.createPaymentFromAssessment);
+router.post('/user/assessment/upload-receipt', isAuthenticated, BusinessAssessmentController.uploadReceiptImage);
+router.get('/user/assessment/payment-status', isAuthenticated, BusinessAssessmentController.checkAssessmentPaymentStatus);
+// Add this new route
+
+router.get('/user/assessment/can-make-payment', isAuthenticated, BusinessAssessmentController.canMakePayment);
+router.post('/user/assessment/check-payment', isAuthenticated, BusinessAssessmentController.checkExistingPayment);
 module.exports = router;

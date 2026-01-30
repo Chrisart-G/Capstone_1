@@ -318,7 +318,7 @@ function mark(page, font, xy, markChar = "X") {  // Changed from "_______" to "X
     y: xy.y, 
     size: XY.fontSize, 
     font,
-    color: rgb(255, 0, 0) // Ensure black color
+    color: rgb(0, 0, 0) // Ensure black color
   });
 }
 
@@ -572,17 +572,42 @@ exports.user_submitFilled = async (req, res) => {
     const market = JSON.stringify(mergedData.market || {});
     const agriculture = JSON.stringify(mergedData.agriculture || {});
 
-    await q(
-      `INSERT INTO business_clearance_form
-         (application_id, status, zoning, fitness, environment, sanitation, market, agriculture, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-       ON DUPLICATE KEY UPDATE
-         status=VALUES(status), zoning=VALUES(zoning), fitness=VALUES(fitness), 
-         environment=VALUES(environment), sanitation=VALUES(sanitation), 
-         market=VALUES(market), agriculture=VALUES(agriculture),
-         updated_at=NOW()`,
-      [appId, status, zoning, fitness, environment, sanitation, market, agriculture]
-    );
+   await q(
+  `INSERT INTO business_clearance_form
+     (application_id, status, zoning, fitness, environment, sanitation, market, agriculture, updated_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+   ON DUPLICATE KEY UPDATE
+     status=VALUES(status), zoning=VALUES(zoning), fitness=VALUES(fitness), 
+     environment=VALUES(environment), sanitation=VALUES(sanitation), 
+     market=VALUES(market), agriculture=VALUES(agriculture),
+     updated_at=NOW()`,
+  [appId, status, zoning, fitness, environment, sanitation, market, agriculture]
+);
+
+// If zoning is approved, update the related requirement
+if (zoning === 'approve') {
+  await q(
+    `UPDATE business_lgu_requirements_status
+     SET status = 'approved', updated_at = NOW(),
+         remarks = 'Zoning clearance approved via clearance form'
+     WHERE application_id = ? AND requirement_key = 'zoning_clearance'`,
+    [appId]
+  );
+}
+console.log('Fitness status:', fitness);
+if (fitness === 'approve') {
+  console
+}
+// Similarly for other fields like occupancy_permit (if fitness maps to it)
+// if (fitness === 'approve') {
+//   await q(
+//     `UPDATE business_lgu_requirements_status
+//      SET status = 'approved', updated_at = NOW(),
+//          remarks = 'Occupancy permit approved via clearance form'
+//      WHERE application_id = ? AND requirement_key = 'occupancy_permit'`,
+//     [appId]
+//   );
+// }
 
     const appRow = await getBusinessApp(appId);
     if (!appRow) return res.status(404).json({ success: false, message: "Business application not found." });

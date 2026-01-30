@@ -78,17 +78,19 @@ const PermitsHomepage = () => {
     'Renewal Business Permit': '/RenewalBusinessPermit',
   };
 
-  const applicationTypeMapping = {
-    'Business Permit': 'business',
-    "Mayor's Permit": 'mayors',
-    'Building Permit': 'building',
-    'Electrical Permit': 'electrical',
-    'Plumbing Permit': 'plumbing',
-    'Cedula Permit': 'cedula',
-    'Fencing Permit': 'fencing',
-    'Electronics Permit': 'electronics',
-    'Renewal Business Permit': 'renewal_business',
-  };
+ // pages/PermitsHomepage.jsx
+const applicationTypeMapping = {
+  'Business Permit': 'business',
+  "Mayor's Permit": 'mayors',
+  'Building Permit': 'building',
+  'Electrical Permit': 'electrical',
+  'Plumbing Permit': 'plumbing',
+  'Cedula Permit': 'cedula',
+  'Fencing Permit': 'fencing',
+  'Electronics Permit': 'electronics',
+  'Renewal Business Permit': 'renewal_business',
+  'Zoning Permit': 'zoning',  // ← ADD THIS LINE
+};
 
   // Fetch price from /api/document-prices/public/:application_type
   const fetchPermitPrice = async (permitName) => {

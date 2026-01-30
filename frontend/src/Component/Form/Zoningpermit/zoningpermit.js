@@ -1,4 +1,3 @@
-// src/Component/Form/Zoningpermit/ZoningPermitForm.js
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Uheader from "../../Header/User_header";
@@ -25,23 +24,23 @@ export default function ZoningPermitForm() {
     authorizedRepresentativeName: "",
 
     // ---------- 6 PROJECT NATURE (dropdown) ----------
-    projectNature: "none", // newDevelopment | improvement | others
+    projectNature: "none",
     projectNatureOtherSpecify: "",
 
     // ---------- 7-8 PROJECT TYPE + PROJECT AREA ----------
     projectType: "",
-    projectAreaType: "none", // lot | bldg | improvement (dropdown)
+    projectAreaType: "none",
     projectAreaSqm: "",
 
     // ---------- 9 PROJECT LOCATION ----------
     projectLocation: "",
 
     // ---------- 10 PROJECT TENURE (dropdown) ----------
-    projectTenure: "none", // permanent | temporary | others
+    projectTenure: "none",
     projectTenureOtherSpecify: "",
 
     // ---------- 11 RIGHT OVER LAND (dropdown) ----------
-    rightOverLand: "none", // owner | lease | others
+    rightOverLand: "none",
     rightOverLandOtherSpecify: "",
 
     // ---------- 12 EXISTING LAND USE (dropdown) ----------
@@ -56,14 +55,14 @@ export default function ZoningPermitForm() {
     projectCostFigures: "",
 
     // ---------- 14 WRITTEN NOTICE? ----------
-    q14WrittenNotice: "none", // yes | no
+    q14WrittenNotice: "none",
     q16aOfficeFiled: "",
     q14bDatesFiled: "",
     q16cActionsTaken: "",
 
     // ---------- 15 MODE OF RELEASE ----------
-    releaseMode: "none", // pickup | mail
-    mailAddressTo: "applicant", // applicant | authorizedRep
+    releaseMode: "none",
+    mailAddressTo: "applicant",
     mailAddressedName: "",
 
     // ---------- SIGNATURES ----------
@@ -88,7 +87,6 @@ export default function ZoningPermitForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [draftStatus, setDraftStatus] = useState("");
@@ -97,96 +95,93 @@ export default function ZoningPermitForm() {
   const showProjectNatureOther = formData.projectNature === "others";
   const showTenureOther = formData.projectTenure === "others";
   const showRightOther = formData.rightOverLand === "others";
-
   const showLandUseAgri = formData.existingLandUse === "agricultural";
   const showLandUseOther = formData.existingLandUse === "others";
   const showLandUseCommercial = formData.existingLandUse === "commercial";
-
   const showQ14Details = formData.q14WrittenNotice === "yes";
   const showMailFields = formData.releaseMode === "mail";
 
   // ---------- handle change ----------
   const handleChange = (e) => {
-    const { name, value } = e.target;
-
+    const { name, value, type } = e.target;
+    
     setError("");
     setSuccess("");
 
-    const processedValue =
-      name === "applicantMiddleInitial" ? value.slice(0, 1) : value;
+    let processedValue = value;
+    
+    if (name === "applicantMiddleInitial") {
+      processedValue = value.slice(0, 1).toUpperCase();
+    }
+    
+    if (type === "number") {
+      processedValue = value === "" ? "" : Number(value);
+    }
 
+    // Handle dropdown resets
     if (name === "projectNature") {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         projectNature: processedValue,
-        projectNatureOtherSpecify:
-          processedValue === "others" ? prev.projectNatureOtherSpecify : "",
+        projectNatureOtherSpecify: processedValue === "others" ? prev.projectNatureOtherSpecify : ""
       }));
       return;
     }
 
     if (name === "projectTenure") {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         projectTenure: processedValue,
-        projectTenureOtherSpecify:
-          processedValue === "others" ? prev.projectTenureOtherSpecify : "",
+        projectTenureOtherSpecify: processedValue === "others" ? prev.projectTenureOtherSpecify : ""
       }));
       return;
     }
 
     if (name === "rightOverLand") {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         rightOverLand: processedValue,
-        rightOverLandOtherSpecify:
-          processedValue === "others" ? prev.rightOverLandOtherSpecify : "",
+        rightOverLandOtherSpecify: processedValue === "others" ? prev.rightOverLandOtherSpecify : ""
       }));
       return;
     }
 
     if (name === "existingLandUse") {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         existingLandUse: processedValue,
-        existingLandUseAgriSpecify:
-          processedValue === "agricultural"
-            ? prev.existingLandUseAgriSpecify
-            : "",
-        existingLandUseOtherSpecify:
-          processedValue === "others" ? prev.existingLandUseOtherSpecify : "",
-        commercialSpecify:
-          processedValue === "commercial" ? prev.commercialSpecify : "",
+        existingLandUseAgriSpecify: processedValue === "agricultural" ? prev.existingLandUseAgriSpecify : "",
+        existingLandUseOtherSpecify: processedValue === "others" ? prev.existingLandUseOtherSpecify : "",
+        commercialSpecify: processedValue === "commercial" ? prev.commercialSpecify : "",
+        crop: processedValue === "agricultural" ? prev.crop : ""
       }));
       return;
     }
 
     if (name === "q14WrittenNotice") {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         q14WrittenNotice: processedValue,
         q16aOfficeFiled: processedValue === "yes" ? prev.q16aOfficeFiled : "",
         q14bDatesFiled: processedValue === "yes" ? prev.q14bDatesFiled : "",
-        q16cActionsTaken: processedValue === "yes" ? prev.q16cActionsTaken : "",
+        q16cActionsTaken: processedValue === "yes" ? prev.q16cActionsTaken : ""
       }));
       return;
     }
 
     if (name === "releaseMode") {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         releaseMode: processedValue,
-        mailAddressedName:
-          processedValue === "mail" ? prev.mailAddressedName : "",
-        mailAddressTo:
-          processedValue === "mail" ? prev.mailAddressTo : "applicant",
+        mailAddressedName: processedValue === "mail" ? prev.mailAddressedName : "",
+        mailAddressTo: processedValue === "mail" ? prev.mailAddressTo : "applicant"
       }));
       return;
     }
 
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      [name]: processedValue,
+      [name]: processedValue
     }));
   };
 
@@ -196,7 +191,7 @@ export default function ZoningPermitForm() {
       const savedDraft = localStorage.getItem("zoningPermitDraft");
       if (savedDraft) {
         const parsed = JSON.parse(savedDraft);
-        setFormData((prev) => ({ ...prev, ...parsed }));
+        setFormData(prev => ({ ...prev, ...parsed }));
         setDraftStatus("Loaded saved draft for Zoning Permit.");
       }
     } catch (err) {
@@ -206,6 +201,10 @@ export default function ZoningPermitForm() {
 
   // ---------- validation ----------
   const validateForm = () => {
+    // Clear previous errors
+    setError("");
+    
+    // Applicant info
     if (!formData.applicantLastName.trim()) {
       setError("Applicant last name is required (Field #1).");
       return false;
@@ -219,58 +218,59 @@ export default function ZoningPermitForm() {
       return false;
     }
 
+    // Project nature
     if (formData.projectNature === "none") {
       setError("Please select Project Nature (Field #6).");
       return false;
     }
     if (showProjectNatureOther && !formData.projectNatureOtherSpecify.trim()) {
-      setError(
-        'Please specify Project Nature when selecting "Other" (Field #6).'
-      );
+      setError('Please specify Project Nature when selecting "Other" (Field #6).');
       return false;
     }
 
+    // Project type
     if (!formData.projectType.trim()) {
       setError("Project Type is required (Field #7).");
       return false;
     }
 
+    // Project area
     if (formData.projectAreaType === "none") {
       setError("Please select Project Area Type (Field #8).");
       return false;
     }
-    if (!formData.projectAreaSqm.toString().trim()) {
-      setError("Project Area (sq. m.) is required (Field #8).");
+    if (!formData.projectAreaSqm || formData.projectAreaSqm <= 0) {
+      setError("Project Area (sq. m.) must be greater than 0 (Field #8).");
       return false;
     }
 
+    // Project location
     if (!formData.projectLocation.trim()) {
       setError("Project Location is required (Field #9).");
       return false;
     }
 
+    // Project tenure
     if (formData.projectTenure === "none") {
       setError("Please select Project Tenure (Field #10).");
       return false;
     }
     if (showTenureOther && !formData.projectTenureOtherSpecify.trim()) {
-      setError(
-        'Please specify Project Tenure when selecting "Others" (Field #10).'
-      );
+      setError('Please specify Project Tenure when selecting "Others" (Field #10).');
       return false;
     }
 
+    // Right over land
     if (formData.rightOverLand === "none") {
       setError("Please select Right Over Land (Field #11).");
       return false;
     }
     if (showRightOther && !formData.rightOverLandOtherSpecify.trim()) {
-      setError(
-        'Please specify Right Over Land when selecting "Other" (Field #11).'
-      );
+      setError('Please specify Right Over Land when selecting "Other" (Field #11).');
       return false;
     }
 
+    // Existing land use
     if (formData.existingLandUse === "none") {
       setError("Please select Existing Land Use (Field #12).");
       return false;
@@ -288,41 +288,37 @@ export default function ZoningPermitForm() {
       return false;
     }
 
-    if (
-      !formData.projectCostWords.trim() ||
-      !formData.projectCostFigures.toString().trim()
-    ) {
-      setError(
-        "Project Cost/Capitalization is required in words and figures (Field #13)."
-      );
+    // Project cost
+    if (!formData.projectCostWords.trim()) {
+      setError("Project Cost in words is required (Field #13).");
+      return false;
+    }
+    if (!formData.projectCostFigures || formData.projectCostFigures <= 0) {
+      setError("Project Cost in figures must be greater than 0 (Field #13).");
       return false;
     }
 
+    // Written notice
     if (formData.q14WrittenNotice === "none") {
       setError("Please answer Question #14 (Written Notice: Yes/No).");
       return false;
     }
     if (showQ14Details) {
       if (!formData.q16aOfficeFiled.trim()) {
-        setError(
-          "Please fill 16.a Office(s) where filed (Required because Q14 = Yes)."
-        );
+        setError("Please fill 16.a Office(s) where filed (Required because Q14 = Yes).");
         return false;
       }
       if (!formData.q14bDatesFiled.trim()) {
-        setError(
-          "Please fill 14.b Date(s) filed (Required because Q14 = Yes)."
-        );
+        setError("Please fill 14.b Date(s) filed (Required because Q14 = Yes).");
         return false;
       }
       if (!formData.q16cActionsTaken.trim()) {
-        setError(
-          "Please fill 16.c Action(s) taken (Required because Q14 = Yes)."
-        );
+        setError("Please fill 16.c Action(s) taken (Required because Q14 = Yes).");
         return false;
       }
     }
 
+    // Release mode
     if (formData.releaseMode === "none") {
       setError("Please select Preferred Mode of Release (Field #15).");
       return false;
@@ -332,6 +328,7 @@ export default function ZoningPermitForm() {
       return false;
     }
 
+    // Signature
     if (!formData.signatureApplicant.trim()) {
       setError("Signature of Applicant is required.");
       return false;
@@ -345,6 +342,7 @@ export default function ZoningPermitForm() {
     try {
       localStorage.setItem("zoningPermitDraft", JSON.stringify(formData));
       setDraftStatus("Draft saved locally on this device.");
+      setTimeout(() => setDraftStatus(""), 3000);
     } catch (err) {
       console.error("Error saving zoning draft:", err);
       setDraftStatus("Failed to save draft. Please check browser storage settings.");
@@ -368,16 +366,23 @@ export default function ZoningPermitForm() {
     setSuccess("");
 
     try {
+      console.log("Submitting form data:", formData);
+      
       const response = await fetch("http://localhost:8081/api/zoning-permits", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json"
+        },
         credentials: "include",
         body: JSON.stringify(formData),
       });
 
       const data = await response.json();
+      console.log("Response:", data);
 
-      if (!response.ok) throw new Error(data.message || "Failed to submit application");
+      if (!response.ok) {
+        throw new Error(data.message || `Failed to submit application (Status: ${response.status})`);
+      }
 
       if (data.success) {
         setSuccess(
@@ -386,6 +391,7 @@ export default function ZoningPermitForm() {
           }`
         );
 
+        // Clear draft
         try {
           localStorage.removeItem("zoningPermitDraft");
         } catch (e) {
@@ -393,7 +399,10 @@ export default function ZoningPermitForm() {
         }
         setDraftStatus("");
 
-        navigate("/Docutracker");
+        // Redirect after 2 seconds
+        setTimeout(() => {
+          navigate("/Docutracker");
+        }, 2000);
       } else {
         throw new Error(data.message || "Submission failed");
       }
@@ -416,40 +425,26 @@ export default function ZoningPermitForm() {
 
       <div className="max-w-4xl mx-auto p-4 bg-white">
         <div className="space-y-6">
-
-          {/* OFFICE USE ONLY – labels + colon + small boxes */}
-          <div className="border border-gray-300 rounded-md px-3 py-2 bg-gray-50 inline-block mx-auto">
-
-            <div className="space-y-1.5 text-[11px] text-gray-800">
-            </div>
-          </div>
-
-          {/* Big title under office-use-only */}
+          {/* Title */}
           <h1 className="text-xl font-bold mt-2 text-center">
             APPLICATION FOR LOCATIONAL CLEARANCE / CERTIFICATE OF ZONING COMPLIANCE
           </h1>
 
-          {/* Error / Success */}
+          {/* Error / Success Messages */}
           {error && (
-            <div
-              className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded"
-              role="alert"
-            >
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded" role="alert">
               <strong className="font-bold">Error: </strong>
               <span className="block sm:inline">{error}</span>
             </div>
           )}
           {success && (
-            <div
-              className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded"
-              role="alert"
-            >
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded" role="alert">
               <strong className="font-bold">Success! </strong>
               <span className="block sm:inline">{success}</span>
             </div>
           )}
 
-          {draftStatus && <p className="text-xs text-gray-600 text-right">{draftStatus}</p>}
+          {draftStatus && <p className="text-xs text-gray-600 text-right italic">{draftStatus}</p>}
 
           {/* APPLICANT / CORPORATION INFORMATION */}
           <div className="border border-gray-500 p-2">
@@ -464,7 +459,8 @@ export default function ZoningPermitForm() {
                   name="applicantLastName"
                   value={formData.applicantLastName}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full focus:outline-none text-sm p-1"
+                  placeholder="Last Name"
                 />
               </div>
               <div className="border border-gray-300 p-1">
@@ -475,7 +471,8 @@ export default function ZoningPermitForm() {
                   name="applicantFirstName"
                   value={formData.applicantFirstName}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full focus:outline-none text-sm p-1"
+                  placeholder="First Name"
                 />
               </div>
               <div className="border border-gray-300 p-1">
@@ -485,7 +482,7 @@ export default function ZoningPermitForm() {
                   value={formData.applicantMiddleInitial}
                   onChange={handleChange}
                   maxLength={1}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full focus:outline-none text-sm p-1 text-center"
                   placeholder="M"
                 />
               </div>
@@ -498,7 +495,8 @@ export default function ZoningPermitForm() {
                   name="corporationName"
                   value={formData.corporationName}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full focus:outline-none text-sm p-1"
+                  placeholder="Corporation Name (if applicable)"
                 />
               </div>
               <div className="border border-gray-300 p-1">
@@ -507,7 +505,8 @@ export default function ZoningPermitForm() {
                   name="authorizedRepresentativeName"
                   value={formData.authorizedRepresentativeName}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full focus:outline-none text-sm p-1"
+                  placeholder="Representative Name (if applicable)"
                 />
               </div>
             </div>
@@ -521,7 +520,8 @@ export default function ZoningPermitForm() {
                   name="applicantAddress"
                   value={formData.applicantAddress}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm min-h-[72px]"
+                  className="w-full focus:outline-none text-sm p-1 min-h-[72px]"
+                  placeholder="Complete address of applicant"
                 />
               </div>
               <div className="border border-gray-300 p-1">
@@ -530,7 +530,8 @@ export default function ZoningPermitForm() {
                   name="corporationAddress"
                   value={formData.corporationAddress}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm min-h-[72px]"
+                  className="w-full focus:outline-none text-sm p-1 min-h-[72px]"
+                  placeholder="Complete address of corporation (if applicable)"
                 />
               </div>
             </div>
@@ -540,7 +541,7 @@ export default function ZoningPermitForm() {
           <div className="border border-gray-500 p-2">
             <p className="text-sm font-bold mb-2">PROJECT DETAILS</p>
 
-            {/* 6 dropdown */}
+            {/* 6. Project Nature */}
             <div className="border border-gray-300 p-2 mb-2">
               <p className="text-xs font-bold mb-1">
                 6. PROJECT NATURE <span className="text-red-500">*</span>
@@ -567,22 +568,24 @@ export default function ZoningPermitForm() {
                     value={formData.projectNatureOtherSpecify}
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Specify project nature"
                   />
                 </div>
               )}
             </div>
 
-            {/* 7 + 8 */}
+            {/* 7. Project Type & 8. Project Area */}
             <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">
+              <div className="border border-gray-300 p-2">
+                <p className="text-xs font-bold mb-1">
                   7. PROJECT TYPE <span className="text-red-500">*</span>
                 </p>
                 <input
                   name="projectType"
                   value={formData.projectType}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., Residential Building, Commercial Complex, etc."
                 />
               </div>
 
@@ -605,31 +608,33 @@ export default function ZoningPermitForm() {
 
                   <input
                     type="number"
-                    min="0"
+                    min="1"
                     name="projectAreaSqm"
                     value={formData.projectAreaSqm}
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="sq. m."
+                    placeholder="Area in sq. m."
                   />
                 </div>
               </div>
             </div>
 
-            {/* 9 */}
-            <div className="border border-gray-300 p-1 mb-2">
-              <p className="text-xs mb-1">
+            {/* 9. Project Location */}
+            <div className="border border-gray-300 p-2 mb-2">
+              <p className="text-xs font-bold mb-1">
                 9. PROJECT LOCATION <span className="text-red-500">*</span>
               </p>
-              <input
+              <textarea
                 name="projectLocation"
                 value={formData.projectLocation}
                 onChange={handleChange}
-                className="w-full focus:outline-none text-sm"
+                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="2"
+                placeholder="Complete project location with landmarks"
               />
             </div>
 
-            {/* 10 */}
+            {/* 10. Project Tenure */}
             <div className="border border-gray-300 p-2 mb-2">
               <p className="text-xs font-bold mb-1">
                 10. PROJECT TENURE <span className="text-red-500">*</span>
@@ -656,12 +661,13 @@ export default function ZoningPermitForm() {
                     value={formData.projectTenureOtherSpecify}
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Specify project tenure"
                   />
                 </div>
               )}
             </div>
 
-            {/* 11 */}
+            {/* 11. Right Over Land */}
             <div className="border border-gray-300 p-2">
               <p className="text-xs font-bold mb-1">
                 11. RIGHT OVER LAND <span className="text-red-500">*</span>
@@ -688,6 +694,7 @@ export default function ZoningPermitForm() {
                     value={formData.rightOverLandOtherSpecify}
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Specify right over land"
                   />
                 </div>
               )}
@@ -730,6 +737,7 @@ export default function ZoningPermitForm() {
                     value={formData.existingLandUseAgriSpecify}
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Specify agricultural use"
                   />
                 </div>
               )}
@@ -744,6 +752,7 @@ export default function ZoningPermitForm() {
                     value={formData.commercialSpecify}
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Specify commercial use"
                   />
                 </div>
               )}
@@ -758,55 +767,58 @@ export default function ZoningPermitForm() {
                     value={formData.existingLandUseOtherSpecify}
                     onChange={handleChange}
                     className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Specify other land use"
                   />
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-2 mt-2">
-                <div className="border border-gray-200 p-1">
-                  <p className="text-xs mb-1">Crop</p>
+                <div className="border border-gray-200 p-2">
+                  <p className="text-xs mb-1">Crop (if agricultural)</p>
                   <input
                     name="crop"
                     value={formData.crop}
                     onChange={handleChange}
-                    className="w-full focus:outline-none text-sm"
-                    placeholder="(optional)"
+                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Type of crop (optional)"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 13 Project Cost */}
+          {/* 13. Project Cost */}
           <div className="border border-gray-500 p-2">
             <p className="text-sm font-bold mb-2">
               13. PROJECT COST / CAPITALIZATION (write in words and figure)
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">In Words</p>
+              <div className="border border-gray-300 p-2">
+                <p className="text-xs mb-1">In Words <span className="text-red-500">*</span></p>
                 <input
                   name="projectCostWords"
                   value={formData.projectCostWords}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., One Million Pesos"
                 />
               </div>
-              <div className="border border-gray-300 p-1">
-                <p className="text-xs mb-1">In Figures (Pesos)</p>
+              <div className="border border-gray-300 p-2">
+                <p className="text-xs mb-1">In Figures (Pesos) <span className="text-red-500">*</span></p>
                 <input
                   type="number"
-                  min="0"
+                  min="1"
                   name="projectCostFigures"
                   value={formData.projectCostFigures}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="1000000"
                 />
               </div>
             </div>
           </div>
 
-          {/* 14 Written Notice */}
+          {/* 14. Written Notice */}
           <div className="border border-gray-500 p-2">
             <p className="text-sm font-bold mb-2">
               14. Written notice(s) requiring L/CZC or to apply L/CZC?
@@ -826,33 +838,36 @@ export default function ZoningPermitForm() {
 
               {showQ14Details && (
                 <div className="grid grid-cols-3 gap-2 mt-3">
-                  <div className="border border-gray-200 p-1">
+                  <div className="border border-gray-200 p-2">
                     <p className="text-xs mb-1">16.a Office(s) where filed</p>
                     <input
                       name="q16aOfficeFiled"
                       value={formData.q16aOfficeFiled}
                       onChange={handleChange}
-                      className="w-full focus:outline-none text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Office name"
                     />
                   </div>
 
-                  <div className="border border-gray-200 p-1">
+                  <div className="border border-gray-200 p-2">
                     <p className="text-xs mb-1">14.b Date(s) filed</p>
                     <input
                       name="q14bDatesFiled"
                       value={formData.q14bDatesFiled}
                       onChange={handleChange}
-                      className="w-full focus:outline-none text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Date(s)"
                     />
                   </div>
 
-                  <div className="border border-gray-200 p-1">
+                  <div className="border border-gray-200 p-2">
                     <p className="text-xs mb-1">16.c Action(s) taken</p>
                     <input
                       name="q16cActionsTaken"
                       value={formData.q16cActionsTaken}
                       onChange={handleChange}
-                      className="w-full focus:outline-none text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Action taken"
                     />
                   </div>
                 </div>
@@ -860,7 +875,7 @@ export default function ZoningPermitForm() {
             </div>
           </div>
 
-          {/* 15 Preferred Mode */}
+          {/* 15. Preferred Mode */}
           <div className="border border-gray-500 p-2">
             <p className="text-sm font-bold mb-2">
               15. Preferred Mode of release of decision
@@ -915,7 +930,7 @@ export default function ZoningPermitForm() {
                         ? "focus:ring-2 focus:ring-blue-500"
                         : "bg-gray-100 cursor-not-allowed"
                     }`}
-                    placeholder="Enter name"
+                    placeholder="Enter name for mailing"
                   />
                 </div>
               </div>
@@ -926,7 +941,7 @@ export default function ZoningPermitForm() {
           <div className="border border-gray-500 p-2">
             <p className="text-sm font-bold mb-2">SIGNATURES</p>
             <div className="grid grid-cols-2 gap-2">
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">
                   SIGNATURE OF APPLICANT <span className="text-red-500">*</span>
                 </p>
@@ -934,17 +949,19 @@ export default function ZoningPermitForm() {
                   name="signatureApplicant"
                   value={formData.signatureApplicant}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Type your full name as signature"
                 />
               </div>
 
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">SIGNATURE OF AUTHORIZED REPRESENTATIVE</p>
                 <input
                   name="signatureAuthorizedRep"
                   value={formData.signatureAuthorizedRep}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Type representative's full name (if applicable)"
                 />
               </div>
             </div>
@@ -955,140 +972,153 @@ export default function ZoningPermitForm() {
             <p className="text-sm font-bold mb-2">NOTARY SECTION (Subscribed and Sworn)</p>
 
             <div className="grid grid-cols-3 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Day</p>
                 <input
+                  type="number"
+                  min="1"
+                  max="31"
                   name="notaryDay"
                   value={formData.notaryDay}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                  placeholder="__"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="DD"
                 />
               </div>
 
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Month</p>
                 <input
                   name="notaryMonth"
                   value={formData.notaryMonth}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                  placeholder="________"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Month"
                 />
               </div>
 
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Year</p>
                 <input
+                  type="number"
+                  min="2000"
+                  max="2100"
                   name="notaryYear"
                   value={formData.notaryYear}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
-                  placeholder="20__"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="YYYY"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Municipality</p>
                 <input
                   name="notaryAtMunicipality"
                   value={formData.notaryAtMunicipality}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Province</p>
                 <input
                   name="notaryProvince"
                   value={formData.notaryProvince}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 mb-2">
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Residence Certificate No.</p>
                 <input
                   name="residenceCertNo"
                   value={formData.residenceCertNo}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Certificate number"
                 />
               </div>
 
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Issued on</p>
                 <input
                   name="residenceCertIssuedOn"
                   value={formData.residenceCertIssuedOn}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Issue date"
                 />
               </div>
 
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Issued at</p>
                 <input
                   name="residenceCertIssuedAt"
                   value={formData.residenceCertIssuedAt}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-4 gap-2">
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Doc. No.</p>
                 <input
                   name="docNo"
                   value={formData.docNo}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Document number"
                 />
               </div>
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Page No.</p>
                 <input
                   name="pageNo"
                   value={formData.pageNo}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Page number"
                 />
               </div>
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Book No.</p>
                 <input
                   name="bookNo"
                   value={formData.bookNo}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Book number"
                 />
               </div>
-              <div className="border border-gray-300 p-1">
+              <div className="border border-gray-300 p-2">
                 <p className="text-xs mb-1">Series</p>
                 <input
+                  type="number"
                   name="seriesYear"
                   value={formData.seriesYear}
                   onChange={handleChange}
-                  className="w-full focus:outline-none text-sm"
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Year"
                 />
               </div>
             </div>
           </div>
 
-          {/* Buttons (UPDATED: separate Review + Submit) */}
-          <div className="flex justify-center space-x-4 mt-4">
+          {/* Action Buttons */}
+          <div className="flex justify-center space-x-4 mt-6">
             <button
               type="button"
               onClick={handleSaveDraft}
-              className="px-6 py-2 rounded text-white bg-yellow-500 hover:bg-yellow-600"
+              className="px-6 py-2 rounded text-white bg-yellow-500 hover:bg-yellow-600 transition"
             >
               Save as Draft
             </button>
@@ -1097,13 +1127,13 @@ export default function ZoningPermitForm() {
               type="button"
               onClick={handleReviewClick}
               disabled={isSubmitting}
-              className={`px-6 py-2 rounded text-white ${
+              className={`px-6 py-2 rounded text-white transition ${
                 isSubmitting
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-500 hover:bg-blue-700"
               }`}
             >
-              Review
+              Review Application
             </button>
 
             <button
@@ -1113,17 +1143,17 @@ export default function ZoningPermitForm() {
                 setIsConfirmOpen(true);
               }}
               disabled={isSubmitting}
-              className={`px-6 py-2 rounded text-white ${
+              className={`px-6 py-2 rounded text-white transition ${
                 isSubmitting
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-green-600 hover:bg-green-700"
               }`}
             >
-              Submit
+              {isSubmitting ? "Submitting..." : "Submit Application"}
             </button>
           </div>
 
-          <div className="text-center">
+          <div className="text-center mt-4">
             <p className="text-xs text-gray-600">
               <span className="text-red-500">*</span> Required fields
             </p>
@@ -1139,7 +1169,7 @@ export default function ZoningPermitForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Applicant</p>
+                <p className="text-sm text-gray-500">Applicant Name</p>
                 <p className="font-semibold">
                   {formData.applicantLastName}, {formData.applicantFirstName}{" "}
                   {formData.applicantMiddleInitial}
@@ -1218,7 +1248,7 @@ export default function ZoningPermitForm() {
               <div>
                 <p className="text-sm text-gray-500">Project Cost</p>
                 <p className="font-semibold">
-                  {formData.projectCostWords} ({formData.projectCostFigures})
+                  {formData.projectCostWords} (₱{Number(formData.projectCostFigures).toLocaleString()})
                 </p>
               </div>
 
@@ -1231,58 +1261,65 @@ export default function ZoningPermitForm() {
             <div className="mt-6 flex justify-end space-x-3">
               <button
                 type="button"
-                className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
                 onClick={() => setIsReviewOpen(false)}
               >
-                Back
+                Back to Form
               </button>
 
               <button
                 type="button"
-                onClick={() => setIsConfirmOpen(true)}
+                onClick={() => {
+                  setIsReviewOpen(false);
+                  setIsConfirmOpen(true);
+                }}
                 disabled={isSubmitting}
-                className={`px-6 py-2 rounded text-white ${
+                className={`px-6 py-2 rounded text-white transition ${
                   isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
                 }`}
               >
-                Submit Application
+                Confirm Submission
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* CONFIRMATION MODAL (UPDATED: Cancel + "Are you sure to submit?") */}
-     {isConfirmOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-      <h3 className="text-xl font-bold mb-3 text-center">Confirm Submission</h3>
-      <p className="text-sm text-gray-700 mb-4 text-center">Are you sure to submit?</p>
+      {/* CONFIRMATION MODAL */}
+      {isConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-3 text-center">Confirm Submission</h3>
+            <p className="text-sm text-gray-700 mb-4 text-center">
+              Are you sure you want to submit this zoning permit application?
+            </p>
+            <p className="text-xs text-gray-500 mb-6 text-center">
+              Once submitted, you cannot edit the application.
+            </p>
 
-      <div className="flex justify-end space-x-3">
-        <button
-          type="button"
-          className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
-          onClick={() => setIsConfirmOpen(false)}
-        >
-          Cancel
-        </button>
+            <div className="flex justify-end space-x-3">
+              <button
+                type="button"
+                className="px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
+                onClick={() => setIsConfirmOpen(false)}
+              >
+                Cancel
+              </button>
 
-        <button
-          type="button"
-          onClick={handleConfirmSubmit}
-          disabled={isSubmitting}
-          className={`px-5 py-2 rounded text-white ${
-            isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-          }`}
-        >
-          {isSubmitting ? "Submitting..." : "Yes, Submit"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+              <button
+                type="button"
+                onClick={handleConfirmSubmit}
+                disabled={isSubmitting}
+                className={`px-5 py-2 rounded text-white transition ${
+                  isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {isSubmitting ? "Submitting..." : "Yes, Submit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <UFooter />
     </div>

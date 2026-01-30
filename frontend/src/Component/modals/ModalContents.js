@@ -512,12 +512,13 @@ async function saveDraft() {
 
 // Update the submitNow function:
 async function submitNow() {
+  
   if (!applicationId) return;
   
   setSubmitting(true);
   try {
     const payload = buildPayload();
-    
+    console.log("Submitting payload:", payload);
     // Determine which department is submitting
     let department = '';
     if (isMPDO) department = 'MPDO';
@@ -1941,7 +1942,7 @@ const allRequiredDocsApproved = useMemo(() => {
       {/* Comments */}
       <div className="bg-white border rounded-md p-4">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-md font-semibold text-gray-700">Comments</h4>
+          <h4 className="text-md font-semibold text-gray-700">Instructions</h4>
           <div className="flex items-center space-x-2">
             <span className="text-xs text-gray-500">Filter:</span>
             <select
@@ -1983,7 +1984,7 @@ const allRequiredDocsApproved = useMemo(() => {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500 mb-4">No comments yet.</p>
+          <p className="text-sm text-gray-500 mb-4">No Instruction yet.</p>
         )}
 
         <div className="space-y-2">
@@ -1991,7 +1992,7 @@ const allRequiredDocsApproved = useMemo(() => {
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             rows={3}
-            placeholder="Add a comment for the applicant…"
+            placeholder="Add a Instruction for the applicant…"
             className="w-full border rounded p-2 text-sm"
           />
           <div className="flex justify-end">
@@ -2028,7 +2029,7 @@ const allRequiredDocsApproved = useMemo(() => {
               }}
               className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded disabled:opacity-50"
             >
-              {commentSubmitting ? "Posting…" : "Post Comment"}
+              {commentSubmitting ? "Posting…" : "Post Intruction"}
             </button>
           </div>
         </div>
@@ -2640,7 +2641,408 @@ export function ElectricalPermitModalContent({ selectedApplication }) {
     </div>
   );
 }
+// Add this to your ModalContents.jsx file
+export function ZoningPermitModalContent({ selectedApplication }) {
+  // Helper function to format enum values for display
+  const formatEnum = (value) => {
+    if (!value) return "N/A";
+    
+    // Convert from camelCase/snake_case to readable text
+    return String(value)
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .replace(/^./, str => str.toUpperCase())
+      .trim();
+  };
 
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString || dateString === '0000-00-00') return "N/A";
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (!amount) return "N/A";
+    return `₱${parseFloat(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+  };
+
+  // Combine applicant name
+  const getApplicantName = () => {
+    if (selectedApplication.applicant_last_name || selectedApplication.applicant_first_name) {
+      const parts = [
+        selectedApplication.applicant_first_name,
+        selectedApplication.applicant_middle_initial,
+        selectedApplication.applicant_last_name
+      ].filter(Boolean);
+      return parts.join(' ');
+    }
+    return selectedApplication.corporation_name || "N/A";
+  };
+
+  // Get applicant address
+  const getApplicantAddress = () => {
+    return selectedApplication.applicant_address || 
+           selectedApplication.corporation_address || 
+           "N/A";
+  };
+
+  return (
+    <div className="bg-yellow-50 rounded-lg p-6 space-y-8">
+      <h3 className="text-lg font-semibold text-gray-800 mb-4">
+        Zoning Permit Information
+      </h3>
+
+      {/* Basic Information */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Application Details
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Application No:</p>
+            <p className="text-sm">{selectedApplication.application_no || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Zoning ID:</p>
+            <p className="text-sm">{selectedApplication.zoning_id || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Status:</p>
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+              selectedApplication.status === 'approved' ? 'bg-green-100 text-green-800' :
+              selectedApplication.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+              selectedApplication.status === 'in-review' ? 'bg-blue-100 text-blue-800' :
+              selectedApplication.status === 'in-progress' ? 'bg-orange-100 text-orange-800' :
+              selectedApplication.status === 'requirements-completed' ? 'bg-purple-100 text-purple-800' :
+              selectedApplication.status === 'ready-for-pickup' ? 'bg-pink-100 text-pink-800' :
+              'bg-red-100 text-red-800'
+            }`}>
+              {formatEnum(selectedApplication.status)}
+            </span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Date of Receipt:</p>
+            <p className="text-sm">{formatDate(selectedApplication.date_of_receipt)}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">PMD/OR No:</p>
+            <p className="text-sm">{selectedApplication.pmd_or_no || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Date Issued:</p>
+            <p className="text-sm">{formatDate(selectedApplication.date_issued)}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Amount Paid:</p>
+            <p className="text-sm">{formatCurrency(selectedApplication.amount_paid)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Applicant/Corporate Information */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Applicant / Corporate Information
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Applicant Name:</p>
+            <p className="text-sm">{getApplicantName()}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Corporation Name:</p>
+            <p className="text-sm">{selectedApplication.corporation_name || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Applicant Address:</p>
+            <p className="text-sm">{selectedApplication.applicant_address || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Corporation Address:</p>
+            <p className="text-sm">{selectedApplication.corporation_address || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Authorized Representative:</p>
+            <p className="text-sm">{selectedApplication.authorized_rep_name || "N/A"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Project Information */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Project Information
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Nature of Project:</p>
+            <p className="text-sm">{formatEnum(selectedApplication.project_nature)}</p>
+            {selectedApplication.project_nature_other_specify && (
+              <p className="text-sm text-gray-500 mt-1">
+                Specify: {selectedApplication.project_nature_other_specify}
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Project Type:</p>
+            <p className="text-sm">{selectedApplication.project_type || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Project Area Type:</p>
+            <p className="text-sm">{formatEnum(selectedApplication.project_area_type)}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Project Area (sqm):</p>
+            <p className="text-sm">{selectedApplication.project_area_sqm || "N/A"}</p>
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-sm font-medium text-gray-600">Project Location:</p>
+            <p className="text-sm">{selectedApplication.project_location || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Project Tenure:</p>
+            <p className="text-sm">{formatEnum(selectedApplication.project_tenure)}</p>
+            {selectedApplication.project_tenure_other_specify && (
+              <p className="text-sm text-gray-500 mt-1">
+                Specify: {selectedApplication.project_tenure_other_specify}
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Right Over Land:</p>
+            <p className="text-sm">{formatEnum(selectedApplication.right_over_land)}</p>
+            {selectedApplication.right_over_land_other_specify && (
+              <p className="text-sm text-gray-500 mt-1">
+                Specify: {selectedApplication.right_over_land_other_specify}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Existing Land Use */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Existing Land Use
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Existing Land Use:</p>
+            <p className="text-sm">{formatEnum(selectedApplication.existing_land_use)}</p>
+          </div>
+          {selectedApplication.existing_land_use_agri_specify && (
+            <div>
+              <p className="text-sm font-medium text-gray-600">Agricultural Specify:</p>
+              <p className="text-sm">{selectedApplication.existing_land_use_agri_specify}</p>
+            </div>
+          )}
+          {selectedApplication.existing_land_use_other_specify && (
+            <div>
+              <p className="text-sm font-medium text-gray-600">Other Specify:</p>
+              <p className="text-sm">{selectedApplication.existing_land_use_other_specify}</p>
+            </div>
+          )}
+          {selectedApplication.commercial_specify && (
+            <div>
+              <p className="text-sm font-medium text-gray-600">Commercial Specify:</p>
+              <p className="text-sm">{selectedApplication.commercial_specify}</p>
+            </div>
+          )}
+          {selectedApplication.crop && (
+            <div>
+              <p className="text-sm font-medium text-gray-600">Crop:</p>
+              <p className="text-sm">{selectedApplication.crop}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Project Cost */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Project Cost
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">In Words:</p>
+            <p className="text-sm">{selectedApplication.project_cost_words || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">In Figures:</p>
+            <p className="text-sm">{formatCurrency(selectedApplication.project_cost_figures)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Written Notice Details */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Written Notice Details
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Written Notice Given:</p>
+            <p className="text-sm">{formatEnum(selectedApplication.q14_written_notice)}</p>
+          </div>
+          {selectedApplication.q14_written_notice === 'yes' && (
+            <>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Office Filed:</p>
+                <p className="text-sm">{selectedApplication.q16a_office_filed || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Dates Filed:</p>
+                <p className="text-sm">{selectedApplication.q14b_dates_filed || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Actions Taken:</p>
+                <p className="text-sm">{selectedApplication.q16c_actions_taken || "N/A"}</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Release Information */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Release Information
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Release Mode:</p>
+            <p className="text-sm">{formatEnum(selectedApplication.release_mode)}</p>
+          </div>
+          {selectedApplication.release_mode === 'mail' && (
+            <>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Mail Addressed To:</p>
+                <p className="text-sm">{formatEnum(selectedApplication.mail_address_to)}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Addressed Name:</p>
+                <p className="text-sm">{selectedApplication.mail_addressed_name || "N/A"}</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Notary Information */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Notary Information
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Notary Date:</p>
+            <p className="text-sm">
+              {selectedApplication.notary_day && selectedApplication.notary_month && selectedApplication.notary_year 
+                ? `${selectedApplication.notary_day}/${selectedApplication.notary_month}/${selectedApplication.notary_year}`
+                : "N/A"}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Notary Municipality:</p>
+            <p className="text-sm">{selectedApplication.notary_at_municipality || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Notary Province:</p>
+            <p className="text-sm">{selectedApplication.notary_province || "N/A"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Residence Certificate */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Residence Certificate
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Certificate No:</p>
+            <p className="text-sm">{selectedApplication.residence_cert_no || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Issued On:</p>
+            <p className="text-sm">{formatDate(selectedApplication.residence_cert_issued_on)}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Issued At:</p>
+            <p className="text-sm">{selectedApplication.residence_cert_issued_at || "N/A"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Document Reference */}
+      <div className="bg-white p-4 rounded-lg shadow-sm">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          Document Reference
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Document No:</p>
+            <p className="text-sm">{selectedApplication.doc_no || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Page No:</p>
+            <p className="text-sm">{selectedApplication.page_no || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Book No:</p>
+            <p className="text-sm">{selectedApplication.book_no || "N/A"}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Series Year:</p>
+            <p className="text-sm">{selectedApplication.series_year || "N/A"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* System Information */}
+      <div className="bg-gray-100 p-4 rounded-lg">
+        <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">
+          System Information
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Application Date:</p>
+            <p className="text-sm">
+              {selectedApplication.created_at 
+                ? new Date(selectedApplication.created_at).toLocaleDateString() 
+                : "N/A"}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">Last Updated:</p>
+            <p className="text-sm">
+              {selectedApplication.updated_at 
+                ? new Date(selectedApplication.updated_at).toLocaleDateString() 
+                : "N/A"}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-600">User ID:</p>
+            <p className="text-sm">{selectedApplication.user_id || "N/A"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Attached Requirements */}
+      <AttachedRequirementsPanel
+        selectedApplication={{
+          ...selectedApplication,
+          type: "Zoning Permit",
+        }}
+      />
+    </div>
+  );
+}
 /* ---------------- Business (kept uploads display) + panel ------------- */
 
 export function BusinessPermitModalContent({ selectedApplication }) {

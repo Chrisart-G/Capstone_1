@@ -12,6 +12,7 @@ import {
   ElectronicsPermitModalContent,
   BuildingPermitModalContent,
   FencingPermitModalContent,
+  ZoningPermitModalContent,
 } from "../modals/ModalContents";
 import AttachRequirementFromLibraryModal from "../modals/AttachRequirementFromLibraryModal";
 
@@ -44,7 +45,7 @@ const normalizeApplicationType = (application = {}) => {
   if (rawType.includes("building")) return "building";
   if (rawType.includes("fencing")) return "fencing";
   if (rawType.includes("business")) return "business";
-
+if (rawType.includes("zoning")) return "zoning";
   const appType = (
     application.applicationType ||
     application.application_type ||
@@ -93,7 +94,7 @@ export default function EmployeeDashboard() {
   // NEW: modal for “Move From On Hold”
   const [onHoldModalOpen, setOnHoldModalOpen] = useState(false);
   const [onHoldModalApp, setOnHoldModalApp] = useState(null);
-
+const [zoningApplications, setZoningApplications] = useState(makeInitialBuckets());
   const openConfirmDialog = (title, message, onConfirm) => {
     setConfirmDialog({
       open: true,
@@ -160,54 +161,61 @@ export default function EmployeeDashboard() {
   };
 
   // Fetch business applications
-  const fetchApplications = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/applications`, {
-        withCredentials: true,
+ const fetchApplications = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/applications`, {
+      withCredentials: true,
+    });
+
+    if (response.data.success) {
+      const organizedData = makeInitialBuckets();
+
+      // SORT BY CREATED_AT IN ASCENDING ORDER (OLDEST FIRST)
+      const sortedApplications = response.data.applications.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.submitted || Date.now());
+        const dateB = new Date(b.created_at || b.submitted || Date.now());
+        return dateA - dateB; // Ascending order (oldest first)
       });
 
-      if (response.data.success) {
-        const organizedData = makeInitialBuckets();
-
-        response.data.applications.forEach((app) => {
-          switch (app.status) {
-            case "pending":
-              organizedData.pending.push(app);
-              break;
-            case "in-review":
-              organizedData.inReview.push(app);
-              break;
-            case "on-hold":
-              organizedData.onHold.push(app);
-              break;
-            case "in-progress":
-              organizedData.inProgress.push(app);
-              break;
-            case "requirements-completed":
-              organizedData.requirementsCompleted.push(app);
-              break;
-            case "approved":
-              organizedData.approved.push(app);
-              break;
-            case "pickup-document":
-              organizedData.pickupDocument.push(app);
-              break;
-            case "ready-for-pickup":
-              organizedData.readyForPickup.push(app);
-              break;
-            case "rejected":
-              organizedData.rejected.push(app);
-              break;
-            default:
-              organizedData.pending.push(app);
-          }
-        });
-        setApplications(organizedData);
-      }
-    } catch (error) {
-      console.error("Error fetching applications:", error);
+      sortedApplications.forEach((app) => {
+        switch (app.status) {
+          case "pending":
+            organizedData.pending.push(app);
+            break;
+          case "in-review":
+            organizedData.inReview.push(app);
+            break;
+          case "on-hold":
+            organizedData.onHold.push(app);
+            break;
+          case "in-progress":
+            organizedData.inProgress.push(app);
+            break;
+          case "requirements-completed":
+            organizedData.requirementsCompleted.push(app);
+            break;
+          case "approved":
+            organizedData.approved.push(app);
+            break;
+          case "pickup-document":
+            organizedData.pickupDocument.push(app);
+            break;
+          case "ready-for-pickup":
+            organizedData.readyForPickup.push(app);
+            break;
+          case "rejected":
+            organizedData.rejected.push(app);
+            break;
+          default:
+            organizedData.pending.push(app);
+        }
+      });
+      setApplications(organizedData);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching applications:", error);
+  }
+};
 
   // for session parts --------------
   const checkSession = async () => {
@@ -226,6 +234,7 @@ export default function EmployeeDashboard() {
         await fetchElectronicsApplications();
         await fetchBuildingApplications();
         await fetchFencingApplications();
+        await fetchZoningApplications();
       } else {
         navigate("/");
       }
@@ -281,23 +290,25 @@ export default function EmployeeDashboard() {
    *         (but NOT Cedula)
    * - Others (if any): see everything (fallback)
    */
-  const isAppVisibleToCurrentUser = (application) => {
-    const norm = normalizeApplicationType(application);
+const isAppVisibleToCurrentUser = (application) => {
+  const norm = normalizeApplicationType(application);
 
-    if (isBPLO) {
-      return norm === "business" || norm === "cedula";
-    }
+  if (isBPLO) {
+    return norm === "business" || norm === "cedula";
+  }
 
-    if (isMPDO) {
-      if (norm === "cedula") return false; // MPDO must NOT see Cedula
-      return true; // can see engineering permits + business
-    }
-
-    // Fallback for other departments/roles (if any in the future)
+  if (isMPDO) {
+    if (norm === "cedula") return false; // MPDO must NOT see Cedula
+    // MPDO can see ALL engineering permits + zoning + business
     return true;
-  };
+  }
 
-  const getAllApplicationsForTab = (tab) => [
+  return true;
+};
+
+
+  const getAllApplicationsForTab = (tab) => {
+  const allApps = [
     ...applications[tab],
     ...electricalApplications[tab],
     ...cedulaApplications[tab],
@@ -305,7 +316,186 @@ export default function EmployeeDashboard() {
     ...electronicsApplications[tab],
     ...buildingApplications[tab],
     ...fencingApplications[tab],
+    ...zoningApplications[tab],
   ];
+  
+  // SORT ALL APPLICATIONS BY DATE (OLDEST FIRST)
+  return allApps.sort((a, b) => {
+    // Get date for application A - check multiple possible date fields
+    const dateAStr = a.created_at || a.submitted || a.application_date || 
+                     a.date_created || a.date || '1970-01-01';
+    // Get date for application B
+    const dateBStr = b.created_at || b.submitted || b.application_date || 
+                     b.date_created || b.date || '1970-01-01';
+    
+    const dateA = new Date(dateAStr);
+    const dateB = new Date(dateBStr);
+    
+    return dateA - dateB; // Ascending order (oldest first)
+  });
+};
+const fetchZoningApplications = async () => {
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/zoning-applications`, {
+      withCredentials: true,
+    });
+    if (res.data.success) {
+      const data = makeInitialBuckets();
+
+      // SORT BY CREATED_AT IN ASCENDING ORDER (OLDEST FIRST)
+      const sortedApplications = res.data.applications.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.submitted || Date.now());
+        const dateB = new Date(b.created_at || b.submitted || Date.now());
+        return dateA - dateB; // Ascending order (oldest first)
+      });
+
+      sortedApplications.forEach((app) => {
+        const item = { ...app, type: "Zoning Permit" };
+        switch (app.status) {
+          case "pending":
+            data.pending.push(item);
+            break;
+          case "in-review":
+            data.inReview.push(item);
+            break;
+          case "on-hold":
+            data.onHold.push(item);
+            break;
+          case "in-progress":
+            data.inProgress.push(item);
+            break;
+          case "requirements-completed":
+            data.requirementsCompleted.push(item);
+            break;
+          case "approved":
+            data.approved.push(item);
+            break;
+          case "pickup-document":
+            data.pickupDocument.push(item);
+            break;
+          case "ready-for-pickup":
+            data.readyForPickup.push(item);
+            break;
+          case "rejected":
+            data.rejected.push(item);
+            break;
+          default:
+            data.pending.push(item);
+        }
+      });
+      setZoningApplications(data);
+    }
+  } catch (e) {
+    console.error("Error fetching zoning applications:", e);
+  }
+};
+// Add this function with your other view handlers
+const handleViewZoningApplication = async (id) => {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/zoning-applications/${id}`,
+      {
+        withCredentials: true,
+      }
+    );
+
+    if (response.data.success) {
+      setSelectedApplication({
+        ...response.data.application,
+        type: "Zoning Permit",
+      });
+    } else {
+      alert("Zoning permit application not found.");
+    }
+  } catch (error) {
+    console.error("Failed to fetch zoning application info:", error);
+  }
+};
+
+// Add accept handler for zoning:
+// Update the existing function or add a new one:
+const handleAcceptZoningApplication = async (id) => {
+  try {
+    console.log("Accepting zoning application ID:", id);
+    
+    const response = await axios.put(
+      `${API_BASE_URL}/api/zoning-applications/${id}/accept`,
+      {},  // Empty object since controller doesn't expect status in body
+      { withCredentials: true }
+    );
+
+    console.log("Zoning accept response:", response.data);
+    
+    if (response.data.success) {
+      await fetchZoningApplications();
+      alert("Zoning permit moved to in-review successfully.");
+    } else {
+      alert(response.data.message || "Failed to move the zoning permit to in-review.");
+    }
+  } catch (err) {
+    console.error("Accept zoning application error:", err);
+    if (err.response) {
+      console.error("Error response:", err.response.data);
+      alert(`Error: ${err.response.data.message || err.response.statusText}`);
+    } else {
+      alert("Network error. Please try again.");
+    }
+  }
+};
+// Add pickup schedule handler for zoning:
+const handlePickupScheduleZoning = async (applicationId, schedule, file) => {
+  try {
+    const form = new FormData();
+    form.append("applicationId", applicationId);
+    form.append("schedule", schedule);
+    if (file) form.append("pickup_file", file);
+
+    const response = await axios.put(
+      `${API_BASE_URL}/api/zoning-applications/set-pickup`,
+      form,
+      {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+
+    if (response.data.success) {
+      await fetchZoningApplications();
+      alert("Zoning Permit moved to Ready for Pickup.");
+    } else {
+      alert("Failed to schedule pickup.");
+    }
+  } catch (err) {
+    console.error("Zoning Pickup Error:", err);
+    alert("Server error while scheduling pickup.");
+  }
+};
+
+// Add to normalizeApplicationType function:
+const normalizeApplicationType = (application = {}) => {
+  const rawType = (application.type || "").toString().toLowerCase();
+  if (rawType.includes("zoning")) return "zoning"; // ADD THIS LINE
+  if (rawType.includes("zoning")) return "zoning"; // ADD THIS LINE
+  if (rawType.includes("cedula")) return "cedula";
+  if (rawType.includes("electrical")) return "electrical";
+  if (rawType.includes("plumbing")) return "plumbing";
+  if (rawType.includes("electronics")) return "electronics";
+  if (rawType.includes("building")) return "building";
+  if (rawType.includes("fencing")) return "fencing";
+  if (rawType.includes("business")) return "business";
+
+  const appType = (
+    application.applicationType ||
+    application.application_type ||
+    ""
+  )
+    .toString()
+    .toLowerCase();
+
+  if (appType === "new" || appType === "renewal") return "business";
+  
+  return "business";
+};
 
   const getCurrentApplications = () => {
     const all = getAllApplicationsForTab(selectedTab);
@@ -318,258 +508,296 @@ export default function EmployeeDashboard() {
   };
 
   //for electrical permits
-  const fetchElectricalApplications = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/electrical-applications`, {
-        withCredentials: true,
+const fetchElectricalApplications = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/electrical-applications`, {
+      withCredentials: true,
+    });
+
+    if (response.data.success) {
+      const organizedElectricalData = makeInitialBuckets();
+
+      // SORT BY CREATED_AT IN ASCENDING ORDER (OLDEST FIRST)
+      const sortedApplications = response.data.applications.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.submitted || Date.now());
+        const dateB = new Date(b.created_at || b.submitted || Date.now());
+        return dateA - dateB; // Ascending order (oldest first)
       });
 
-      if (response.data.success) {
-        const organizedElectricalData = makeInitialBuckets();
-
-        response.data.applications.forEach((app) => {
-          const appWithType = { ...app, type: "Electrical Permit" };
-          switch (app.status) {
-            case "pending":
-              organizedElectricalData.pending.push(appWithType);
-              break;
-            case "in-review":
-              organizedElectricalData.inReview.push(appWithType);
-              break;
-            case "on-hold":
-              organizedElectricalData.onHold.push(appWithType);
-              break;
-            case "in-progress":
-              organizedElectricalData.inProgress.push(appWithType);
-              break;
-            case "requirements-completed":
-              organizedElectricalData.requirementsCompleted.push(appWithType);
-              break;
-            case "approved":
-              organizedElectricalData.approved.push(appWithType);
-              break;
-            case "pickup-document":
-              organizedElectricalData.pickupDocument.push(appWithType);
-              break;
-            case "ready-for-pickup":
-              organizedElectricalData.readyForPickup.push(appWithType);
-              break;
-            case "rejected":
-              organizedElectricalData.rejected.push(appWithType);
-              break;
-            default:
-              organizedElectricalData.pending.push(appWithType);
-          }
-        });
-        setElectricalApplications(organizedElectricalData);
-      }
-    } catch (error) {
-      console.error("Error fetching electrical applications:", error);
+      sortedApplications.forEach((app) => {
+        const appWithType = { ...app, type: "Electrical Permit" };
+        switch (app.status) {
+          case "pending":
+            organizedElectricalData.pending.push(appWithType);
+            break;
+          case "in-review":
+            organizedElectricalData.inReview.push(appWithType);
+            break;
+          case "on-hold":
+            organizedElectricalData.onHold.push(appWithType);
+            break;
+          case "in-progress":
+            organizedElectricalData.inProgress.push(appWithType);
+            break;
+          case "requirements-completed":
+            organizedElectricalData.requirementsCompleted.push(appWithType);
+            break;
+          case "approved":
+            organizedElectricalData.approved.push(appWithType);
+            break;
+          case "pickup-document":
+            organizedElectricalData.pickupDocument.push(appWithType);
+            break;
+          case "ready-for-pickup":
+            organizedElectricalData.readyForPickup.push(appWithType);
+            break;
+          case "rejected":
+            organizedElectricalData.rejected.push(appWithType);
+            break;
+          default:
+            organizedElectricalData.pending.push(appWithType);
+        }
+      });
+      setElectricalApplications(organizedElectricalData);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching electrical applications:", error);
+  }
+};
 
   // Fetch Cedula Applications
   const fetchCedulaApplications = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/cedula-applications`, {
-        withCredentials: true,
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/cedula-applications`, {
+      withCredentials: true,
+    });
+
+    if (response.data.success) {
+      const organizedCedulaData = makeInitialBuckets();
+
+      // SORT BY CREATED_AT IN ASCENDING ORDER (OLDEST FIRST)
+      const sortedApplications = response.data.applications.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.submitted || Date.now());
+        const dateB = new Date(b.created_at || b.submitted || Date.now());
+        return dateA - dateB; // Ascending order (oldest first)
       });
 
-      if (response.data.success) {
-        const organizedCedulaData = makeInitialBuckets();
+      sortedApplications.forEach((app) => {
+        const appWithType = {
+          ...app,
+          id: app.id || app.cedula_id,
+          type: "Cedula",
+        };
 
-        response.data.applications.forEach((app) => {
-          const appWithType = {
-            ...app,
-            id: app.id || app.cedula_id,
-            type: "Cedula",
-          };
-
-          switch (app.application_status) {
-            case "pending":
-              organizedCedulaData.pending.push(appWithType);
-              break;
-            case "in-review":
-              organizedCedulaData.inReview.push(appWithType);
-              break;
-            case "on-hold":
-              organizedCedulaData.onHold.push(appWithType);
-              break;
-            case "in-progress":
-              organizedCedulaData.inProgress.push(appWithType);
-              break;
-            case "requirements-completed":
-              organizedCedulaData.requirementsCompleted.push(appWithType);
-              break;
-            case "approved":
-              organizedCedulaData.approved.push(appWithType);
-              break;
-            case "pickup-document":
-              organizedCedulaData.pickupDocument.push(appWithType);
-              break;
-            case "ready-for-pickup":
-              organizedCedulaData.readyForPickup.push(appWithType);
-              break;
-            case "rejected":
-              organizedCedulaData.rejected.push(appWithType);
-              break;
-            default:
-              organizedCedulaData.pending.push(appWithType);
-          }
-        });
-        setCedulaApplications(organizedCedulaData);
-      }
-    } catch (error) {
-      console.error("Error fetching cedula applications:", error);
+        switch (app.application_status) {
+          case "pending":
+            organizedCedulaData.pending.push(appWithType);
+            break;
+          case "in-review":
+            organizedCedulaData.inReview.push(appWithType);
+            break;
+          case "on-hold":
+            organizedCedulaData.onHold.push(appWithType);
+            break;
+          case "in-progress":
+            organizedCedulaData.inProgress.push(appWithType);
+            break;
+          case "requirements-completed":
+            organizedCedulaData.requirementsCompleted.push(appWithType);
+            break;
+          case "approved":
+            organizedCedulaData.approved.push(appWithType);
+            break;
+          case "pickup-document":
+            organizedCedulaData.pickupDocument.push(appWithType);
+            break;
+          case "ready-for-pickup":
+            organizedCedulaData.readyForPickup.push(appWithType);
+            break;
+          case "rejected":
+            organizedCedulaData.rejected.push(appWithType);
+            break;
+          default:
+            organizedCedulaData.pending.push(appWithType);
+        }
+      });
+      setCedulaApplications(organizedCedulaData);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching cedula applications:", error);
+  }
+};
 
   // NEW: Fetch Plumbing Applications
   const fetchPlumbingApplications = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/api/plumbing-applications`, {
-        withCredentials: true,
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/plumbing-applications`, {
+      withCredentials: true,
+    });
+    if (res.data.success) {
+      const data = makeInitialBuckets();
+
+      // SORT BY CREATED_AT IN ASCENDING ORDER (OLDEST FIRST)
+      const sortedApplications = res.data.applications.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.submitted || Date.now());
+        const dateB = new Date(b.created_at || b.submitted || Date.now());
+        return dateA - dateB; // Ascending order (oldest first)
       });
-      if (res.data.success) {
-        const data = makeInitialBuckets();
-        res.data.applications.forEach((app) => {
-          const item = { ...app, type: "Plumbing Permit" };
-          switch (app.status) {
-            case "pending":
-              data.pending.push(item);
-              break;
-            case "in-review":
-              data.inReview.push(item);
-              break;
-            case "on-hold":
-              data.onHold.push(item);
-              break;
-            case "in-progress":
-              data.inProgress.push(item);
-              break;
-            case "requirements-completed":
-              data.requirementsCompleted.push(item);
-              break;
-            case "approved":
-              data.approved.push(item);
-              break;
-            case "pickup-document":
-              data.pickupDocument.push(item);
-              break;
-            case "ready-for-pickup":
-              data.readyForPickup.push(item);
-              break;
-            case "rejected":
-              data.rejected.push(item);
-              break;
-            default:
-              data.pending.push(item);
-          }
-        });
-        setPlumbingApplications(data);
-      }
-    } catch (e) {
-      console.error("Error fetching plumbing applications:", e);
+
+      sortedApplications.forEach((app) => {
+        const item = { ...app, type: "Plumbing Permit" };
+        switch (app.status) {
+          case "pending":
+            data.pending.push(item);
+            break;
+          case "in-review":
+            data.inReview.push(item);
+            break;
+          case "on-hold":
+            data.onHold.push(item);
+            break;
+          case "in-progress":
+            data.inProgress.push(item);
+            break;
+          case "requirements-completed":
+            data.requirementsCompleted.push(item);
+            break;
+          case "approved":
+            data.approved.push(item);
+            break;
+          case "pickup-document":
+            data.pickupDocument.push(item);
+            break;
+          case "ready-for-pickup":
+            data.readyForPickup.push(item);
+            break;
+          case "rejected":
+            data.rejected.push(item);
+            break;
+          default:
+            data.pending.push(item);
+        }
+      });
+      setPlumbingApplications(data);
     }
-  };
+  } catch (e) {
+    console.error("Error fetching plumbing applications:", e);
+  }
+};
 
   // NEW: Fetch Electronics Applications
   const fetchElectronicsApplications = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/api/electronics-applications`, {
-        withCredentials: true,
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/electronics-applications`, {
+      withCredentials: true,
+    });
+    if (res.data.success) {
+      const data = makeInitialBuckets();
+
+      // SORT BY CREATED_AT IN ASCENDING ORDER (OLDEST FIRST)
+      const sortedApplications = res.data.applications.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.submitted || Date.now());
+        const dateB = new Date(b.created_at || b.submitted || Date.now());
+        return dateA - dateB; // Ascending order (oldest first)
       });
-      if (res.data.success) {
-        const data = makeInitialBuckets();
-        res.data.applications.forEach((app) => {
-          const item = { ...app, type: "Electronics Permit" };
-          switch (app.status) {
-            case "pending":
-              data.pending.push(item);
-              break;
-            case "in-review":
-              data.inReview.push(item);
-              break;
-            case "on-hold":
-              data.onHold.push(item);
-              break;
-            case "in-progress":
-              data.inProgress.push(item);
-              break;
-            case "requirements-completed":
-              data.requirementsCompleted.push(item);
-              break;
-            case "approved":
-              data.approved.push(item);
-              break;
-            case "pickup-document":
-              data.pickupDocument.push(item);
-              break;
-            case "ready-for-pickup":
-              data.readyForPickup.push(item);
-              break;
-            case "rejected":
-              data.rejected.push(item);
-              break;
-            default:
-              data.pending.push(item);
-          }
-        });
-        setElectronicsApplications(data);
-      }
-    } catch (e) {
-      console.error("Error fetching electronics applications:", e);
+
+      sortedApplications.forEach((app) => {
+        const item = { ...app, type: "Electronics Permit" };
+        switch (app.status) {
+          case "pending":
+            data.pending.push(item);
+            break;
+          case "in-review":
+            data.inReview.push(item);
+            break;
+          case "on-hold":
+            data.onHold.push(item);
+            break;
+          case "in-progress":
+            data.inProgress.push(item);
+            break;
+          case "requirements-completed":
+            data.requirementsCompleted.push(item);
+            break;
+          case "approved":
+            data.approved.push(item);
+            break;
+          case "pickup-document":
+            data.pickupDocument.push(item);
+            break;
+          case "ready-for-pickup":
+            data.readyForPickup.push(item);
+            break;
+          case "rejected":
+            data.rejected.push(item);
+            break;
+          default:
+            data.pending.push(item);
+        }
+      });
+      setElectronicsApplications(data);
     }
-  };
+  } catch (e) {
+    console.error("Error fetching electronics applications:", e);
+  }
+};
 
   // NEW: Fetch Building Applications
   const fetchBuildingApplications = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/api/building-applications`, {
-        withCredentials: true,
+  try {
+    const res = await axios.get(`${API_BASE_URL}/api/building-applications`, {
+      withCredentials: true,
+    });
+    if (res.data.success) {
+      const data = makeInitialBuckets();
+
+      // SORT BY CREATED_AT IN ASCENDING ORDER (OLDEST FIRST)
+      const sortedApplications = res.data.applications.sort((a, b) => {
+        const dateA = new Date(a.created_at || a.submitted || Date.now());
+        const dateB = new Date(b.created_at || b.submitted || Date.now());
+        return dateA - dateB; // Ascending order (oldest first)
       });
-      if (res.data.success) {
-        const data = makeInitialBuckets();
-        res.data.applications.forEach((app) => {
-          const item = { ...app, type: "Building Permit" };
-          switch (app.status) {
-            case "pending":
-              data.pending.push(item);
-              break;
-            case "in-review":
-              data.inReview.push(item);
-              break;
-            case "on-hold":
-              data.onHold.push(item);
-              break;
-            case "in-progress":
-              data.inProgress.push(item);
-              break;
-            case "requirements-completed":
-              data.requirementsCompleted.push(item);
-              break;
-            case "approved":
-              data.approved.push(item);
-              break;
-            case "pickup-document":
-              data.pickupDocument.push(item);
-              break;
-            case "ready-for-pickup":
-              data.readyForPickup.push(item);
-              break;
-            case "rejected":
-              data.rejected.push(item);
-              break;
-            default:
-              data.pending.push(item);
-          }
-        });
-        setBuildingApplications(data);
-      }
-    } catch (e) {
-      console.error("Error fetching building applications:", e);
+
+      sortedApplications.forEach((app) => {
+        const item = { ...app, type: "Building Permit" };
+        switch (app.status) {
+          case "pending":
+            data.pending.push(item);
+            break;
+          case "in-review":
+            data.inReview.push(item);
+            break;
+          case "on-hold":
+            data.onHold.push(item);
+            break;
+          case "in-progress":
+            data.inProgress.push(item);
+            break;
+          case "requirements-completed":
+            data.requirementsCompleted.push(item);
+            break;
+          case "approved":
+            data.approved.push(item);
+            break;
+          case "pickup-document":
+            data.pickupDocument.push(item);
+            break;
+          case "ready-for-pickup":
+            data.readyForPickup.push(item);
+            break;
+          case "rejected":
+            data.rejected.push(item);
+            break;
+          default:
+            data.pending.push(item);
+        }
+      });
+      setBuildingApplications(data);
     }
-  };
+  } catch (e) {
+    console.error("Error fetching building applications:", e);
+  }
+};
 
   // NEW: Fetch Fencing Applications
   const fetchFencingApplications = async () => {
@@ -1155,7 +1383,7 @@ export default function EmployeeDashboard() {
       } else if (application.type === "Fencing Permit") {
         url = `${API_BASE_URL}/api/fencing-applications/move-to-onhold`;
         payload = { applicationId: appId };
-      } else {
+      }  else if (application.type === "Zoning Permit")  {
         url = `${API_BASE_URL}/api/applications/move-to-onhold`;
         payload = { applicationId: appId };
       }
@@ -1260,7 +1488,8 @@ export default function EmployeeDashboard() {
           await handleAcceptBuilding(appId);
         } else if (application.type === "Fencing Permit") {
           await handleAcceptFencing(appId);
-        } else {
+        } else if (application.type === "Zoning Permit") {
+  
           await handleAcceptApplication(appId);
         }
         return;
@@ -1306,6 +1535,7 @@ export default function EmployeeDashboard() {
             { withCredentials: true }
           );
         } else {
+          
           response = await axios.put(
             `${API_BASE_URL}/api/applications/move-to-inprogress`,
             { applicationId: appId },
@@ -1393,7 +1623,13 @@ export default function EmployeeDashboard() {
             { applicationId: appId },
             { withCredentials: true }
           );
-        } else {
+        } else if (application.type === "Zoning Permit") {
+  response = await axios.put(
+    `${API_BASE_URL}/api/zoning-applications/move-to-inprogress`,
+    { applicationId: appId },
+    { withCredentials: true }
+  );
+} else {
           response = await axios.put(
             `${API_BASE_URL}/api/applications/move-to-approved`,
             { applicationId: appId },
@@ -1417,6 +1653,7 @@ export default function EmployeeDashboard() {
           fetchElectronicsApplications(),
           fetchBuildingApplications(),
           fetchFencingApplications(),
+           fetchZoningApplications(),
         ]);
 
         let msg = "";
@@ -1535,21 +1772,23 @@ export default function EmployeeDashboard() {
             </span>
           </div>
 
-          {selectedApplication.type === "Cedula" ? (
-            <CedulaModalContent selectedApplication={selectedApplication} />
-          ) : selectedApplication.type === "Electrical Permit" ? (
-            <ElectricalPermitModalContent selectedApplication={selectedApplication} />
-          ) : selectedApplication.type === "Plumbing Permit" ? (
-            <PlumbingPermitModalContent selectedApplication={selectedApplication} />
-          ) : selectedApplication.type === "Electronics Permit" ? (
-            <ElectronicsPermitModalContent selectedApplication={selectedApplication} />
-          ) : selectedApplication.type === "Building Permit" ? (
-            <BuildingPermitModalContent selectedApplication={selectedApplication} />
-          ) : selectedApplication.type === "Fencing Permit" ? (
-            <FencingPermitModalContent selectedApplication={selectedApplication} />
-          ) : (
-            <BusinessPermitModalContent selectedApplication={selectedApplication} />
-          )}
+            {selectedApplication.type === "Cedula" ? (
+          <CedulaModalContent selectedApplication={selectedApplication} />
+        ) : selectedApplication.type === "Electrical Permit" ? (
+          <ElectricalPermitModalContent selectedApplication={selectedApplication} />
+        ) : selectedApplication.type === "Plumbing Permit" ? (
+          <PlumbingPermitModalContent selectedApplication={selectedApplication} />
+        ) : selectedApplication.type === "Electronics Permit" ? (
+          <ElectronicsPermitModalContent selectedApplication={selectedApplication} />
+        ) : selectedApplication.type === "Building Permit" ? (
+          <BuildingPermitModalContent selectedApplication={selectedApplication} />
+        ) : selectedApplication.type === "Fencing Permit" ? (
+          <FencingPermitModalContent selectedApplication={selectedApplication} />
+        ) : selectedApplication.type === "Zoning Permit" ? ( // Add this condition
+          <ZoningPermitModalContent selectedApplication={selectedApplication} />
+        ) : (
+          <BusinessPermitModalContent selectedApplication={selectedApplication} />
+        )}
         </div>
       </div>
     );
@@ -1740,17 +1979,15 @@ export default function EmployeeDashboard() {
 
                   // ROLE-BASED ACTION PERMISSIONS
                   const canProcessThisApplication = (() => {
-                    if (isBPLO) {
-                      // BPLO: can process Business + Cedula only
-                      return isBusinessApp || isCedulaApp;
-                    }
-                    if (isMPDO) {
-                      // MPDO: can process engineering permits only (view-only for business)
-                      return isEngineeringApp;
-                    }
-                    // Other departments: no restrictions
-                    return true;
-                  })();
+  if (isBPLO) {
+    return isBusinessApp || isCedulaApp;
+  }
+  if (isMPDO) {
+    // MPDO can process engineering permits + zoning only (view-only for business)
+    return isEngineeringApp || normType === "zoning";
+  }
+  return true;
+})();
 
                   return (
                     <div
@@ -1798,7 +2035,7 @@ export default function EmployeeDashboard() {
                               const appId = application.id || application.cedula_id;
                               setActiveRowKey(rowKey);
                               setDetailsModalOpen(true);
-
+                              
                               if (application.type === "Electrical Permit") {
                                 handleViewElectricalApplication(appId);
                               } else if (application.type === "Cedula") {
@@ -1811,7 +2048,9 @@ export default function EmployeeDashboard() {
                                 handleViewBuildingApplication(appId);
                               } else if (application.type === "Fencing Permit") {
                                 handleViewFencingApplication(appId);
-                              } else {
+                              }else if (application.type === "Zoning Permit") { // Add this condition
+      handleViewZoningApplication(appId);
+    } else {
                                 handleViewApplication(appId);
                               }
                             }}
@@ -1856,7 +2095,9 @@ export default function EmployeeDashboard() {
                                           application.type === "Building Permit"
                                         ) {
                                           await handleAcceptBuilding(appId);
-                                        } else if (
+                                        }else if (application.type === "Zoning Permit") {
+  await handleAcceptZoningApplication(appId);
+} else if (
                                           application.type === "Fencing Permit"
                                         ) {
                                           await handleAcceptFencing(appId);
@@ -1970,6 +2211,7 @@ export default function EmployeeDashboard() {
                                             await fetchElectronicsApplications();
                                             await fetchBuildingApplications();
                                             await fetchFencingApplications();
+                                            await fetchZoningApplications();
                                             alert(
                                               "Moved to in-progress successfully."
                                             );
@@ -2050,7 +2292,12 @@ export default function EmployeeDashboard() {
                                               `${API_BASE_URL}/api/fencing-applications/move-to-requirements-completed`,
                                               { applicationId: appId },
                                               { withCredentials: true }
-                                            );
+                                            );} else if (application.type === "Zoning Permit") { // ADD THIS
+  response = await axios.put(
+    `${API_BASE_URL}/api/zoning-applications/move-to-requirements-completed`,
+    { applicationId: appId },
+    { withCredentials: true }
+  );
                                           } else {
                                             response = await axios.put(
                                               `${API_BASE_URL}/api/applications/move-to-requirements-completed`,
@@ -2067,6 +2314,7 @@ export default function EmployeeDashboard() {
                                             await fetchElectronicsApplications();
                                             await fetchBuildingApplications();
                                             await fetchFencingApplications();
+                                            await fetchZoningApplications();
                                             alert(
                                               "Moved to requirements-completed successfully."
                                             );
@@ -2164,7 +2412,14 @@ export default function EmployeeDashboard() {
                                               { applicationId: appId },
                                               { withCredentials: true }
                                             );
-                                          } else {
+                                            
+                                          }else if (application.type === "Zoning Permit") { // ADD THIS
+  response = await axios.put(
+    `${API_BASE_URL}/api/zoning-applications/move-to-approved`,
+    { applicationId: appId },
+    { withCredentials: true }
+  );
+} else  {
                                             response = await axios.put(
                                               `${API_BASE_URL}/api/applications/move-to-approved`,
                                               { applicationId: appId },
@@ -2180,6 +2435,7 @@ export default function EmployeeDashboard() {
                                             await fetchElectronicsApplications();
                                             await fetchBuildingApplications();
                                             await fetchFencingApplications();
+                                            await fetchZoningApplications();
                                             alert(
                                               "Application approved successfully."
                                             );
@@ -2445,7 +2701,13 @@ export default function EmployeeDashboard() {
                                 pickupTarget.id,
                                 pickupSchedule,
                                 pickupFile
-                              );
+                              );} else if (pickupTarget.type === "Zoning Permit") {
+  await handlePickupScheduleZoning(
+    pickupTarget.id,
+    pickupSchedule,
+    pickupFile
+  );
+
                             } else if (
                               pickupTarget.type === "Plumbing Permit"
                             ) {

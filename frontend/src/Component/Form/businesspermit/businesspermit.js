@@ -495,7 +495,6 @@ export default function BusinessPermitForm() {
 
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
-                {/* Application Type selector */}
                 <div className="flex items-center space-x-4">
                   <span className="font-medium mr-2">TYPE OF APPLICATION:</span>
                   <label className="inline-flex items-center">
@@ -509,7 +508,7 @@ export default function BusinessPermitForm() {
                     />
                     <span>NEW</span>
                   </label>
-                  <label className="inline-flex items-center">
+                  {/* <label className="inline-flex items-center">
                     <input
                       type="radio"
                       name="applicationType"
@@ -519,7 +518,7 @@ export default function BusinessPermitForm() {
                       className="mr-1"
                     />
                     <span>RENEWAL</span>
-                  </label>
+                  </label> */}
                 </div>
 
                 <div className="flex items-center space-x-2">

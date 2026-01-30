@@ -4,6 +4,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const { PDFDocument, StandardFonts } = require("pdf-lib");
 const db = require("../db/dbconnect");
+const QRCode = require("qrcode"); // <<< NEW
 
 /* ───────── Config ───────── */
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || "http://localhost:8081").replace(/\/+$/, "");
@@ -118,6 +119,72 @@ function newestSignatureInDir() {
   return files[0] ? path.join(SIG_DIR, files[0].f) : null;
 }
 
+/* ───────── QR helper (NEW) ───────── */
+/**
+ * Add a QR code to an existing PDF.
+ *
+ * @param {string} pdfAbsPath  absolute path to the PDF
+ * @param {string} qrData      text/URL to encode
+ * @param {Object} options
+ *   - pageIndex (default 0)
+ *   - x, y        (bottom-left corner)
+ *   - size        (square side length)
+ */
+async function addQrToPdfFile(pdfAbsPath, qrData, options = {}) {
+  const {
+    pageIndex = 0,
+    x,
+    y,
+    size = 70,   // default side length
+  } = options;
+
+  if (!qrData) throw new Error("QR data is required.");
+  if (!fs.existsSync(pdfAbsPath)) {
+    throw new Error(`PDF not found at path: ${pdfAbsPath}`);
+  }
+
+  const pdfBytes = fs.readFileSync(pdfAbsPath);
+  const pdfDoc = await PDFDocument.load(pdfBytes);
+  const pages = pdfDoc.getPages();
+  const page = pages[pageIndex];
+  if (!page) throw new Error(`Page index ${pageIndex} not found in PDF.`);
+
+  // Generate QR PNG buffer
+  const qrBuffer = await QRCode.toBuffer(qrData, {
+    type: "png",
+    errorCorrectionLevel: "M",
+    margin: 1,
+    scale: 4,
+  });
+
+  const qrImage = await pdfDoc.embedPng(qrBuffer);
+  const imgW = qrImage.width;
+  const imgH = qrImage.height;
+
+  // keep square aspect ratio
+  const targetSize = size || 70;
+  const scale = Math.min(targetSize / imgW, targetSize / imgH);
+  const drawW = imgW * scale;
+  const drawH = imgH * scale;
+
+  // default position: bottom-right with a margin
+  const { width: pageW, height: pageH } = page.getSize();
+  const margin = 40;
+
+  const finalX = typeof x === "number" ? x : (pageW - drawW - margin);
+  const finalY = typeof y === "number" ? y : margin;
+
+  page.drawImage(qrImage, {
+    x: finalX,
+    y: finalY,
+    width: drawW,
+    height: drawH,
+  });
+
+  const updatedBytes = await pdfDoc.save();
+  fs.writeFileSync(pdfAbsPath, updatedBytes);
+}
+
 /* ───────── PDF drawing ───────── */
 /** XY tuned for your screenshot/template (adjust if needed) */
 const XY = {
@@ -128,18 +195,18 @@ const XY = {
   BUSINESS_NAME:       { x: 203, y: 505 },
   BUSINESS_ADDRESS:    { x: 203, y: 463 },
   KIND_OF_BUSINESS:    { x: 205, y: 425 },
-  
-  
-  
+
   BUSINESS_STATUS:     { x: 208, y: 375 },
   MODE_OF_PAYMENT:     { x: 208, y: 338 },
   OR_NO:               { x: 205, y: 287 },
   AMOUNT_PAID:         { x: 205, y: 252 },
   DATE_OF_EXPIRY:      { x: 205, y: 196 }, 
-  
 
   // Signature box just above the mayor’s printed name (tweak to fit)
   MAYOR_SIGNATURE:     { x: 360, y: 250, w: 165, h: 55 },
+
+  // <<< NEW: suggested QR location (bottom-right area)
+  QR_CODE:             { x: 390, y: 80, size: 100 }, // tweak as needed
 };
 
 async function buildMayorsPermitPDF({ templatePath, outAbsPath, payload }) {
@@ -314,7 +381,7 @@ exports.generateFinalMayorsPermit = async (req, res) => {
       mayorSignatureAbs, // optional
     };
 
-    // Build and save PDF
+    // Build and save PDF (no QR yet)
     const fname = `mayors_permit_final_${businessId}_${Date.now()}.pdf`;
     const absPath = path.join(UPLOAD_DIR, fname);
     await buildMayorsPermitPDF({
@@ -325,12 +392,29 @@ exports.generateFinalMayorsPermit = async (req, res) => {
 
     const dbPath = `/uploads/system_generated/mayors_permit/${fname}`;
     const appTypeForIndex = isRenewal ? "renewal_business" : "business";
+
+    // Ensure we have app_uid for QR + attachment
     const { app_uid, user_id } = await ensureIndexed(
       appTypeForIndex,
       businessId,
       row.user_id || null
     );
 
+    // >>> NEW: generate verification URL + embed QR into the PDF
+    const verificationUrl = `${PUBLIC_BASE_URL}/verify/app/${app_uid}`;
+    try {
+      await addQrToPdfFile(absPath, verificationUrl, {
+        pageIndex: 0,
+        x: XY.QR_CODE.x,
+        y: XY.QR_CODE.y,
+        size: XY.QR_CODE.size,
+      });
+    } catch (qrErr) {
+      // Do NOT break existing behavior if QR fails
+      console.error("Failed to embed QR into Mayor's Permit PDF:", qrErr);
+    }
+
+    // Attach into tbl_application_requirements (unchanged behavior)
     await upsertAttachment({
       app_uid,
       user_id,
@@ -347,6 +431,8 @@ exports.generateFinalMayorsPermit = async (req, res) => {
       pdf_path: dbPath,
       file_url: `${base}${dbPath}`,
       drawn: payload,
+      // extra, like business permit with assessment
+      verification_url: verificationUrl,
     });
   } catch (e) {
     console.error("generateFinalMayorsPermit error:", e);

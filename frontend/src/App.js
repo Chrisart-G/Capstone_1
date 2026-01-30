@@ -35,6 +35,8 @@ import Documentprice from './Component/admindocuprice/admindocumentprice'
 import AdminNotifications from './Component/AdminDashboard/AdminNotifications';
 import AdminCreateAnnouncement from './Component/AdminDashboard/AdminCreateAnnouncement';
 import NewEmployeeDashboard from './Component/Employee/newemployeedash';
+import PaymentArchivesDashboard from './Component/Employee/PaymentArchivesDashboard';
+import PermitVerification from './Component/Permitverification.js/Permitverification';
 function App() {
   return (
     <div className="App">
@@ -44,7 +46,7 @@ function App() {
           <Route path="/" element={<Navigate to="/Login" />} />
           <Route path="/Login" element={<Logins />} />
           <Route path="/Sign-up" element={<Singnup />} />
-          
+          <Route path="permitverification" element={<PermitVerification />} />
           {/* Protected routes */}
           <Route path="/Chome" element={
             <ProtectedRoute>
@@ -213,6 +215,11 @@ function App() {
              <Route path="/Newemployeedash" element={
             <ProtectedRoute>
               <NewEmployeeDashboard />
+            </ProtectedRoute>
+             } />
+             <Route path="//PaymentArchives" element={
+            <ProtectedRoute>
+              <PaymentArchivesDashboard  />
             </ProtectedRoute>
              } />
           
