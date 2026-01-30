@@ -4,6 +4,8 @@ import { Save, RefreshCcw, AlertCircle } from "lucide-react";
 import AdminSidebar from "../Header/Adminsidebar";
 
 const API = "http://localhost:8081/api/document-prices";
+
+// For label display
 const PERMIT_LABELS = {
   business: "Business Permit",
   electrical: "Electrical Permit",
@@ -14,9 +16,7 @@ const PERMIT_LABELS = {
   fencing: "Fencing Permit",
   electronics: "Electronics Permit",
   renewal_business: "Business Renewal Permit",
-  zoning: "Zoning Permit", // <-- Add this line for Zoning Permit
 };
-
 
 export default function AdminDocumentPrice() {
   const [rows, setRows] = useState([]);
@@ -143,19 +143,22 @@ export default function AdminDocumentPrice() {
   const isSaving = (application_type) => !!savingMap[application_type];
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="w-64 fixed inset-y-0 left-0">
         <AdminSidebar />
       </aside>
 
       {/* Main content */}
-      <main className="ml-64 flex-1 bg-gray-50 p-6">
+      <main className="ml-64 flex-1 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Document Price Control</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Document Price Control
+          </h1>
+
           <button
             onClick={loadPrices}
-            className="inline-flex items-center gap-2 bg-white border border-gray-300 px-3 py-1.5 rounded shadow-sm text-sm hover:bg-gray-100"
+            className="inline-flex items-center gap-2 bg-white border border-gray-300 px-3 py-2 rounded-md shadow-sm text-sm hover:bg-gray-100 disabled:opacity-60"
             disabled={loading}
           >
             <RefreshCcw className="w-4 h-4" />
@@ -166,19 +169,18 @@ export default function AdminDocumentPrice() {
         <p className="text-sm text-gray-600 mb-4">
           Admin can adjust <span className="font-semibold">current price</span>{" "}
           and <span className="font-semibold">payment percentage</span> per
-          document type. Comparison is shown against the original{" "}
-          <span className="font-semibold">default price</span>.
+          document type.
         </p>
 
         {error && (
-          <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
             <AlertCircle className="w-4 h-4" />
             <span className="text-sm">{error}</span>
           </div>
         )}
 
-        <div className="bg-white rounded shadow overflow-hidden">
-          <div className="border-b px-4 py-2 bg-gray-100 text-sm font-semibold text-gray-700">
+        <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-100">
+          <div className="border-b px-4 py-3 bg-gray-100 text-sm font-semibold text-gray-700">
             Document Price List
           </div>
 
@@ -193,31 +195,21 @@ export default function AdminDocumentPrice() {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
-                <thead className="bg-gray-100 text-xs uppercase text-gray-500">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
-                    <th className="px-4 py-2 text-left">Document Type</th>
-                    <th className="px-4 py-2 text-right">Default Price (₱)</th>
-                    <th className="px-4 py-2 text-right">Current Price (₱)</th>
-                    <th className="px-4 py-2 text-right">Difference (₱)</th>
-                    <th className="px-4 py-2 text-right">
+                    <th className="px-4 py-3 text-left">Document Type</th>
+                    <th className="px-4 py-3 text-right">Current Price (₱)</th>
+                    <th className="px-4 py-3 text-right">
                       Payment % (collected)
                     </th>
-                    <th className="px-4 py-2 text-center">Actions</th>
+                    <th className="px-4 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const diff =
-                      Number(row.current_price) - Number(row.default_price);
-                    const diffClass =
-                      diff === 0
-                        ? "text-gray-500"
-                        : diff > 0
-                        ? "text-red-600"
-                        : "text-green-600";
 
+                <tbody className="divide-y">
+                  {rows.map((row) => {
                     return (
-                      <tr key={row.application_type} className="border-t">
+                      <tr key={row.application_type} className="hover:bg-gray-50">
                         {/* Document type */}
                         <td className="px-4 py-3">
                           <div className="font-medium text-gray-800">
@@ -229,18 +221,13 @@ export default function AdminDocumentPrice() {
                           </div>
                         </td>
 
-                        {/* Default price */}
-                        <td className="px-4 py-3 text-right">
-                          ₱{Number(row.default_price).toFixed(2)}
-                        </td>
-
                         {/* Current price (editable) */}
                         <td className="px-4 py-3 text-right">
                           <input
                             type="number"
                             min="0"
                             step="0.01"
-                            className="w-28 border rounded px-2 py-1 text-right text-sm"
+                            className="w-32 border border-gray-300 rounded-md px-2 py-1.5 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                             value={row.current_price}
                             onChange={(e) =>
                               updateRowField(
@@ -254,14 +241,6 @@ export default function AdminDocumentPrice() {
                           />
                         </td>
 
-                        {/* Difference */}
-                        <td className="px-4 py-3 text-right">
-                          <span className={diffClass}>
-                            {diff > 0 ? "+" : ""}
-                            {diff.toFixed(2)}
-                          </span>
-                        </td>
-
                         {/* Payment percentage */}
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -270,7 +249,7 @@ export default function AdminDocumentPrice() {
                               min="1"
                               max="100"
                               step="1"
-                              className="w-20 border rounded px-2 py-1 text-right text-sm"
+                              className="w-24 border border-gray-300 rounded-md px-2 py-1.5 text-right text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                               value={row.payment_percentage}
                               onChange={(e) =>
                                 updateRowField(
@@ -294,7 +273,7 @@ export default function AdminDocumentPrice() {
                           <button
                             onClick={() => handleSave(row)}
                             disabled={isSaving(row.application_type)}
-                            className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs px-3 py-1.5 rounded hover:bg-blue-700 disabled:opacity-60"
+                            className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs px-3 py-2 rounded-md hover:bg-blue-700 disabled:opacity-60"
                           >
                             <Save className="w-3 h-3" />
                             {isSaving(row.application_type)
