@@ -11,8 +11,8 @@ export const LINE_OF_BUSINESS_CATEGORIES = [
       "Mango / sugarcane / banana plantation",
     ],
     requirements: {
-      occupancyPermit: true,
-      zoningClearance: true,
+      occupancyPermit: false,
+      zoningClearance: false,
       sanitaryPermit: true,              // livestock, poultry, food handling
       environmentalCertificate: true,    // farms, piggeries, aquaculture, plantations
       marketClearance: true,            // only if selling via public market stall
