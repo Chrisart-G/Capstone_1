@@ -135,13 +135,13 @@ const PermitVerification = () => {
 
           <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-black">
             <img
-              src="/img/logo.png"
+              src="/img/CIVIDOCS.png"
               alt="Municipality of Hinigaran Seal"
               className="h-60 w-30"
             />
             <div className="mt-4 text-center">
               <p className="text-xs md:text-sm uppercase tracking-[0.25em] text-black">
-                Municipality of Hinigaran
+                CIVI DOCS
               </p>
               <p className="text-[11px] md:text-xs text-black mt-1">
                 Province of Negros Occidental, Philippines

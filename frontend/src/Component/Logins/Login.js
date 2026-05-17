@@ -14,7 +14,7 @@ import {
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-// API base URL constant
+
 const API_BASE_URL = "http://localhost:8081";
 
 const Login = () => {
@@ -26,7 +26,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // ----- Forgot Password state -----
+
   const [forgotOpen, setForgotOpen] = useState(false);
   const [fpStep, setFpStep] = useState(1); // 1=request, 2=verify, 3=reset
   const [fpIdentifier, setFpIdentifier] = useState(""); // email or phone
@@ -37,12 +37,12 @@ const Login = () => {
   const [fpMsg, setFpMsg] = useState("");
   const [cooldown, setCooldown] = useState(0);
 
-  // Helper: decide which employee dashboard to use
+ 
   const getEmployeeDashboardRoute = (department, position) => {
     const dept = (department || "").toString().trim().toUpperCase();
     const pos = (position || "").toString().trim().toUpperCase();
 
-    // 1) Treasurer / MTO – payment page only
+
     if (
       dept === "MTO" ||
       dept.includes("TREASURER") ||
@@ -52,17 +52,17 @@ const Login = () => {
       return "/employeepayment";
     }
 
-    // 2) Old dashboard for BPLO + MPDO
+
     if (
       dept === "BPLO" ||
       dept === "MPDO" ||
       pos.includes("BPLO") ||
       pos.includes("MPDO")
     ) {
-      return "/EmployDash"; // OLD employee dashboard route
+      return "/EmployDash"; 
     }
 
-    // 3) New dashboard for everyone else (MEO, MAO, etc.)
+    
     return "/Newemployeedash";
   };
 const goToPermitVerification = () => {
@@ -79,8 +79,8 @@ const goToPermitVerification = () => {
         if (response.data.loggedIn) {
           setIsLoggedIn(true);
           const role = response.data.user.role;
-          const department = response.data.user.department; // may be undefined
-          const position = response.data.user.position; // may be undefined
+          const department = response.data.user.department; 
+          const position = response.data.user.position; 
 
           if (role === "admin") {
             navigate("/AdminDash");
@@ -124,8 +124,8 @@ const goToPermitVerification = () => {
       );
       setIsLoggedIn(true);
       const role = res.data.user.role;
-      const department = res.data.user.department; // comes from session
-      const position = res.data.user.position; // new: also from session
+      const department = res.data.user.department;
+      const position = res.data.user.position;
 
       if (role === "admin") {
         navigate("/AdminDash");
@@ -172,7 +172,7 @@ const goToPermitVerification = () => {
     }
   };
 
-  // ====== Forgot Password handlers ======
+
   const fpRequest = async () => {
     setFpMsg("");
     try {
@@ -191,7 +191,7 @@ const goToPermitVerification = () => {
       setFpUserId(data.userId);
       setFpStep(2);
       setFpMsg("A verification code has been sent to your contact.");
-      if (data.dev_otp) setFpOtp(data.dev_otp); // when SMS disabled
+      if (data.dev_otp) setFpOtp(data.dev_otp); 
       setCooldown(30);
     } catch (err) {
       setFpMsg(
@@ -262,29 +262,28 @@ const goToPermitVerification = () => {
       className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-0 md:px-0"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
-      {/* Full-screen card */}
+
       <div className="w-full h-screen grid md:grid-cols-2 bg-white/10 backdrop-blur-xl border border-white/10 rounded-none md:rounded-2xl shadow-2xl overflow-hidden">
-        {/* Left Side - background + transparent logo */}
+        
         <div className="relative hidden md:block">
-          {/* Background image */}
+          
           <img
             src=""
             alt=""
             className="absolute inset-0 w-full h-full object-cover"
           />
-          {/* Dark overlay */}
           <div className="absolute inset-0 bg-white" />
 
-          {/* Centered transparent logo + text */}
+
           <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 text-black">
             <img
-              src="/img/logo.png"
+              src="/img/CIVIDOCS.png"
               alt="Municipality of Hinigaran Seal"
               className="h-60 w-30 "
             />
             <div className="mt-4 text-center">
               <p className="text-xs md:text-sm uppercase tracking-[0.25em] text-black">
-                Municipality of Hinigaran
+                CIVIDOCS
               </p>
               <p className="text-[11px] md:text-xs text-black mt-1">
                 Province of Negros Occidental, Philippines
@@ -299,9 +298,9 @@ const goToPermitVerification = () => {
           </div>
         </div>
 
-        {/* Right Side - Login Form */}
+
         <div className="bg-white px-6 py-8 md:px-8 md:py-10 flex flex-col justify-center max-h-screen overflow-y-auto">
-          {/* Logo for mobile */}
+
           <div className="md:hidden flex flex-col items-center mb-4">
             <img
               src="/img/logo.png"
@@ -334,7 +333,7 @@ const goToPermitVerification = () => {
 
           {!isLoggedIn ? (
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-              {/* Email */}
+        
               <div>
                 <label
                   htmlFor="email"
@@ -359,7 +358,6 @@ const goToPermitVerification = () => {
                 </div>
               </div>
 
-              {/* Password */}
               <div>
                 <label
                   htmlFor="password"
@@ -395,7 +393,7 @@ const goToPermitVerification = () => {
                 </div>
               </div>
 
-              {/* Actions */}
+    
               <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="submit"
@@ -460,7 +458,7 @@ const goToPermitVerification = () => {
             </div>
           )}
 
-          {/* Sign up link */}
+       
           <p className="mt-6 text-center text-xs text-slate-500">
             Don&apos;t have an account?{" "}
             <a
@@ -472,12 +470,12 @@ const goToPermitVerification = () => {
           </p>
           
 
-          {/* Small footer */}
+     
           <p className="mt-3 text-[10px] text-center text-slate-400">
             By signing in, you agree to comply with municipal policies and
             data privacy guidelines.
           </p>
-          {/* Public document / permit verification */}
+       
           <div className="mt-3 flex justify-center">
             <button
               type="button"
@@ -489,7 +487,6 @@ const goToPermitVerification = () => {
             </button>
           </div>
 
-          {/* Forgot Password Modal */}
           {forgotOpen && (
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 md:p-6">
@@ -610,7 +607,7 @@ const goToPermitVerification = () => {
         </div>
       </div>
 
-      {/* Loading Spinner Modal (UI only) */}
+      
       {isLoading && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl px-6 py-4 flex items-center gap-3">

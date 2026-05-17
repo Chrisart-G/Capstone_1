@@ -8,7 +8,7 @@ import axios from "axios";
 const API_BASE_URL = "http://localhost:8081";
 
 // ✅ logo path
-const HINIGARAN_LOGO = "img/logo.png";
+const HINIGARAN_LOGO = "img/CIVIDOCS.png";
 
 const MunicipalLandingPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
@@ -119,8 +119,8 @@ const MunicipalLandingPage = () => {
             </p>
 
             <h1 className="relative z-10 text-3xl md:text-5xl lg:text-6xl font-bold leading-tight text-slate-900">
-              Online Document Processing{" "}
-              <span className="text-blue-600">Municipality of Hinigaran</span>
+              CIVI{" "}
+              <span className="text-blue-600">DOCS</span>
             </h1>
 
             <p className="relative z-10 mt-4 text-sm md:text-base text-slate-600 max-w-3xl mx-auto leading-relaxed">

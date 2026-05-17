@@ -79,7 +79,7 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
         <div className="flex flex-col items-center gap-2 sm:gap-3">
           {/* Bigger logo, responsive sizes, no shadow/background/border */}
           <img
-            src="/img/logo.png"
+            src="/img/CIVIDOCS.png"
             alt="Logo"
             className="w-20 h-20 sm:w-24 sm:h-24 object-contain"
           />
@@ -88,7 +88,7 @@ const AdminSidebar = ({ handleLogout, isLoading }) => {
               Admin Dashboard
             </h1>
             <p className="text-[10px] sm:text-xs text-slate-300 tracking-wide mt-1">
-              Hinigaran Municipality
+              CIVI DOCS
             </p>
           </div>
         </div>

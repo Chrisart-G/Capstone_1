@@ -10,7 +10,7 @@ function UFooter() {
             <div className="space-y-2">
               <p className="flex items-center text-sm md:text-base">
                 <MapPin className="mr-2" size={18} /> 
-                <a href="https://cmci.dti.gov.ph/interactive-map.php?lgu=Hinigaran" className="text-sm md:text-base hover:text-blue-300 block">Hinigaran Negros Occidental</a>
+                <a href="https://cmci.dti.gov.ph/interactive-map.php?lgu=Hinigaran" className="text-sm md:text-base hover:text-blue-300 block">CIVIDOCS Negros Occidental</a>
               </p>
               <p className="flex items-center text-sm md:text-base">
                 <Phone className="mr-2" size={18} /> 
@@ -18,7 +18,7 @@ function UFooter() {
               </p>
               <p className="flex items-center text-sm md:text-base">
                 <Mail className="mr-2" size={18} /> 
-                contact @Hinigaran Municipal Hall
+                contact @CIVI DOCS
               </p>
             </div>
           </div>
@@ -39,7 +39,7 @@ function UFooter() {
           </div>
         </div>
         <div className="text-center mt-6 md:mt-8 border-t border-gray-700 pt-4 text-sm md:text-base">
-          © 2025 Municipality Services. All Rights Reserved.
+          © 2025 CiviDocs. All Rights Reserved.
         </div>
       </footer>
 

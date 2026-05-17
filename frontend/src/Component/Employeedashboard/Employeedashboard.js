@@ -1403,59 +1403,64 @@ const fetchElectricalApplications = async () => {
   };
 
   const handleMoveToOnHold = async (application) => {
-    try {
-      const appId = application.id || application.cedula_id;
-      if (!appId) {
-        alert("Missing application ID.");
-        return;
-      }
-
-      let url = "";
-      let payload = {};
-
-      if (application.type === "Electrical Permit") {
-        url = `${API_BASE_URL}/api/electrical-applications/move-to-onhold`;
-        payload = { applicationId: appId };
-      } else if (application.type === "Cedula") {
-        url = `${API_BASE_URL}/api/cedula-applications/${appId}/accept`;
-        payload = { status: "on-hold" };
-      } else if (application.type === "Plumbing Permit") {
-        url = `${API_BASE_URL}/api/plumbing-applications/move-to-onhold`;
-        payload = { applicationId: appId };
-      } else if (application.type === "Electronics Permit") {
-        url = `${API_BASE_URL}/api/electronics-applications/move-to-onhold`;
-        payload = { applicationId: appId };
-      } else if (application.type === "Building Permit") {
-        url = `${API_BASE_URL}/api/building-applications/move-to-onhold`;
-        payload = { applicationId: appId };
-      } else if (application.type === "Fencing Permit") {
-        url = `${API_BASE_URL}/api/fencing-applications/move-to-onhold`;
-        payload = { applicationId: appId };
-      }  else if (application.type === "Zoning Permit")  {
-        url = `${API_BASE_URL}/api/applications/move-to-onhold`;
-        payload = { applicationId: appId };
-      }
-
-      const res = await axios.put(url, payload, { withCredentials: true });
-      if (res.data && res.data.success) {
-        await Promise.all([
-          fetchApplications(),
-          fetchElectricalApplications(),
-          fetchCedulaApplications(),
-          fetchPlumbingApplications(),
-          fetchElectronicsApplications(),
-          fetchBuildingApplications(),
-          fetchFencingApplications(),
-        ]);
-        alert("Application moved to On Hold.");
-      } else {
-        alert(res.data.message || "Failed to move application to On Hold.");
-      }
-    } catch (err) {
-      console.error("Move-to-on-hold error:", err);
-      alert("Server error while moving to On Hold.");
+  try {
+    const appId = application.id || application.cedula_id;
+    if (!appId) {
+      alert("Missing application ID.");
+      return;
     }
-  };
+
+    let url = "";
+    let payload = {};
+
+    if (application.type === "Electrical Permit") {
+      url = `${API_BASE_URL}/api/electrical-applications/move-to-onhold`;
+      payload = { applicationId: appId };
+    } else if (application.type === "Cedula") {
+      url = `${API_BASE_URL}/api/cedula-applications/${appId}/accept`;
+      payload = { status: "on-hold" };
+    } else if (application.type === "Plumbing Permit") {
+      url = `${API_BASE_URL}/api/plumbing-applications/move-to-onhold`;
+      payload = { applicationId: appId };
+    } else if (application.type === "Electronics Permit") {
+      url = `${API_BASE_URL}/api/electronics-applications/move-to-onhold`;
+      payload = { applicationId: appId };
+    } else if (application.type === "Building Permit") {
+      url = `${API_BASE_URL}/api/building-applications/move-to-onhold`;
+      payload = { applicationId: appId };
+    } else if (application.type === "Fencing Permit") {
+      url = `${API_BASE_URL}/api/fencing-applications/move-to-onhold`;
+      payload = { applicationId: appId };
+    } else if (application.type === "Zoning Permit") {
+      url = `${API_BASE_URL}/api/applications/move`;
+      payload = { applicationId: appId };
+    } else {
+      // BUSINESS PERMIT - catches all other types including undefined, "new", "renewal", etc.
+      url = `${API_BASE_URL}/api/applications/move-to-onhold`;
+      payload = { applicationId: appId };
+    }
+
+    const res = await axios.put(url, payload, { withCredentials: true });
+    if (res.data && res.data.success) {
+      await Promise.all([
+        fetchApplications(),
+        fetchElectricalApplications(),
+        fetchCedulaApplications(),
+        fetchPlumbingApplications(),
+        fetchElectronicsApplications(),
+        fetchBuildingApplications(),
+        fetchFencingApplications(),
+        fetchZoningApplications(),
+      ]);
+      alert("Application moved to On Hold.");
+    } else {
+      alert(res.data.message || "Failed to move application to On Hold.");
+    }
+  } catch (err) {
+    console.error("Move-to-on-hold error:", err);
+    alert("Server error while moving to On Hold.");
+  }
+};
 
   // NEW: Move to PICKUP-DOCUMENT for any application type
   const handleMoveToPickupDocument = async (application) => {

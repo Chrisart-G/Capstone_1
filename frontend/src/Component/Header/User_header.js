@@ -178,7 +178,7 @@ function Uheader() {
           {/* Left side: title only (logo removed) */}
           <div className="flex flex-col">
             <span className="text-base md:text-lg lg:text-xl font-semibold leading-tight">
-              ODPMH Services
+              Civi Docs
             </span>
           </div>
 

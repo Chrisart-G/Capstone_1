@@ -175,13 +175,13 @@ const Sidebar = ({ userData, onLogout, isLoading }) => {
         <div className="px-6 pt-5 pb-3 text-center">
           <div className="flex justify-center">
             {/* keep your logo as-is */}
-            <img src="/img/logo.png" alt="Logo" className="w-45 h-45" />
+            <img src="/img/CIVIDOCS.png" alt="Logo" className="w-45 h-45" />
           </div>
 
           <h1 className="text-xl font-extrabold mt-3 tracking-tight">
             Employee Dashboard
           </h1>
-          <p className="text-white/70 text-sm mt-0.5">Hinigaran Municipality</p>
+          <p className="text-white/70 text-sm mt-0.5">CIVI DOCS</p>
           <div className="mt-4 h-px bg-white/10" />
         </div>
 
